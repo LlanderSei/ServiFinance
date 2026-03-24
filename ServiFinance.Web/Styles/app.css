@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+@source "../Components/**/*.razor";
+@source "../../ServiFinance.Shared/**/*.razor";

@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Avoid compiler server/task-host issues that were causing intermittent access-denied
+         and WebAssembly asset build failures in this workspace. -->
+    <UseSharedCompilation>false</UseSharedCompilation>
+  </PropertyGroup>
+</Project>

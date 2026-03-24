@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ServiFinance.Infrastructure/ServiFinance.Infrastructure.csproj" />
+  <Project Path="ServiFinance.Shared/ServiFinance.Shared.csproj" />
+  <Project Path="ServiFinance.Web.Client/ServiFinance.Web.Client.csproj" />
+  <Project Path="ServiFinance.Web/ServiFinance.Web.csproj" />
+  <Project Path="ServiFinance/ServiFinance.csproj" />
+</Solution>

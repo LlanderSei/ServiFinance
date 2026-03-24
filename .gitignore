@@ -1,0 +1,9 @@
+node_modules/
+ServiFinance/bin/**
+ServiFinance/obj/**
+ServiFinance.Shared/bin/**
+ServiFinance.Shared/obj/**
+ServiFinance.Web/bin/**
+ServiFinance.Web/obj/**
+ServiFinance.Web.Client/bin/**
+ServiFinance.Web.Client/obj/**

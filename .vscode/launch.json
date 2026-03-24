@@ -1,0 +1,47 @@
+{
+  "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "Web + Desktop",
+      "configurations": [
+        "Web",
+        "Desktop"
+      ]
+    }
+  ],
+  "configurations": [
+    {
+      "name": "Web",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/ServiFinance.Web/ServiFinance.Web.csproj",
+      "launchSettingsProfile": "https-vscode",
+      "serverReadyAction": {
+        "action": "startDebugging",
+        "name": "Web Browser (Edge)",
+        "pattern": "\\bNow listening on:\\s+(https://\\S+)"
+      }
+    },
+    {
+      "name": "Desktop",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-desktop",
+      "program": "${workspaceFolder}/ServiFinance/bin/Debug/net10.0-windows10.0.19041.0/win-x64/ServiFinance.exe",
+      "cwd": "${workspaceFolder}/ServiFinance",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Web Browser (Edge)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "https://localhost:7245",
+      "webRoot": "${workspaceFolder}",
+      "userDataDir": false,
+      "presentation": {
+        "hidden": true
+      }
+    }
+  ]
+}
