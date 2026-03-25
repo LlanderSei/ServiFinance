@@ -3,6 +3,7 @@ html, body {
     background: var(--color-base-100);
     color: var(--color-base-content);
     scroll-behavior: smooth;
+    overflow-x: clip;
 }
 
 body {
@@ -15,6 +16,7 @@ a {
 
 .sf-public-shell {
     min-height: 100vh;
+    overflow-x: clip;
     background:
         radial-gradient(circle at top left, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent 35%),
         radial-gradient(circle at top right, color-mix(in srgb, var(--color-primary) 15%, transparent), transparent 32%),
@@ -22,9 +24,9 @@ a {
 }
 
 .sf-public-main {
-    width: min(1100px, calc(100% - 2rem));
-    margin: 0 auto;
-    padding: 2rem 0 3rem;
+    width: 100%;
+    margin: 0;
+    padding: 0;
 }
 
 .sf-surface-card {
@@ -144,8 +146,9 @@ a {
 }
 
 .sf-marketing-page {
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
+    width: 100%;
+    margin-left: 0;
+    overflow-x: clip;
     background:
         radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 28%),
         radial-gradient(circle at 85% 12%, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent 30%),
@@ -330,6 +333,7 @@ a {
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
     gap: 2rem;
     align-items: center;
+    overflow-x: clip;
 }
 
 .sf-marketing-copy {
@@ -414,6 +418,7 @@ a {
 .sf-hero-visual {
     position: relative;
     min-height: 39rem;
+    overflow: clip;
 }
 
 .sf-hero-orbit {
@@ -466,7 +471,7 @@ a {
 .sf-hero-product-stack {
     position: absolute;
     left: 0;
-    right: 4rem;
+    right: 2rem;
     bottom: 0;
     display: grid;
     gap: 1rem;
@@ -738,8 +743,9 @@ a {
 }
 
 .sf-register-page {
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
+    width: 100%;
+    margin-left: 0;
+    overflow-x: clip;
     background:
         radial-gradient(circle at 14% 12%, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 30%),
         radial-gradient(circle at 88% 16%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 28%),
@@ -748,6 +754,7 @@ a {
 
 .sf-register-main {
     padding: 2rem 0 4rem;
+    overflow-x: clip;
 }
 
 .sf-register-shell {
@@ -991,8 +998,8 @@ a {
 
 @media (max-width: 991.98px) {
     .sf-public-main {
-        width: min(100%, calc(100% - 1rem));
-        padding-top: 1rem;
+        width: 100%;
+        padding-top: 0;
     }
 
     .sf-hero {

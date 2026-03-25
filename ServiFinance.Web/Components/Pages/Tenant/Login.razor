@@ -5,12 +5,14 @@
 
 <PageTitle>Service Management System</PageTitle>
 
-<section class="sf-surface-card sf-hero">
-    <p class="sf-kicker mb-2">@TenantDomainSlug / SMS</p>
-    <h1 class="display-6 mb-3">Service Management System</h1>
-    <p class="lead sf-muted mb-4">Public landing page for the tenant-scoped Service Management System of <strong>@TenantDomainSlug</strong>.</p>
-    <button class="btn btn-primary" @onclick="() => showLogin = true">Login</button>
-</section>
+<div class="sf-public-container py-5">
+    <section class="sf-surface-card sf-hero">
+        <p class="sf-kicker mb-2">@TenantDomainSlug / SMS</p>
+        <h1 class="display-6 mb-3">Service Management System</h1>
+        <p class="lead sf-muted mb-4">Public landing page for the tenant-scoped Service Management System of <strong>@TenantDomainSlug</strong>.</p>
+        <button class="btn btn-primary" @onclick="() => showLogin = true">Login</button>
+    </section>
+</div>
 
 @if (showLogin)
 {
