@@ -1,0 +1,232 @@
+@page "/{TenantDomainSlug}/sms/users"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Administrator")]
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using ServiFinance.Infrastructure.Auth
+@inject IUserManagementService UserManagementService
+
+<PageTitle>User Management</PageTitle>
+
+<ServiFinance.Web.Components.Auth.AuthenticatedRouteView TenantDomainSlug="@TenantDomainSlug" RequiredRole="Administrator">
+    <PageChrome Title="Tenant Users"
+                Breadcrumbs="breadcrumbs"
+                Badges="@badges" />
+
+    <div class="d-flex flex-column gap-4">
+        <section>
+            <p class="text-uppercase small text-muted mb-2">Administration</p>
+            <h1 class="h3 mb-2">Tenant user management</h1>
+            <p class="text-secondary mb-0">Create tenant users, disable accounts, and reset passwords for this tenant domain.</p>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(StatusMessage))
+        {
+            <div class="alert alert-success mb-0" role="status">@StatusMessage</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <div class="alert alert-danger mb-0" role="alert">@ErrorMessage</div>
+        }
+
+        <section class="card shadow-sm border-0">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Create user</h2>
+                <EditForm Model="CreateModel" OnValidSubmit="CreateUserAsync">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Full name</label>
+                            <InputText class="form-control" @bind-Value="CreateModel.FullName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <InputText class="form-control" @bind-Value="CreateModel.Email" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Temporary password</label>
+                            <InputText class="form-control" type="password" @bind-Value="CreateModel.Password" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Role</label>
+                            <InputSelect class="form-select" @bind-Value="CreateModel.RoleId">
+                                @foreach (var role in Roles)
+                                {
+                                    <option value="@role.Id">@role.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary mt-3" disabled="@isBusy">Create user</button>
+                </EditForm>
+            </div>
+        </section>
+
+        <section class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h5 mb-0">Current users</h2>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="LoadAsync" disabled="@isBusy">Refresh</button>
+                </div>
+
+                @if (UserItems.Count == 0)
+                {
+                    <p class="text-secondary mb-0">No users found for this tenant.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in UserItems)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@user.FullName</div>
+                                            <div class="small text-secondary">@user.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                                        </td>
+                                        <td>@user.Email</td>
+                                        <td>@string.Join(", ", user.Roles)</td>
+                                        <td>
+                                            <span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-secondary")">
+                                                @(user.IsActive ? "Active" : "Disabled")
+                                            </span>
+                                        </td>
+                                        <td class="d-flex gap-2 flex-wrap">
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => ToggleUserAsync(user)">
+                                                @(user.IsActive ? "Disable" : "Enable")
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+</ServiFinance.Web.Components.Auth.AuthenticatedRouteView>
+
+@code {
+    [Parameter]
+    public string TenantDomainSlug { get; set; } = string.Empty;
+
+    private readonly CreateUserFormModel CreateModel = new();
+    private List<UserListItem> UserItems { get; set; } = [];
+    private List<AvailableRole> Roles { get; set; } = [];
+    private string? StatusMessage { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool isBusy;
+    private IReadOnlyList<HeaderBadge> badges =>
+        UserItems.Count == 0 ? [] : [new HeaderBadge("Records", UserItems.Count.ToString())];
+
+    private IReadOnlyList<BreadcrumbItem> breadcrumbs => [
+        new(ToDisplayName(TenantDomainSlug)),
+        new("SMS"),
+        new("Users")
+    ];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() {
+      isBusy = true;
+      ErrorMessage = null;
+      StatusMessage = null;
+
+      try {
+        Roles = (await UserManagementService.GetRolesAsync()).ToList();
+        UserItems = (await UserManagementService.GetUsersAsync()).ToList();
+
+        if (CreateModel.RoleId == Guid.Empty && Roles.Count > 0) {
+          CreateModel.RoleId = Roles[0].Id;
+        }
+      }
+      catch (Exception exception) {
+        ErrorMessage = exception.Message;
+      }
+      finally {
+        isBusy = false;
+      }
+    }
+
+    private async Task CreateUserAsync() {
+      isBusy = true;
+      ErrorMessage = null;
+      StatusMessage = null;
+
+      try {
+        await UserManagementService.CreateUserAsync(new CreateUserRequest(
+            CreateModel.FullName,
+            CreateModel.Email,
+            CreateModel.Password,
+            CreateModel.RoleId));
+
+        StatusMessage = $"User '{CreateModel.Email}' created.";
+        CreateModel.ClearKeepingRole();
+        await LoadAsync();
+      }
+      catch (Exception exception) {
+        ErrorMessage = exception.Message;
+      }
+      finally {
+        isBusy = false;
+      }
+    }
+
+    private async Task ToggleUserAsync(UserListItem user) {
+      isBusy = true;
+      ErrorMessage = null;
+      StatusMessage = null;
+
+      try {
+        await UserManagementService.SetUserActiveStateAsync(user.Id, !user.IsActive);
+        StatusMessage = $"{user.Email} is now {(!user.IsActive ? "active" : "disabled")}.";
+        await LoadAsync();
+      }
+      catch (Exception exception) {
+        ErrorMessage = exception.Message;
+      }
+      finally {
+        isBusy = false;
+      }
+    }
+
+    private sealed class CreateUserFormModel {
+      [Required]
+      [StringLength(200, MinimumLength = 3)]
+      public string FullName { get; set; } = string.Empty;
+
+      [Required]
+      [EmailAddress]
+      public string Email { get; set; } = string.Empty;
+
+      [Required]
+      [StringLength(100, MinimumLength = 8)]
+      public string Password { get; set; } = string.Empty;
+
+      [Required]
+      public Guid RoleId { get; set; }
+
+      public void ClearKeepingRole() {
+        FullName = string.Empty;
+        Email = string.Empty;
+        Password = string.Empty;
+      }
+    }
+
+    private static string ToDisplayName(string slug) =>
+        string.IsNullOrWhiteSpace(slug) ? "Tenant" : char.ToUpperInvariant(slug[0]) + slug[1..];
+}

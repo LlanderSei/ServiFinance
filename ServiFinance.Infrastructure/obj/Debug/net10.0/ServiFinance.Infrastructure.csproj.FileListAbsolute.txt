@@ -11,3 +11,5 @@ E:\Documents\Llander\Yuemnigga\ServiFinance\ServiFinance.Infrastructure\obj\Debu
 E:\Documents\Llander\Yuemnigga\ServiFinance\ServiFinance.Infrastructure\obj\Debug\net10.0\refint\ServiFinance.Infrastructure.dll
 E:\Documents\Llander\Yuemnigga\ServiFinance\ServiFinance.Infrastructure\obj\Debug\net10.0\ServiFinance.Infrastructure.pdb
 E:\Documents\Llander\Yuemnigga\ServiFinance\ServiFinance.Infrastructure\obj\Debug\net10.0\ref\ServiFinance.Infrastructure.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\ServiFinance.Infrastructure\bin\Debug\net10.0\ServiFinance.Infrastructure.runtimeconfig.json
+E:\Documents\Llander\Yuemnigga\ServiFinance\ServiFinance.Infrastructure\obj\Debug\net10.0\ServiFinance.Infrastructure.genruntimeconfig.cache

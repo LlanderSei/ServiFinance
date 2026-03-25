@@ -1,0 +1,33 @@
+.sf-auth-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    background:
+        radial-gradient(circle at top left, color-mix(in srgb, var(--color-primary) 16%, transparent), transparent 35%),
+        linear-gradient(180deg, var(--color-base-200), var(--color-base-100));
+}
+
+.sf-auth-shell.is-collapsed {
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+}
+
+.sf-auth-main {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto 1fr;
+}
+
+.sf-auth-content {
+    padding: 1.5rem;
+}
+
+@media (max-width: 991.98px) {
+    .sf-auth-shell,
+    .sf-auth-shell.is-collapsed {
+        grid-template-columns: 1fr;
+    }
+
+    .sf-auth-content {
+        padding: 1rem;
+    }
+}

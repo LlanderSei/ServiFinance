@@ -1,0 +1,133 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject PageChromeState PageChromeState
+
+<div class="sf-auth-shell @(isSidebarCollapsed ? "is-collapsed" : string.Empty)">
+    <AppSidebar BrandName="@brandName"
+                UserDisplayName="@userDisplayName"
+                UserEmail="@userEmail"
+                Sections="@navSections"
+                LogoutReturnUrl="@logoutReturnUrl"
+                IsCollapsed="@isSidebarCollapsed"
+                OnToggleRequested="ToggleSidebar" />
+
+    <div class="sf-auth-main">
+        <AppHeader Title="@PageChromeState.Title"
+                   Breadcrumbs="@PageChromeState.Breadcrumbs"
+                   Badges="@PageChromeState.Badges" />
+
+        <article class="sf-auth-content">
+            @Body
+        </article>
+    </div>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <button type="button" class="reload" onclick="location.reload()">Reload</button>
+    <button type="button" class="dismiss" onclick="this.parentElement.style.display='none'">x</button>
+</div>
+
+@code {
+    private bool isSidebarCollapsed;
+    private string brandName = "ServiFinance";
+    private string userDisplayName = "Authenticated user";
+    private string userEmail = string.Empty;
+    private string logoutReturnUrl = "/";
+    private IReadOnlyList<SidebarSection> navSections = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        NavigationManager.LocationChanged += HandleLocationChanged;
+        PageChromeState.Changed += HandleChromeChanged;
+        await RefreshShellAsync();
+    }
+
+    private async void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await InvokeAsync(RefreshShellAsync);
+    }
+
+    private void HandleChromeChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshShellAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var segments = relativePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        userDisplayName = user.Identity?.Name ?? "Authenticated user";
+        userEmail = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? string.Empty;
+
+        if (user.IsInRole("SuperAdmin"))
+        {
+            brandName = "ServiFinance";
+            logoutReturnUrl = "/";
+            navSections = [
+                new("Dashboard", [
+                    new("Overview", "/dashboard", "dashboard")
+                ]),
+                new("Platform", [
+                new("Tenants", "/tenants", "tenants"),
+                new("Subscriptions", "/subscriptions", "subscriptions")
+                ])
+            ];
+        }
+        else
+        {
+            var tenantSlug = user.FindFirst("tenant_domain_slug")?.Value ?? "tenant";
+            brandName = ToDisplayName(tenantSlug);
+            var isMls = segments.Length >= 2 && string.Equals(segments[1], "mls", StringComparison.OrdinalIgnoreCase);
+
+            if (isMls)
+            {
+                logoutReturnUrl = $"/{tenantSlug}/mls/";
+                navSections = [
+                    new("Dashboard", [
+                        new("Dashboard", $"/{tenantSlug}/mls/dashboard", "dashboard")
+                    ])
+                ];
+            }
+            else
+            {
+                logoutReturnUrl = $"/{tenantSlug}/sms/";
+                navSections = [
+                    new("Dashboard", [
+                        new("Dashboard", $"/{tenantSlug}/sms/dashboard", "dashboard"),
+                        new("Users", $"/{tenantSlug}/sms/users", "users")
+                    ])
+                ];
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task ToggleSidebar()
+    {
+        isSidebarCollapsed = !isSidebarCollapsed;
+        return Task.CompletedTask;
+    }
+
+    private static string ToDisplayName(string slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return "Tenant";
+        }
+
+        return char.ToUpperInvariant(slug[0]) + slug[1..];
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+        PageChromeState.Changed -= HandleChromeChanged;
+    }
+}

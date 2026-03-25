@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BootstrapIcons.AspNetCore" Version="1.13.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.5">
@@ -15,9 +16,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <ProjectReference Include="..\ServiFinance.Infrastructure\ServiFinance.Infrastructure.csproj" />
-    <ProjectReference Include="..\ServiFinance.Web.Client\ServiFinance.Web.Client.csproj"
-                      AdditionalProperties="UseSharedCompilation=false" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.5" />
+    <ProjectReference Include="..\ServiFinance.Shared\ServiFinance.Shared.csproj" />
   </ItemGroup>
 
 </Project>

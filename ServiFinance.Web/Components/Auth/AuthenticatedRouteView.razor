@@ -1,0 +1,66 @@
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+
+@if (isAuthorized)
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter]
+    public string? TenantDomainSlug { get; set; }
+
+    [Parameter]
+    public string? RequiredRole { get; set; }
+
+    [Parameter]
+    public bool RequireRootSuperAdmin { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private bool isAuthorized;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            isAuthorized = false;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(RequiredRole) && !user.IsInRole(RequiredRole))
+        {
+            NavigationManager.NavigateTo("/forbidden", forceLoad: true);
+            return;
+        }
+
+        if (RequireRootSuperAdmin)
+        {
+            var tenantIdClaim = user.FindFirst("tenant_id")?.Value;
+            if (!string.Equals(tenantIdClaim, ServiFinance.Infrastructure.Configuration.ServiFinanceDatabaseDefaults.PlatformTenantId.ToString(), StringComparison.OrdinalIgnoreCase)
+                || !user.IsInRole("SuperAdmin"))
+            {
+                NavigationManager.NavigateTo("/forbidden", forceLoad: true);
+                return;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(TenantDomainSlug))
+        {
+          var tenantSlugClaim = user.FindFirst("tenant_domain_slug")?.Value;
+          if (!string.Equals(tenantSlugClaim, TenantDomainSlug, StringComparison.OrdinalIgnoreCase))
+          {
+            NavigationManager.NavigateTo("/forbidden", forceLoad: true);
+            return;
+          }
+        }
+
+        isAuthorized = true;
+    }
+}

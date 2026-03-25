@@ -18,6 +18,10 @@ namespace ServiFinance {
 
       // Add device-specific services used by the ServiFinance.Shared project
       builder.Services.AddSingleton<IFormFactor, FormFactor>();
+      builder.Services.AddAuthorizationCore();
+      builder.Services.AddCascadingAuthenticationState();
+      builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, DesktopAuthenticationStateProvider>();
+      builder.Services.AddSingleton<Microsoft.AspNetCore.Http.IHttpContextAccessor, DesktopHttpContextAccessor>();
 
 #if WINDOWS
       builder.Services.AddServiFinanceSqlServer(ServiFinanceDatabaseDefaults.DefaultConnectionString);
@@ -30,13 +34,7 @@ namespace ServiFinance {
           builder.Logging.AddDebug();
 #endif
 
-      var app = builder.Build();
-
-#if WINDOWS
-      app.Services.EnsureServiFinanceDatabaseAsync().GetAwaiter().GetResult();
-#endif
-
-      return app;
+      return builder.Build();
     }
   }
 }

@@ -1,0 +1,48 @@
+﻿@inject IJSRuntime JSRuntime
+@inject ThemeState ThemeState
+@implements IDisposable
+
+<button type="button" class="sf-theme-toggle btn btn-outline btn-sm @(Compact ? "is-compact" : string.Empty)" @onclick="ToggleThemeAsync">
+    <span class="bi @(ThemeState.CurrentTheme == "dark" ? "bi-moon-stars" : "bi-sun-fill")" aria-hidden="true"></span>
+    @if (!Compact)
+    {
+        <span>@(ThemeState.CurrentTheme == "dark" ? "Dark Theme" : "Light Theme")</span>
+    }
+</button>
+
+@code {
+    [Parameter] public bool Compact { get; set; }
+
+    protected override void OnInitialized()
+    {
+        ThemeState.Changed += HandleThemeChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var currentTheme = await JSRuntime.InvokeAsync<string>("serviFinanceTheme.getTheme");
+        ThemeState.SetTheme(string.IsNullOrWhiteSpace(currentTheme) ? "light" : currentTheme);
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        var theme = ThemeState.CurrentTheme == "dark" ? "light" : "dark";
+        await JSRuntime.InvokeVoidAsync("serviFinanceTheme.setTheme", theme);
+        ThemeState.SetTheme(theme);
+    }
+
+    private void HandleThemeChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ThemeState.Changed -= HandleThemeChanged;
+    }
+}

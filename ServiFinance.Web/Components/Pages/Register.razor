@@ -1,0 +1,43 @@
+@page "/register"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@layout PublicLayout
+
+<PageTitle>Register</PageTitle>
+
+<h1>Register your business</h1>
+<p class="text-secondary">Future onboarding flow for businesses who want to subscribe to ServiFinance.</p>
+
+<div class="sf-surface-card">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Business name</label>
+                <input class="form-control" placeholder="Example Domain Services" disabled />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Tenant domain slug</label>
+                <input class="form-control" placeholder="exampledomain" disabled />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Owner full name</label>
+                <input class="form-control" placeholder="Jane Doe" disabled />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Owner email</label>
+                <input class="form-control" placeholder="owner@example.com" disabled />
+            </div>
+            <div class="col-md-12">
+                <label class="form-label">Subscription tier</label>
+                <select class="form-select" disabled>
+                    <option>Starter</option>
+                    <option>Growth</option>
+                    <option>Enterprise</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-4 mb-0">
+            Registration persistence is intentionally not implemented yet. This page is the future onboarding shell for tenant/business signup.
+        </div>
+    </div>
+</div>

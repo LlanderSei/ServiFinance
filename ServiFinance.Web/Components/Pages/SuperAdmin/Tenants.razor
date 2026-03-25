@@ -1,0 +1,68 @@
+@page "/tenants"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "SuperAdmin")]
+@using Microsoft.EntityFrameworkCore
+@inject ServiFinance.Infrastructure.Data.ServiFinanceDbContext DbContext
+
+<PageTitle>Subscribed Tenants</PageTitle>
+
+<ServiFinance.Web.Components.Auth.AuthenticatedRouteView RequireRootSuperAdmin="true">
+    <PageChrome Title="Tenants"
+                Breadcrumbs="breadcrumbs"
+                Badges="@badges" />
+
+    <h1>Subscribed tenants</h1>
+    <p class="text-secondary">Current tenant accounts registered in the SaaS platform.</p>
+
+    @if (tenants is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Domain slug</th>
+                        <th>Plan</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tenant in tenants)
+                    {
+                        <tr>
+                            <td>@tenant.Name</td>
+                            <td>@tenant.Code</td>
+                            <td>@tenant.DomainSlug</td>
+                            <td>@tenant.SubscriptionPlan</td>
+                            <td>@tenant.SubscriptionStatus</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</ServiFinance.Web.Components.Auth.AuthenticatedRouteView>
+
+@code {
+    private List<ServiFinance.Infrastructure.Domain.Tenant>? tenants;
+    private readonly IReadOnlyList<BreadcrumbItem> breadcrumbs = [
+        new("SaaS"),
+        new("Tenants")
+    ];
+
+    private IReadOnlyList<HeaderBadge> badges =>
+        tenants is null ? [] : [new HeaderBadge("Records", tenants.Count.ToString())];
+
+    protected override async Task OnInitializedAsync()
+    {
+        tenants = await DbContext.Tenants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .OrderBy(entity => entity.Name)
+            .ToListAsync();
+    }
+}

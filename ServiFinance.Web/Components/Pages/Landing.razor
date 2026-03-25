@@ -1,0 +1,103 @@
+@page "/"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@rendermode InteractiveServer
+@layout PublicLayout
+
+<PageTitle>ServiFinance</PageTitle>
+
+<div class="d-flex flex-column gap-4">
+    <section class="sf-surface-card sf-hero">
+        <p class="sf-kicker mb-2">SuperAdmin Surface</p>
+        <h1 class="display-5 mb-3">ServiFinance SaaS control plane</h1>
+        <p class="lead mb-4 sf-muted">Use the root domain for platform oversight, subscribed tenants, and SaaS administration. Tenant product access lives under tenant-specific `sms` and `mls` routes.</p>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-primary" @onclick="() => showLogin = true">Login</button>
+            <a class="btn btn-outline-secondary" href="/register">Register / Sign up</a>
+        </div>
+    </section>
+
+    <div class="sf-grid sf-grid--3">
+        <section class="sf-surface-card p-4">
+            <p class="sf-kicker mb-2">Root</p>
+            <div class="fw-semibold mb-2">SaaS dashboard</div>
+            <div class="sf-muted">Authenticated superadmin routes now live directly under `/dashboard`, `/tenants`, and `/subscriptions`.</div>
+        </section>
+
+        <section class="sf-surface-card p-4">
+            <p class="sf-kicker mb-2">SMS</p>
+            <div class="fw-semibold mb-2">Tenant service management</div>
+            <div class="sf-muted">Use `/{tenant}/sms/` as the public landing page and `/{tenant}/sms/*` for authenticated product pages.</div>
+        </section>
+
+        <section class="sf-surface-card p-4">
+            <p class="sf-kicker mb-2">MLS</p>
+            <div class="fw-semibold mb-2">Tenant micro-lending</div>
+            <div class="sf-muted">Use `/{tenant}/mls/` as the public landing page and `/{tenant}/mls/*` for authenticated placeholder pages.</div>
+        </section>
+    </div>
+</div>
+
+@if (showLogin)
+{
+    <div class="modal fade show d-block sf-modal-backdrop" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content sf-modal-content">
+                <div class="modal-header sf-modal-header">
+                    <h2 class="modal-title fs-5">SuperAdmin Login</h2>
+                    <button type="button" class="sf-modal-close" aria-label="Close" @onclick="CloseModal">×</button>
+                </div>
+                <form method="post" action="/account/root-login">
+                    <AntiforgeryToken />
+                    <div class="modal-body sf-modal-body">
+                        @if (!string.IsNullOrWhiteSpace(Error))
+                        {
+                            <div class="alert alert-danger" role="alert">@Error</div>
+                        }
+
+                        <input type="hidden" name="ReturnUrl" value="@ResolvedReturnUrl" />
+
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input name="Email" class="form-control sf-input" autocomplete="username" value="superadmin@local.servifinance" />
+                        </div>
+
+                        <div class="mb-0">
+                            <label class="form-label">Password</label>
+                            <input name="Password" type="password" class="form-control sf-input" autocomplete="current-password" />
+                        </div>
+                    </div>
+                    <div class="modal-footer sf-modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Sign In</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery(Name = "showLogin")]
+    public bool? ShowLogin { get; set; }
+
+    private bool showLogin;
+    private string ResolvedReturnUrl => string.IsNullOrWhiteSpace(ReturnUrl) ? "/dashboard" : ReturnUrl!;
+
+    protected override void OnParametersSet()
+    {
+        showLogin = ShowLogin == true || !string.IsNullOrWhiteSpace(Error);
+    }
+
+    private void CloseModal()
+    {
+        showLogin = false;
+        Error = null;
+    }
+}

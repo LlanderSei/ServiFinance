@@ -1,0 +1,39 @@
+@page "/{TenantDomainSlug}/sms/dashboard"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+<PageTitle>SMS Dashboard</PageTitle>
+
+<ServiFinance.Web.Components.Auth.AuthenticatedRouteView TenantDomainSlug="@TenantDomainSlug">
+    <PageChrome Title="SMS Dashboard"
+                Breadcrumbs="breadcrumbs"
+                Badges="badges" />
+
+    <h1>Service Management Dashboard</h1>
+    <p class="text-secondary">Tenant-scoped web dashboard for <strong>@TenantDomainSlug</strong>.</p>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <p class="text-uppercase small text-muted mb-2">Current scope</p>
+            <div class="fw-semibold">Dashboard shell only</div>
+            <div class="text-secondary">Service requests, customers, assignments, and reports will be added under this tenant route group.</div>
+        </div>
+    </div>
+</ServiFinance.Web.Components.Auth.AuthenticatedRouteView>
+
+@code {
+    [Parameter]
+    public string TenantDomainSlug { get; set; } = string.Empty;
+
+    private IReadOnlyList<BreadcrumbItem> breadcrumbs => [
+        new(ToDisplayName(TenantDomainSlug)),
+        new("SMS"),
+        new("Dashboard")
+    ];
+
+    private readonly IReadOnlyList<HeaderBadge> badges = [
+        new("Module", "SMS")
+    ];
+
+    private static string ToDisplayName(string slug) =>
+        string.IsNullOrWhiteSpace(slug) ? "Tenant" : char.ToUpperInvariant(slug[0]) + slug[1..];
+}
