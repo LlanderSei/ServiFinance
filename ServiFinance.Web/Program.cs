@@ -65,7 +65,7 @@ app.MapPost("/account/root-login", [AllowAnonymous] async Task<IResult> (
     return Results.LocalRedirect($"/?error=Invalid%20superadmin%20email%20or%20password&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
   }
 
-  await SignInUserAsync(httpContext, user);
+  await SignInUserAsync(httpContext, user, request.RememberMe);
 
   return Results.LocalRedirect(returnUrl);
 });
@@ -118,7 +118,7 @@ static string SanitizeReturnUrl(string? returnUrl, string fallbackPath = "/dashb
       : fallbackPath;
 }
 
-static async Task SignInUserAsync(HttpContext httpContext, AuthenticatedUser user) {
+static async Task SignInUserAsync(HttpContext httpContext, AuthenticatedUser user, bool isPersistent = false) {
   var claims = new List<Claim> {
       new(ClaimTypes.NameIdentifier, user.UserId.ToString()),
       new(ClaimTypes.Name, user.FullName),
@@ -130,12 +130,22 @@ static async Task SignInUserAsync(HttpContext httpContext, AuthenticatedUser use
   claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
   var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+  var authenticationProperties = new AuthenticationProperties {
+      IsPersistent = isPersistent,
+      AllowRefresh = true
+  };
+
+  if (isPersistent) {
+    authenticationProperties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(14);
+  }
+
   await httpContext.SignInAsync(
       CookieAuthenticationDefaults.AuthenticationScheme,
-      new ClaimsPrincipal(identity));
+      new ClaimsPrincipal(identity),
+      authenticationProperties);
 }
 
 static string NormalizeTenantSlug(string tenantSlug) => tenantSlug.Trim().ToLowerInvariant();
 
-internal sealed record RootLoginRequest(string Email, string Password, string? ReturnUrl);
+internal sealed record RootLoginRequest(string Email, string Password, bool RememberMe, string? ReturnUrl);
 internal sealed record TenantLoginRequest(string Email, string Password, string TenantDomainSlug, string TargetSystem, string? ReturnUrl);

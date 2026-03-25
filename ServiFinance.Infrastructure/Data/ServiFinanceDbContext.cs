@@ -26,6 +26,7 @@ public sealed class ServiFinanceDbContext(
   private readonly bool _hasRequestContext = tenantProvider.HasRequestContext;
 
   public DbSet<Tenant> Tenants => Set<Tenant>();
+  public DbSet<SubscriptionTier> SubscriptionTiers => Set<SubscriptionTier>();
   public DbSet<AppUser> Users => Set<AppUser>();
   public DbSet<Role> Roles => Set<Role>();
   public DbSet<UserRole> UserRoles => Set<UserRole>();
@@ -41,6 +42,7 @@ public sealed class ServiFinanceDbContext(
 
   protected override void OnModelCreating(ModelBuilder modelBuilder) {
     ConfigureTenant(modelBuilder);
+    ConfigureSubscriptionTiers(modelBuilder);
     ConfigureUsers(modelBuilder);
     ConfigureRoles(modelBuilder);
     ConfigureUserRoles(modelBuilder);
@@ -121,6 +123,20 @@ public sealed class ServiFinanceDbContext(
         .WithMany(entity => entity.Users)
         .HasForeignKey(entity => entity.TenantId)
         .OnDelete(DeleteBehavior.Restrict);
+  }
+
+  private void ConfigureSubscriptionTiers(ModelBuilder modelBuilder) {
+    var subscriptionTier = modelBuilder.Entity<SubscriptionTier>();
+    subscriptionTier.ToTable("SubscriptionTiers");
+    subscriptionTier.Property(entity => entity.Code).HasMaxLength(50);
+    subscriptionTier.Property(entity => entity.DisplayName).HasMaxLength(100);
+    subscriptionTier.Property(entity => entity.AudienceSummary).HasMaxLength(200);
+    subscriptionTier.Property(entity => entity.Description).HasMaxLength(1000);
+    subscriptionTier.Property(entity => entity.PriceDisplay).HasMaxLength(100);
+    subscriptionTier.Property(entity => entity.BillingLabel).HasMaxLength(100);
+    subscriptionTier.Property(entity => entity.PlanSummary).HasMaxLength(300);
+    subscriptionTier.Property(entity => entity.HighlightLabel).HasMaxLength(100);
+    subscriptionTier.HasIndex(entity => entity.Code).IsUnique();
   }
 
   private void ConfigureRoles(ModelBuilder modelBuilder) {

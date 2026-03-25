@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "EfMbs+Q8pCU=",
+  "dgSpecHash": "sToVxA1ey6M=",
   "success": true,
-  "projectFilePath": "E:\\Documents\\Llander\\Yuemnigga\\ServiFinance\\ServiFinance.Infrastructure\\ServiFinance.Infrastructure.csproj",
+  "projectFilePath": "e:\\Documents\\Llander\\Yuemnigga\\ServiFinance\\ServiFinance.Infrastructure\\ServiFinance.Infrastructure.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\PC\\.nuget\\packages\\azure.core\\1.47.1\\azure.core.1.47.1.nupkg.sha512",
     "C:\\Users\\PC\\.nuget\\packages\\azure.identity\\1.14.2\\azure.identity.1.14.2.nupkg.sha512",

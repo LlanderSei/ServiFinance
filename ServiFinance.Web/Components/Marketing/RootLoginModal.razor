@@ -1,0 +1,85 @@
+@if (Visible)
+{
+    <div class="modal fade show d-block sf-modal-backdrop" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content sf-modal-content sf-root-login-modal">
+                <div class="modal-header sf-modal-header">
+                    <div>
+                        <p class="sf-marketing-eyebrow mb-2">Root domain access</p>
+                        <h2 class="modal-title fs-4 mb-1">Superadmin sign in</h2>
+                        <p class="sf-muted mb-0">Use the platform credentials for SaaS oversight and tenant administration.</p>
+                    </div>
+                    <button type="button" class="sf-modal-close" aria-label="Close" @onclick="CloseAsync">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <form method="post" action="/account/root-login">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+                    <input type="hidden" name="RememberMe" value="false" />
+
+                    <div class="modal-body sf-modal-body">
+                        @if (!string.IsNullOrWhiteSpace(Error))
+                        {
+                            <div class="alert alert-danger sf-alert" role="alert">@Error</div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input name="Email" class="form-control sf-input" autocomplete="username" placeholder="superadmin@local.servifinance" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <div class="sf-password-field">
+                                <input
+                                    name="Password"
+                                    type="@(_showPassword ? "text" : "password")"
+                                    class="form-control sf-input pe-5"
+                                    autocomplete="current-password"
+                                    placeholder="Enter your password" />
+                                <button type="button" class="sf-password-toggle" @onclick="TogglePassword">
+                                    <i class="bi @(_showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                                    <span>@(_showPassword ? "Hide" : "Show")</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <label class="sf-remember-row">
+                            <input type="checkbox" name="RememberMe" value="true" />
+                            <span>Remember me on this device</span>
+                        </label>
+                    </div>
+
+                    <div class="modal-footer sf-modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseAsync">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Login to Platform</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool Visible { get; set; }
+
+    [Parameter]
+    public string? Error { get; set; }
+
+    [Parameter]
+    public string ReturnUrl { get; set; } = "/dashboard";
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private bool _showPassword;
+
+    private Task CloseAsync() => OnClose.InvokeAsync();
+
+    private void TogglePassword()
+    {
+        _showPassword = !_showPassword;
+    }
+}

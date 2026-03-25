@@ -2,26 +2,26 @@
 @inject PageChromeState ChromeState
 
 @code {
-    private readonly Guid token = Guid.NewGuid();
+  private readonly Guid token = Guid.NewGuid();
 
-    [Parameter]
-    public string Title { get; set; } = string.Empty;
+  [Parameter]
+  public string Title { get; set; } = string.Empty;
 
-    [Parameter]
-    public IReadOnlyList<BreadcrumbItem>? Breadcrumbs { get; set; }
+  [Parameter]
+  public IReadOnlyList<BreadcrumbItem>? Breadcrumbs { get; set; }
 
-    [Parameter]
-    public IReadOnlyList<HeaderBadge>? Badges { get; set; }
+  [Parameter]
+  public IReadOnlyList<HeaderBadge>? Badges { get; set; }
 
-    protected override void OnParametersSet()
-    {
-        ChromeState.Update(token, Title, Breadcrumbs, Badges);
-    }
+  protected override void OnParametersSet()
+  {
+    ChromeState.Update(token, Title, Breadcrumbs, Badges);
+  }
 
-    protected override bool ShouldRender() => false;
+  protected override bool ShouldRender() => false;
 
-    public void Dispose()
-    {
-        ChromeState.Clear(token);
-    }
+  public void Dispose()
+  {
+    ChromeState.Clear(token);
+  }
 }

@@ -14,6 +14,8 @@ public static class ServiFinanceDatabaseDefaults {
       "Server=.\\SQLEXPRESS;Database=ServiFinance;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True;";
   public static readonly Guid PlatformTenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
   public static readonly Guid DefaultDevelopmentTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+  public static readonly Guid StandardSubscriptionTierId = Guid.Parse("99999999-1111-1111-1111-111111111111");
+  public static readonly Guid PremiumSubscriptionTierId = Guid.Parse("99999999-2222-2222-2222-222222222222");
   public static readonly Guid DefaultSuperAdminRoleId = Guid.Parse("66666666-6666-6666-6666-666666666666");
   public static readonly Guid DefaultSuperAdminUserId = Guid.Parse("77777777-7777-7777-7777-777777777777");
   public static readonly Guid DefaultSuperAdminUserRoleId = Guid.Parse("88888888-8888-8888-8888-888888888888");

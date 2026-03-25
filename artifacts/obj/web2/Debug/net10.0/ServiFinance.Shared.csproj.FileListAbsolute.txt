@@ -1,0 +1,9 @@
+e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\EmbeddedAttribute.cs
+e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ValidatableTypeAttribute.cs
+e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Shared.csproj.AssemblyReference.cache
+e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\rpswa.dswa.cache.json
+e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Shared.GeneratedMSBuildEditorConfig.editorconfig
+e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Shared.AssemblyInfoInputs.cache
+e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Shared.AssemblyInfo.cs
+e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Shared.csproj.CoreCompileInputs.cache
+e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Shared.sourcelink.json

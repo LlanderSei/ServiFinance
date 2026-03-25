@@ -6,6 +6,7 @@ using ServiFinance.Infrastructure.Auth;
 using ServiFinance.Infrastructure.Configuration;
 using ServiFinance.Infrastructure.Data;
 using ServiFinance.Infrastructure.Domain;
+using ServiFinance.Infrastructure.Subscriptions;
 using ServiFinance.Infrastructure.Tenancy;
 
 namespace ServiFinance.Infrastructure.Extensions;
@@ -33,6 +34,7 @@ public static class ServiceCollectionExtensions {
     services.AddScoped<ITenantProvider, ConfigurationTenantProvider>();
     services.AddScoped<IUserAuthenticationService, UserAuthenticationService>();
     services.AddScoped<IUserManagementService, UserManagementService>();
+    services.AddScoped<ISubscriptionTierCatalogService, SubscriptionTierCatalogService>();
     services.AddScoped<DevelopmentDataSeeder>();
     services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
     services.AddSingleton(new DevelopmentSeedOptions {

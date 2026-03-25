@@ -1,0 +1,66 @@
+@using ServiFinance.Infrastructure.Subscriptions
+
+<aside class="sf-register-summary-panel">
+    <div class="sf-register-panel-head">
+        <p class="sf-marketing-eyebrow">Selected tier</p>
+        <h2>Plan summary</h2>
+    </div>
+
+    @if (!HasAvailableTiers)
+    {
+        <div class="sf-register-empty">
+            <h3>No active subscription tiers</h3>
+            <p>The registration preview can’t render a plan summary until the platform tier catalog is seeded.</p>
+        </div>
+    }
+    else if (Tier is null)
+    {
+        <div class="sf-register-empty">
+            <h3>Select a subscription tier</h3>
+            <p>Choose a plan from the shell above to preview the enabled operating surfaces.</p>
+        </div>
+    }
+    else
+    {
+        <div class="sf-register-summary-topline">
+            <span class="sf-tier-highlight">@Tier.HighlightLabel</span>
+            <span class="sf-tier-code">@Tier.Code</span>
+        </div>
+
+        <div class="sf-register-summary-main">
+            <h3>@Tier.DisplayName</h3>
+            <p class="sf-register-summary-audience">@Tier.AudienceSummary</p>
+            <div class="sf-tier-price">@Tier.PriceDisplay</div>
+            <div class="sf-tier-billing">@Tier.BillingLabel</div>
+            <p class="sf-tier-summary">@Tier.PlanSummary</p>
+        </div>
+
+        <ul class="sf-tier-features sf-register-feature-list">
+            <li class="@(Tier.IncludesServiceManagementWeb ? "is-included" : string.Empty)">
+                <i class="bi @(Tier.IncludesServiceManagementWeb ? "bi-check-circle-fill" : "bi-dash-circle")"></i>
+                Service Management System on web
+            </li>
+            <li class="@(Tier.IncludesMicroLendingDesktop ? "is-included" : string.Empty)">
+                <i class="bi @(Tier.IncludesMicroLendingDesktop ? "bi-check-circle-fill" : "bi-dash-circle")"></i>
+                Micro-Lending System on desktop
+            </li>
+            <li class="is-included">
+                <i class="bi bi-check-circle-fill"></i>
+                Root-domain provisioning and tenant-isolated access
+            </li>
+        </ul>
+
+        <div class="sf-register-summary-note">
+            <strong>What this unlocks</strong>
+            <p>@Tier.Description</p>
+        </div>
+    }
+</aside>
+
+@code {
+    [Parameter]
+    public SubscriptionTierCard? Tier { get; set; }
+
+    [Parameter]
+    public bool HasAvailableTiers { get; set; }
+}

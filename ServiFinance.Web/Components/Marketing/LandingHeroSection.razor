@@ -1,0 +1,60 @@
+<section class="sf-marketing-hero">
+    <div class="sf-public-container sf-marketing-hero-grid">
+        <div class="sf-marketing-copy">
+            <p class="sf-marketing-eyebrow">Dual-system SaaS for MSMEs</p>
+            <h1>Run service operations on the web and lending operations on desktop without splitting your business context.</h1>
+            <p class="sf-marketing-lead">
+                ServiFinance gives operators one control plane for tenant provisioning, one web workspace for service workflows,
+                and one desktop surface for structured micro-lending execution.
+            </p>
+
+            <div class="sf-marketing-actions">
+                <button type="button" class="btn btn-lg sf-marketing-btn sf-marketing-btn--solid" @onclick="() => OnPrimaryAction.InvokeAsync()">Login</button>
+                <a class="btn btn-lg sf-marketing-btn sf-marketing-btn--outline" href="/register">Register your business</a>
+            </div>
+
+            <div class="sf-marketing-kpis">
+                <div>
+                    <span>Web Workspace</span>
+                    <strong>SMS</strong>
+                </div>
+                <div>
+                    <span>Desktop Workspace</span>
+                    <strong>MLS</strong>
+                </div>
+                <div>
+                    <span>Tenant Identity</span>
+                    <strong>Shared</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="sf-hero-visual">
+            <div class="sf-hero-orbit"></div>
+            <div class="sf-hero-panel sf-hero-panel--primary">
+                <div class="sf-hero-panel-label">Root Domain</div>
+                <div class="sf-hero-panel-title">SaaS Dashboard</div>
+                <p>Oversee subscriptions, tenants, and product adoption from the platform surface.</p>
+            </div>
+
+            <div class="sf-hero-product-stack">
+                <article class="sf-hero-product-card">
+                    <span class="sf-marketing-chip"><i class="bi bi-browser-chrome"></i> Service Management System</span>
+                    <h2>Browser-first operations</h2>
+                    <p>Intake, scheduling, dispatching, invoicing, and tenant admin workflows.</p>
+                </article>
+
+                <article class="sf-hero-product-card sf-hero-product-card--accent">
+                    <span class="sf-marketing-chip"><i class="bi bi-pc-display"></i> Micro-Lending System</span>
+                    <h2>Desktop-grade execution</h2>
+                    <p>Collections, schedules, loan records, and lending operations under the same tenant identity.</p>
+                </article>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public EventCallback OnPrimaryAction { get; set; }
+}

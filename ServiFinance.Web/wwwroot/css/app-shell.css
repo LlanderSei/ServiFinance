@@ -2,6 +2,7 @@ html, body {
     min-height: 100%;
     background: var(--color-base-100);
     color: var(--color-base-content);
+    scroll-behavior: smooth;
 }
 
 body {
@@ -137,6 +138,821 @@ a {
     color: color-mix(in srgb, var(--color-base-content) 45%, transparent);
 }
 
+.sf-public-container {
+    width: min(1180px, calc(100% - 2rem));
+    margin: 0 auto;
+}
+
+.sf-marketing-page {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    background:
+        radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 28%),
+        radial-gradient(circle at 85% 12%, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent 30%),
+        linear-gradient(180deg, color-mix(in srgb, var(--color-base-200) 88%, var(--color-base-100)), var(--color-base-100) 42%, color-mix(in srgb, var(--color-base-100) 92%, var(--color-base-200)));
+}
+
+.sf-marketing-page main {
+    display: flex;
+    flex-direction: column;
+    gap: 6rem;
+    padding-bottom: 5rem;
+}
+
+.sf-marketing-header-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: 1rem 0;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--color-base-100) 82%, transparent), color-mix(in srgb, var(--color-base-100) 36%, transparent));
+    backdrop-filter: blur(18px);
+}
+
+.sf-marketing-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 0.95rem 1.2rem;
+    border: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-base-100) 70%, transparent);
+    box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--color-neutral) 10%, transparent);
+}
+
+.sf-marketing-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+    text-decoration: none;
+}
+
+.sf-marketing-brand strong,
+.sf-marketing-brand small {
+    display: block;
+}
+
+.sf-marketing-brand strong {
+    font-size: 1rem;
+    line-height: 1.1;
+}
+
+.sf-marketing-brand small {
+    font-size: 0.78rem;
+    color: color-mix(in srgb, var(--color-base-content) 58%, transparent);
+}
+
+.sf-marketing-brand-mark,
+.sf-marketing-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 70%, white), color-mix(in srgb, var(--color-accent) 72%, white));
+    color: white;
+    box-shadow: 0 0.75rem 1.75rem color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+
+.sf-marketing-brand-mark .bi,
+.sf-marketing-icon .bi {
+    font-size: 1.05rem;
+}
+
+.sf-marketing-nav {
+    display: inline-flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.sf-marketing-nav a {
+    padding: 0.65rem 0.95rem;
+    border-radius: 999px;
+    color: color-mix(in srgb, var(--color-base-content) 70%, transparent);
+    text-decoration: none;
+    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.sf-marketing-nav a:hover {
+    background: color-mix(in srgb, var(--color-base-content) 7%, transparent);
+    color: var(--color-base-content);
+    transform: translateY(-1px);
+}
+
+.sf-marketing-header-actions,
+.sf-marketing-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+}
+
+.sf-marketing-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 2.9rem;
+    padding: 0.75rem 1.1rem;
+    border-radius: 999px;
+    font-weight: 700;
+    border-width: 1px;
+    text-decoration: none;
+    transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.sf-marketing-btn:hover {
+    transform: translateY(-1px);
+}
+
+.sf-marketing-btn--solid {
+    border-color: color-mix(in srgb, var(--color-neutral) 82%, black);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--color-neutral) 84%, black), color-mix(in srgb, var(--color-primary) 58%, var(--color-neutral)));
+    color: white;
+    box-shadow: 0 0.85rem 2rem color-mix(in srgb, var(--color-neutral) 16%, transparent);
+}
+
+.sf-marketing-btn--solid:hover {
+    color: white;
+    border-color: color-mix(in srgb, var(--color-neutral) 88%, black);
+    box-shadow: 0 1rem 2.3rem color-mix(in srgb, var(--color-neutral) 22%, transparent);
+}
+
+.sf-marketing-btn--subtle {
+    border-color: color-mix(in srgb, var(--color-base-content) 10%, transparent);
+    background: color-mix(in srgb, var(--color-base-100) 78%, transparent);
+    color: var(--color-base-content);
+}
+
+.sf-marketing-btn--subtle:hover {
+    color: var(--color-base-content);
+    background: color-mix(in srgb, var(--color-base-content) 7%, var(--color-base-100));
+    border-color: color-mix(in srgb, var(--color-base-content) 16%, transparent);
+}
+
+.sf-marketing-btn--outline {
+    border-color: color-mix(in srgb, var(--color-base-content) 14%, transparent);
+    background: color-mix(in srgb, var(--color-base-100) 56%, transparent);
+    color: var(--color-base-content);
+}
+
+.sf-marketing-btn--outline:hover {
+    color: var(--color-base-content);
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-base-100));
+    border-color: color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
+.sf-marketing-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 3rem 0 1rem;
+}
+
+.sf-marketing-hero::before {
+    content: "";
+    position: absolute;
+    inset: 2.25rem auto auto 50%;
+    width: min(42rem, 70vw);
+    height: min(42rem, 70vw);
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 70%);
+    transform: translateX(-10%);
+    pointer-events: none;
+    filter: blur(14px);
+}
+
+.sf-marketing-hero-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 2rem;
+    align-items: center;
+}
+
+.sf-marketing-copy {
+    padding: 3.25rem 0 3rem;
+}
+
+.sf-marketing-eyebrow {
+    margin: 0 0 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: color-mix(in srgb, var(--color-base-content) 62%, transparent);
+}
+
+.sf-marketing-copy h1,
+.sf-section-heading h2,
+.sf-marketing-footer h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    letter-spacing: -0.03em;
+}
+
+.sf-marketing-copy h1 {
+    max-width: 12ch;
+    margin: 0;
+    font-size: clamp(3rem, 6vw, 5.5rem);
+    line-height: 0.97;
+}
+
+.sf-marketing-lead,
+.sf-section-heading p,
+.sf-marketing-footer p {
+    color: color-mix(in srgb, var(--color-base-content) 70%, transparent);
+}
+
+.sf-marketing-lead {
+    max-width: 60ch;
+    margin: 1.5rem 0 0;
+    font-size: 1.1rem;
+    line-height: 1.8;
+}
+
+.sf-marketing-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+    margin-top: 2rem;
+}
+
+.sf-marketing-kpis div,
+.sf-marketing-card,
+.sf-tier-card,
+.sf-workflow-step,
+.sf-hero-panel,
+.sf-hero-product-card,
+.sf-root-login-modal {
+    border: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
+    background: color-mix(in srgb, var(--color-base-100) 84%, transparent);
+    box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--color-neutral) 9%, transparent);
+    backdrop-filter: blur(18px);
+}
+
+.sf-marketing-kpis div {
+    padding: 1rem 1.1rem;
+    border-radius: 1.25rem;
+}
+
+.sf-marketing-kpis span {
+    display: block;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: color-mix(in srgb, var(--color-base-content) 55%, transparent);
+}
+
+.sf-marketing-kpis strong {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: 1.35rem;
+}
+
+.sf-hero-visual {
+    position: relative;
+    min-height: 39rem;
+}
+
+.sf-hero-orbit {
+    position: absolute;
+    inset: 2rem 0 0 auto;
+    width: 18rem;
+    height: 18rem;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--color-base-content) 12%, transparent);
+    background: radial-gradient(circle at center, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 62%);
+}
+
+.sf-hero-panel {
+    position: absolute;
+    padding: 1.35rem;
+    border-radius: 1.5rem;
+}
+
+.sf-hero-panel--primary {
+    top: 1rem;
+    right: 0.5rem;
+    width: min(18rem, 100%);
+}
+
+.sf-hero-panel-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: color-mix(in srgb, var(--color-base-content) 58%, transparent);
+}
+
+.sf-hero-panel-title {
+    margin-top: 0.55rem;
+    font-size: 1.55rem;
+    font-weight: 700;
+}
+
+.sf-hero-panel p,
+.sf-hero-product-card p,
+.sf-tier-description,
+.sf-workflow-step p,
+.sf-marketing-card p,
+.sf-tier-summary,
+.sf-tier-audience,
+.sf-tier-billing {
+    margin-bottom: 0;
+    color: color-mix(in srgb, var(--color-base-content) 68%, transparent);
+}
+
+.sf-hero-product-stack {
+    position: absolute;
+    left: 0;
+    right: 4rem;
+    bottom: 0;
+    display: grid;
+    gap: 1rem;
+}
+
+.sf-hero-product-card {
+    padding: 1.5rem;
+    border-radius: 1.6rem;
+}
+
+.sf-hero-product-card h2 {
+    margin: 1rem 0 0.4rem;
+    font-size: 1.6rem;
+}
+
+.sf-hero-product-card--accent {
+    transform: translateX(2.25rem);
+}
+
+.sf-marketing-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    color: color-mix(in srgb, var(--color-base-content) 92%, transparent);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.sf-marketing-section {
+    scroll-margin-top: 7rem;
+}
+
+.sf-section-heading {
+    display: grid;
+    gap: 0.85rem;
+    max-width: 48rem;
+    margin-bottom: 2rem;
+}
+
+.sf-section-heading h2 {
+    margin: 0;
+    font-size: clamp(2.1rem, 4vw, 3.6rem);
+}
+
+.sf-section-heading p {
+    font-size: 1.02rem;
+    line-height: 1.75;
+}
+
+.sf-overview-grid,
+.sf-tier-grid,
+.sf-workflow-grid,
+.sf-marketing-footer-grid {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.sf-overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sf-marketing-card {
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+}
+
+.sf-marketing-card h3,
+.sf-tier-card h3,
+.sf-workflow-step h3 {
+    margin: 1rem 0 0.5rem;
+    font-size: 1.35rem;
+}
+
+.sf-marketing-section--plans {
+    position: relative;
+}
+
+.sf-marketing-section--plans::before {
+    content: "";
+    position: absolute;
+    inset: 4rem 0 auto;
+    height: 20rem;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent);
+    pointer-events: none;
+}
+
+.sf-tier-grid {
+    position: relative;
+    z-index: 1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sf-tier-card {
+    position: relative;
+    display: grid;
+    gap: 1.1rem;
+    padding: 1.65rem;
+    border-radius: 1.75rem;
+}
+
+.sf-tier-card.is-featured {
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 12%, var(--color-base-100)), color-mix(in srgb, var(--color-base-100) 90%, transparent));
+    transform: translateY(-0.75rem);
+}
+
+.sf-tier-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.sf-tier-highlight,
+.sf-tier-code {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.sf-tier-highlight {
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.sf-tier-code {
+    color: color-mix(in srgb, var(--color-base-content) 58%, transparent);
+    background: color-mix(in srgb, var(--color-base-content) 6%, transparent);
+}
+
+.sf-tier-price {
+    font-size: clamp(2rem, 3vw, 3rem);
+    font-weight: 800;
+    line-height: 1;
+}
+
+.sf-tier-features {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sf-tier-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    color: color-mix(in srgb, var(--color-base-content) 62%, transparent);
+}
+
+.sf-tier-features li.is-included {
+    color: var(--color-base-content);
+}
+
+.sf-tier-features .bi {
+    margin-top: 0.15rem;
+}
+
+.sf-workflow-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.sf-workflow-step {
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+}
+
+.sf-workflow-step > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.3rem;
+    height: 2.3rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.sf-marketing-footer {
+    padding: 1rem 0 4rem;
+    border-top: 1px solid color-mix(in srgb, var(--color-base-content) 9%, transparent);
+}
+
+.sf-marketing-footer-grid {
+    grid-template-columns: 1.4fr 0.8fr 0.8fr;
+    align-items: start;
+}
+
+.sf-marketing-footer h3 {
+    margin-bottom: 0.95rem;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.sf-marketing-footer ul {
+    display: grid;
+    gap: 0.65rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sf-marketing-footer a {
+    text-decoration: none;
+    color: color-mix(in srgb, var(--color-base-content) 75%, transparent);
+}
+
+.sf-marketing-footer a:hover {
+    color: var(--color-base-content);
+}
+
+.sf-root-login-modal {
+    overflow: hidden;
+    border-radius: 1.75rem;
+}
+
+.sf-root-login-modal .modal-header,
+.sf-root-login-modal .modal-footer {
+    padding: 1.25rem 1.35rem;
+}
+
+.sf-root-login-modal .modal-body {
+    padding: 0 1.35rem 1.35rem;
+}
+
+.sf-alert {
+    border-radius: 1rem;
+}
+
+.sf-password-field {
+    position: relative;
+}
+
+.sf-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: color-mix(in srgb, var(--color-base-content) 58%, transparent);
+    font-size: 0.85rem;
+    transform: translateY(-50%);
+}
+
+.sf-password-toggle:hover {
+    color: var(--color-base-content);
+}
+
+.sf-remember-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: color-mix(in srgb, var(--color-base-content) 72%, transparent);
+}
+
+.sf-empty-state {
+    text-align: center;
+    padding: 2.2rem;
+}
+
+.sf-register-page {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    background:
+        radial-gradient(circle at 14% 12%, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 30%),
+        radial-gradient(circle at 88% 16%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 28%),
+        linear-gradient(180deg, color-mix(in srgb, var(--color-base-200) 92%, var(--color-base-100)), var(--color-base-100) 52%, color-mix(in srgb, var(--color-base-100) 95%, var(--color-base-200)));
+}
+
+.sf-register-main {
+    padding: 2rem 0 4rem;
+}
+
+.sf-register-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 1.5rem;
+    align-items: start;
+    min-height: calc(100vh - 13rem);
+}
+
+.sf-register-context,
+.sf-register-form-panel,
+.sf-register-summary-panel {
+    border: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
+    background: color-mix(in srgb, var(--color-base-100) 84%, transparent);
+    box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--color-neutral) 9%, transparent);
+    backdrop-filter: blur(18px);
+}
+
+.sf-register-context {
+    position: sticky;
+    top: 6.5rem;
+    display: grid;
+    gap: 1.6rem;
+    padding: 2rem;
+    border-radius: 2rem;
+}
+
+.sf-register-context h1 {
+    margin: 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(2.7rem, 4.6vw, 4.6rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+}
+
+.sf-register-lead {
+    margin: 0;
+    max-width: 52ch;
+    color: color-mix(in srgb, var(--color-base-content) 70%, transparent);
+    font-size: 1.04rem;
+    line-height: 1.8;
+}
+
+.sf-register-steps,
+.sf-register-benefits,
+.sf-register-workspace {
+    display: grid;
+    gap: 1rem;
+}
+
+.sf-register-step {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    align-items: start;
+    padding: 1rem 1.1rem;
+    border-radius: 1.4rem;
+    background: color-mix(in srgb, var(--color-base-content) 4%, var(--color-base-100));
+}
+
+.sf-register-step > span,
+.sf-register-group-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.sf-register-step h2,
+.sf-register-panel-head h2,
+.sf-register-summary-main h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.sf-register-step p,
+.sf-register-benefits span,
+.sf-register-panel-head p,
+.sf-register-status-copy span,
+.sf-register-empty p,
+.sf-register-summary-note p,
+.sf-register-summary-audience {
+    margin: 0.35rem 0 0;
+    color: color-mix(in srgb, var(--color-base-content) 68%, transparent);
+    line-height: 1.7;
+}
+
+.sf-register-benefits {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sf-register-benefits div {
+    display: grid;
+    gap: 0.45rem;
+    padding: 1rem 1.05rem;
+    border-radius: 1.3rem;
+    background: color-mix(in srgb, var(--color-base-content) 4%, var(--color-base-100));
+}
+
+.sf-register-workspace {
+    align-content: start;
+}
+
+.sf-register-form-panel,
+.sf-register-summary-panel {
+    padding: 1.55rem;
+    border-radius: 1.8rem;
+}
+
+.sf-register-panel-head {
+    display: grid;
+    gap: 0.55rem;
+    margin-bottom: 1.2rem;
+}
+
+.sf-register-form-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.sf-register-field-group {
+    padding: 1.15rem;
+    border: 1px solid color-mix(in srgb, var(--color-base-content) 8%, transparent);
+    border-radius: 1.4rem;
+    background: color-mix(in srgb, var(--color-base-content) 3%, var(--color-base-100));
+}
+
+.sf-register-field-group > header {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.sf-register-field-group h3 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.sf-register-field-group header p {
+    margin: 0.2rem 0 0;
+    color: color-mix(in srgb, var(--color-base-content) 62%, transparent);
+    font-size: 0.92rem;
+}
+
+.sf-register-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.2rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid color-mix(in srgb, var(--color-base-content) 8%, transparent);
+}
+
+.sf-register-status-copy {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.sf-register-summary-panel {
+    display: grid;
+    gap: 1rem;
+}
+
+.sf-register-summary-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.sf-register-summary-main {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.sf-register-feature-list {
+    margin-top: 0.2rem;
+}
+
+.sf-register-summary-note {
+    padding: 1rem 1.05rem;
+    border-radius: 1.2rem;
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-base-100));
+}
+
+.sf-register-empty {
+    padding: 1.15rem;
+    border-radius: 1.3rem;
+    background: color-mix(in srgb, var(--color-base-content) 4%, var(--color-base-100));
+}
+
+.sf-register-empty h3 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
 #blazor-error-ui {
     color-scheme: light only;
     background: lightyellow;
@@ -185,5 +1001,90 @@ a {
 
     .sf-grid--3 {
         grid-template-columns: 1fr;
+    }
+
+    .sf-public-container {
+        width: min(100%, calc(100% - 1rem));
+    }
+
+    .sf-marketing-page main {
+        gap: 4rem;
+    }
+
+    .sf-marketing-header {
+        grid-template-columns: 1fr;
+        justify-items: stretch;
+        border-radius: 1.6rem;
+    }
+
+    .sf-marketing-nav {
+        justify-content: flex-start;
+    }
+
+    .sf-marketing-header-actions {
+        justify-content: stretch;
+    }
+
+    .sf-marketing-header-actions > * {
+        flex: 1 1 0;
+    }
+
+    .sf-marketing-hero-grid,
+    .sf-overview-grid,
+    .sf-tier-grid,
+    .sf-workflow-grid,
+    .sf-marketing-footer-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sf-register-shell,
+    .sf-register-benefits {
+        grid-template-columns: 1fr;
+    }
+
+    .sf-register-context {
+        position: static;
+        padding: 1.4rem;
+    }
+
+    .sf-register-form-panel,
+    .sf-register-summary-panel {
+        padding: 1.2rem;
+    }
+
+    .sf-register-status {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .sf-marketing-copy {
+        padding-bottom: 1rem;
+    }
+
+    .sf-marketing-copy h1 {
+        max-width: none;
+    }
+
+    .sf-marketing-kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .sf-hero-visual {
+        min-height: auto;
+    }
+
+    .sf-hero-orbit,
+    .sf-hero-panel {
+        position: static;
+    }
+
+    .sf-hero-product-stack {
+        position: static;
+        margin-top: 1rem;
+    }
+
+    .sf-hero-product-card--accent,
+    .sf-tier-card.is-featured {
+        transform: none;
     }
 }

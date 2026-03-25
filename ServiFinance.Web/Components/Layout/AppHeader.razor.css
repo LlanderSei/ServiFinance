@@ -1,71 +1,76 @@
 .sf-header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
-    background: color-mix(in srgb, var(--color-base-100) 90%, transparent);
-    backdrop-filter: blur(18px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--color-base-content) 10%, transparent);
+  background: color-mix(in srgb, var(--color-base-100) 90%, transparent);
+  backdrop-filter: blur(18px);
 }
 
 .sf-header__left {
-    min-width: 0;
+  min-width: 0;
 }
 
 .sf-header__title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-top: 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 0.35rem;
 }
 
 .sf-breadcrumbs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    color: color-mix(in srgb, var(--color-base-content) 60%, transparent);
-    font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  color: color-mix(in srgb, var(--color-base-content) 60%, transparent);
+  font-size: 0.85rem;
 }
 
 .sf-breadcrumbs li {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .sf-breadcrumbs li:not(:last-child)::after {
-    content: "/";
+  content: "/";
 }
 
 .sf-header__badges {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .sf-header__badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.5rem 0.8rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-base-100));
-    border: 1px solid color-mix(in srgb, var(--color-primary) 16%, transparent);
-    color: var(--color-base-content);
-    font-size: 0.85rem;
-    font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 12%,
+    var(--color-base-100)
+  );
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-base-content);
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 @media (max-width: 991.98px) {
-    .sf-header {
-        padding: 1rem;
-        flex-direction: column;
-    }
+  .sf-header {
+    padding: 1rem;
+    flex-direction: column;
+  }
 
-    .sf-header__badges {
-        justify-content: flex-start;
-    }
+  .sf-header__badges {
+    justify-content: flex-start;
+  }
 }

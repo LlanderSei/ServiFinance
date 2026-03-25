@@ -1,299 +1,386 @@
 .sf-sidebar {
-    position: sticky;
-    top: 0;
-    min-height: 100vh;
-    padding: 0;
+  position: sticky;
+  top: 0;
+  min-height: 100vh;
+  padding: 0;
 }
 
 .sf-sidebar__panel {
-    position: relative;
-    height: 100vh;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    border-right: 1px solid color-mix(in srgb, var(--color-base-content) 12%, transparent);
-    background: color-mix(in srgb, var(--color-base-100) 94%, transparent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-base-content) 4%, transparent);
-    overflow: visible;
+  position: relative;
+  height: 100vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-right: 1px solid
+    color-mix(in srgb, var(--color-base-content) 12%, transparent);
+  background: color-mix(in srgb, var(--color-base-100) 94%, transparent);
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--color-base-content) 4%, transparent);
+  overflow: visible;
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
 }
 
 .sf-sidebar__brand-band,
 .sf-sidebar__user-band,
 .sf-sidebar__footer {
-    display: flex;
-    align-items: center;
-    min-height: 4.6rem;
-    padding: 0.9rem 1rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
+  display: flex;
+  align-items: center;
+  min-height: 4.6rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--color-base-content) 10%, transparent);
+  transition:
+    padding 220ms ease,
+    border-color 220ms ease;
 }
 
 .sf-sidebar__brand-band {
-    gap: 0.8rem;
+  gap: 0.8rem;
 }
 
 .sf-sidebar__brand-copy {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-width: 0;
-    flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  flex: 1;
+  max-width: 12rem;
+  overflow: hidden;
+  transition:
+    opacity 160ms ease,
+    transform 220ms ease,
+    max-width 220ms ease;
 }
 
 .sf-sidebar__scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 0.6rem 0 0.75rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.6rem 0 0.75rem;
+  transition: padding 220ms ease;
 }
 
 .sf-sidebar__nav {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: gap 220ms ease;
 }
 
 .sf-sidebar__group {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .sf-sidebar__group-title {
-    padding: 0 1rem 0.35rem;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-base-content) 58%, transparent);
+  padding: 0 1rem 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-base-content) 58%, transparent);
+  overflow: hidden;
+  white-space: nowrap;
+  max-height: 1.5rem;
+  transition:
+    opacity 140ms ease,
+    max-height 220ms ease,
+    padding 220ms ease;
 }
 
 .sf-sidebar__group-items {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  transition: gap 220ms ease;
 }
 
 .sf-sidebar__toggle {
-    position: absolute;
-    top: 50%;
-    right: -1.05rem;
-    transform: translateY(-50%);
-    z-index: 2;
-    width: 2.1rem;
-    height: 2.1rem;
-    padding: 0;
-    border: 1px solid color-mix(in srgb, var(--color-base-content) 16%, transparent);
-    border-radius: 999px;
-    background: var(--color-base-100);
-    box-shadow: 0 0.35rem 1rem color-mix(in srgb, var(--color-neutral) 16%, transparent);
-    color: var(--color-base-content);
-    display: grid;
-    place-items: center;
+  position: absolute;
+  top: 50%;
+  right: -1.05rem;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border: 1px solid
+    color-mix(in srgb, var(--color-base-content) 16%, transparent);
+  border-radius: 999px;
+  background: var(--color-base-100);
+  box-shadow: 0 0.35rem 1rem
+    color-mix(in srgb, var(--color-neutral) 16%, transparent);
+  color: var(--color-base-content);
+  display: grid;
+  place-items: center;
 }
 
 .sf-sidebar__toggle .bi {
-    font-size: 0.95rem;
-    line-height: 1;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: transform 220ms ease;
 }
 
 .sf-sidebar__mark {
-    flex: 0 0 auto;
-    width: 2.6rem;
-    height: 2.6rem;
-    display: grid;
-    place-items: center;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--color-primary) 22%, var(--color-base-100));
-    color: var(--color-base-content);
-    font-weight: 700;
+  flex: 0 0 auto;
+  width: 2.6rem;
+  height: 2.6rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 22%,
+    var(--color-base-100)
+  );
+  color: var(--color-base-content);
+  font-weight: 700;
 }
 
 .sf-sidebar__brand-name {
-    font-size: 0.95rem;
-    font-weight: 700;
-    line-height: 1.1;
-    text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
 }
 
 .sf-sidebar__user-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    min-width: 0;
-    flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+  max-width: 12rem;
+  overflow: hidden;
+  transition:
+    opacity 160ms ease,
+    transform 220ms ease,
+    max-width 220ms ease;
 }
 
 .sf-sidebar__user-name {
-    font-weight: 700;
-    line-height: 1.1;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 .sf-sidebar__user-email {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sf-sidebar__user-avatar {
-    width: 2.75rem;
-    height: 2.75rem;
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--color-primary) 18%, var(--color-base-100));
-    color: var(--color-base-content);
-    font-weight: 700;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 18%,
+    var(--color-base-100)
+  );
+  color: var(--color-base-content);
+  font-weight: 700;
 }
 
 ::deep .sf-sidebar__link,
 ::deep .sf-sidebar__logout {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    min-height: 2.75rem;
-    padding: 0.65rem 1rem;
-    border-radius: 0;
-    color: var(--color-base-content);
-    text-decoration: none;
-    border: 0;
-    background: transparent;
-    text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0;
+  color: var(--color-base-content);
+  text-decoration: none;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  transition:
+    padding 220ms ease,
+    gap 220ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 ::deep .sf-sidebar__link .bi,
 ::deep .sf-sidebar__logout .bi {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.15rem;
-    height: 1.15rem;
-    flex: 0 0 auto;
-    color: var(--color-base-content);
-    font-size: 1rem;
-    line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  color: var(--color-base-content);
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .bi {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.15rem;
-    height: 1.15rem;
-    flex: 0 0 auto;
-    color: var(--color-base-content);
-    font-size: 1rem;
-    line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  color: var(--color-base-content);
+  font-size: 1rem;
+  line-height: 1;
 }
 
 ::deep .sf-sidebar__link.active {
-    background: color-mix(in srgb, var(--color-primary) 18%, var(--color-base-100));
-    color: var(--color-base-content);
-    box-shadow: inset 3px 0 0 var(--color-primary);
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 18%,
+    var(--color-base-100)
+  );
+  color: var(--color-base-content);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 ::deep .sf-sidebar__link:hover,
 ::deep .sf-sidebar__logout:hover {
-    background: color-mix(in srgb, var(--color-base-content) 7%, transparent);
+  background: color-mix(in srgb, var(--color-base-content) 7%, transparent);
 }
 
 .sf-sidebar__footer {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: auto;
+  transition: gap 220ms ease;
 }
 
 .sf-sidebar__utility {
-    padding: 0.7rem 1rem 0;
-    display: flex;
-    justify-content: center;
+  padding: 0.7rem 1rem 0;
+  display: flex;
+  justify-content: center;
+  transition: padding 220ms ease;
 }
 
 .is-collapsed .sf-sidebar__panel {
-    width: 4.75rem;
+  width: 4.75rem;
 }
 
 .is-collapsed .sf-sidebar__brand-band,
 .is-collapsed .sf-sidebar__user-band,
 .is-collapsed .sf-sidebar__footer {
-    justify-content: center;
-    align-items: center;
-    padding-inline: 0.35rem;
+  justify-content: center;
+  align-items: center;
+  padding-inline: 0.35rem;
 }
 
 .is-collapsed ::deep .sf-sidebar__link,
 .is-collapsed ::deep .sf-sidebar__logout {
-    justify-content: center;
-    padding-inline: 0;
-    gap: 0;
-    text-align: center;
+  justify-content: center;
+  padding-inline: 0;
+  gap: 0;
+  text-align: center;
 }
 
 .is-collapsed .sf-sidebar__group-title {
-    display: none;
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .is-collapsed .sf-sidebar__scroll {
-    padding-top: 0.35rem;
+  padding-top: 0.35rem;
 }
 
 .is-collapsed .sf-sidebar__group-items {
-    gap: 0.1rem;
+  gap: 0.1rem;
 }
 
 .is-collapsed ::deep .sf-sidebar__link .bi,
 .is-collapsed ::deep .sf-sidebar__logout .bi {
-    margin-inline: 0;
-    width: 1.15rem;
+  margin-inline: 0;
+  width: 1.15rem;
 }
 
 .is-collapsed .sf-sidebar__utility {
-    display: flex;
-    justify-content: center;
-    padding-inline: 0;
+  display: flex;
+  justify-content: center;
+  padding-inline: 0;
 }
 
 .is-collapsed .sf-sidebar__logout-form {
-    width: 100%;
-    display: flex;
-    justify-content: center;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .is-collapsed .sf-sidebar__logout {
-    justify-content: center;
-    min-height: 2.9rem;
-    width: 100%;
+  justify-content: center;
+  min-height: 2.9rem;
+  width: 100%;
 }
 
 .sf-sidebar__label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 10rem;
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 140ms ease,
+    transform 220ms ease,
+    max-width 220ms ease;
 }
 
 .sf-sidebar__logout-form {
-    display: block;
+  display: block;
+}
+
+.is-collapsed .sf-sidebar__brand-copy,
+.is-collapsed .sf-sidebar__user-copy {
+  opacity: 0;
+  transform: translateX(-0.25rem);
+  max-width: 0;
+}
+
+.is-collapsed .sf-sidebar__label {
+  opacity: 0;
+  transform: translateX(-0.25rem);
+  max-width: 0;
+}
+
+.is-collapsed .sf-sidebar__toggle .bi {
+  transform: rotate(0deg);
+}
+
+:not(.is-collapsed) .sf-sidebar__toggle .bi {
+  transform: rotate(0deg);
 }
 
 @media (max-width: 991.98px) {
-    .sf-sidebar {
-        position: static;
-        min-height: auto;
-        width: 100%;
-    }
+  .sf-sidebar {
+    position: static;
+    min-height: auto;
+    width: 100%;
+  }
 
-    .sf-sidebar__panel {
-        height: auto;
-        min-height: auto;
-    }
+  .sf-sidebar__panel {
+    height: auto;
+    min-height: auto;
+  }
 
-    .sf-sidebar__toggle {
-        right: 1rem;
-    }
+  .sf-sidebar__toggle {
+    right: 1rem;
+  }
 
-    .is-collapsed .sf-sidebar__panel {
-        width: 100%;
-    }
+  .is-collapsed .sf-sidebar__panel {
+    width: 100%;
+  }
 }

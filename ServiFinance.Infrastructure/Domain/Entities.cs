@@ -26,6 +26,21 @@ public sealed class Tenant : Entity {
   public ICollection<Customer> Customers { get; set; } = [];
 }
 
+public sealed class SubscriptionTier : Entity {
+  public string Code { get; set; } = string.Empty;
+  public string DisplayName { get; set; } = string.Empty;
+  public string AudienceSummary { get; set; } = string.Empty;
+  public string Description { get; set; } = string.Empty;
+  public string PriceDisplay { get; set; } = string.Empty;
+  public string BillingLabel { get; set; } = string.Empty;
+  public string PlanSummary { get; set; } = string.Empty;
+  public string HighlightLabel { get; set; } = string.Empty;
+  public int SortOrder { get; set; }
+  public bool IncludesServiceManagementWeb { get; set; }
+  public bool IncludesMicroLendingDesktop { get; set; }
+  public bool IsActive { get; set; } = true;
+}
+
 public sealed class AppUser : TenantEntity {
   public string Email { get; set; } = string.Empty;
   public string PasswordHash { get; set; } = string.Empty;

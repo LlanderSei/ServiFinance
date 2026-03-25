@@ -12,6 +12,82 @@ public sealed class DevelopmentDataSeeder(
     IPasswordHasher<AppUser> passwordHasher,
     ILogger<DevelopmentDataSeeder> logger) {
   public async Task SeedAsync(DevelopmentSeedOptions options, CancellationToken cancellationToken = default) {
+    var standardTier = await dbContext.SubscriptionTiers
+        .SingleOrDefaultAsync(entity => entity.Id == ServiFinanceDatabaseDefaults.StandardSubscriptionTierId, cancellationToken);
+
+    if (standardTier is null) {
+      standardTier = new SubscriptionTier {
+          Id = ServiFinanceDatabaseDefaults.StandardSubscriptionTierId,
+          Code = "STANDARD",
+          DisplayName = "Standard",
+          AudienceSummary = "Built for MSMEs standardizing service operations on the web.",
+          Description = "Run tenant-scoped service intake, dispatching, invoicing, and staff coordination from a browser-first workspace.",
+          PriceDisplay = "Starts at PHP 1,490",
+          BillingLabel = "per business / month",
+          PlanSummary = "Web-first operations stack for service-driven teams.",
+          HighlightLabel = "Web Only",
+          SortOrder = 10,
+          IncludesServiceManagementWeb = true,
+          IncludesMicroLendingDesktop = false,
+          IsActive = true
+      };
+
+      dbContext.SubscriptionTiers.Add(standardTier);
+      logger.LogInformation("Seeded Standard subscription tier.");
+    }
+    else {
+      standardTier.Code = "STANDARD";
+      standardTier.DisplayName = "Standard";
+      standardTier.AudienceSummary = "Built for MSMEs standardizing service operations on the web.";
+      standardTier.Description = "Run tenant-scoped service intake, dispatching, invoicing, and staff coordination from a browser-first workspace.";
+      standardTier.PriceDisplay = "Starts at PHP 1,490";
+      standardTier.BillingLabel = "per business / month";
+      standardTier.PlanSummary = "Web-first operations stack for service-driven teams.";
+      standardTier.HighlightLabel = "Web Only";
+      standardTier.SortOrder = 10;
+      standardTier.IncludesServiceManagementWeb = true;
+      standardTier.IncludesMicroLendingDesktop = false;
+      standardTier.IsActive = true;
+    }
+
+    var premiumTier = await dbContext.SubscriptionTiers
+        .SingleOrDefaultAsync(entity => entity.Id == ServiFinanceDatabaseDefaults.PremiumSubscriptionTierId, cancellationToken);
+
+    if (premiumTier is null) {
+      premiumTier = new SubscriptionTier {
+          Id = ServiFinanceDatabaseDefaults.PremiumSubscriptionTierId,
+          Code = "PREMIUM",
+          DisplayName = "Premium",
+          AudienceSummary = "For MSMEs combining field service workflows with structured micro-lending operations.",
+          Description = "Pair the web-based Service Management System with the desktop Micro-Lending System under one tenant identity and operating model.",
+          PriceDisplay = "Starts at PHP 2,990",
+          BillingLabel = "per business / month",
+          PlanSummary = "Unified web + desktop operating model for service and lending teams.",
+          HighlightLabel = "Web + Desktop",
+          SortOrder = 20,
+          IncludesServiceManagementWeb = true,
+          IncludesMicroLendingDesktop = true,
+          IsActive = true
+      };
+
+      dbContext.SubscriptionTiers.Add(premiumTier);
+      logger.LogInformation("Seeded Premium subscription tier.");
+    }
+    else {
+      premiumTier.Code = "PREMIUM";
+      premiumTier.DisplayName = "Premium";
+      premiumTier.AudienceSummary = "For MSMEs combining field service workflows with structured micro-lending operations.";
+      premiumTier.Description = "Pair the web-based Service Management System with the desktop Micro-Lending System under one tenant identity and operating model.";
+      premiumTier.PriceDisplay = "Starts at PHP 2,990";
+      premiumTier.BillingLabel = "per business / month";
+      premiumTier.PlanSummary = "Unified web + desktop operating model for service and lending teams.";
+      premiumTier.HighlightLabel = "Web + Desktop";
+      premiumTier.SortOrder = 20;
+      premiumTier.IncludesServiceManagementWeb = true;
+      premiumTier.IncludesMicroLendingDesktop = true;
+      premiumTier.IsActive = true;
+    }
+
     var platformTenant = await dbContext.Tenants
         .IgnoreQueryFilters()
         .SingleOrDefaultAsync(entity => entity.Id == ServiFinanceDatabaseDefaults.PlatformTenantId, cancellationToken);
@@ -42,7 +118,7 @@ public sealed class DevelopmentDataSeeder(
           Name = "Example Domain Services",
           Code = "DEMO",
           DomainSlug = "exampledomain",
-          SubscriptionPlan = "Academic",
+          SubscriptionPlan = premiumTier.DisplayName,
           SubscriptionStatus = "Active",
           CreatedAtUtc = DateTime.UtcNow,
           IsActive = true
@@ -53,6 +129,8 @@ public sealed class DevelopmentDataSeeder(
     }
     else {
       tenant.DomainSlug = "exampledomain";
+      tenant.SubscriptionPlan = premiumTier.DisplayName;
+      tenant.SubscriptionStatus = "Active";
     }
 
     var superAdminRole = await dbContext.Roles

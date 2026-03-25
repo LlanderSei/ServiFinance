@@ -3,42 +3,32 @@
 @rendermode InteractiveServer
 @layout PublicLayout
 
+@using ServiFinance.Infrastructure.Subscriptions
+@using ServiFinance.Web.Components.Marketing
+@inject ISubscriptionTierCatalogService SubscriptionTierCatalogService
+
 <PageTitle>ServiFinance</PageTitle>
 
-<div class="d-flex flex-column gap-4">
-    <section class="sf-surface-card sf-hero">
-        <p class="sf-kicker mb-2">SuperAdmin Surface</p>
-        <h1 class="display-5 mb-3">ServiFinance SaaS control plane</h1>
-        <p class="lead mb-4 sf-muted">Use the root domain for platform oversight, subscribed tenants, and SaaS administration. Tenant product access lives under tenant-specific `sms` and `mls` routes.</p>
+<div class="sf-marketing-page">
+    <LandingHeader OnLoginRequested="OpenLoginModal" />
 
-        <div class="d-flex gap-2 flex-wrap">
-            <button class="btn btn-primary" @onclick="() => showLogin = true">Login</button>
-            <a class="btn btn-outline-secondary" href="/register">Register / Sign up</a>
-        </div>
-    </section>
+    <main>
+        <LandingHeroSection OnPrimaryAction="OpenLoginModal" />
+        <LandingOverviewSection />
+        <LandingSubscriptionSection Tiers="_tiers" />
+        <LandingWorkflowSection />
+    </main>
 
-    <div class="sf-grid sf-grid--3">
-        <section class="sf-surface-card p-4">
-            <p class="sf-kicker mb-2">Root</p>
-            <div class="fw-semibold mb-2">SaaS dashboard</div>
-            <div class="sf-muted">Authenticated superadmin routes now live directly under `/dashboard`, `/tenants`, and `/subscriptions`.</div>
-        </section>
-
-        <section class="sf-surface-card p-4">
-            <p class="sf-kicker mb-2">SMS</p>
-            <div class="fw-semibold mb-2">Tenant service management</div>
-            <div class="sf-muted">Use `/{tenant}/sms/` as the public landing page and `/{tenant}/sms/*` for authenticated product pages.</div>
-        </section>
-
-        <section class="sf-surface-card p-4">
-            <p class="sf-kicker mb-2">MLS</p>
-            <div class="fw-semibold mb-2">Tenant micro-lending</div>
-            <div class="sf-muted">Use `/{tenant}/mls/` as the public landing page and `/{tenant}/mls/*` for authenticated placeholder pages.</div>
-        </section>
-    </div>
+    <LandingFooter />
 </div>
 
-@if (showLogin)
+<RootLoginModal
+    Visible="_showLogin"
+    Error="@Error"
+    ReturnUrl="@ResolvedReturnUrl"
+    OnClose="CloseModal" />
+
+@if (false && showLogin)
 {
     <div class="modal fade show d-block sf-modal-backdrop" tabindex="-1">
         <div class="modal-dialog">
@@ -87,17 +77,31 @@
     [SupplyParameterFromQuery(Name = "showLogin")]
     public bool? ShowLogin { get; set; }
 
+    private IReadOnlyList<SubscriptionTierCard> _tiers = [];
     private bool showLogin;
+    private bool _showLogin;
     private string ResolvedReturnUrl => string.IsNullOrWhiteSpace(ReturnUrl) ? "/dashboard" : ReturnUrl!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tiers = await SubscriptionTierCatalogService.GetActiveTiersAsync();
+    }
 
     protected override void OnParametersSet()
     {
-        showLogin = ShowLogin == true || !string.IsNullOrWhiteSpace(Error);
+        showLogin = false;
+        _showLogin = ShowLogin == true || !string.IsNullOrWhiteSpace(Error);
+    }
+
+    private void OpenLoginModal()
+    {
+        _showLogin = true;
     }
 
     private void CloseModal()
     {
         showLogin = false;
+        _showLogin = false;
         Error = null;
     }
 }
