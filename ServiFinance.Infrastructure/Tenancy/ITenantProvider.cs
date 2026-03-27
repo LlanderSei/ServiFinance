@@ -1,6 +1,1 @@
-namespace ServiFinance.Infrastructure.Tenancy;
-
-public interface ITenantProvider {
-  Guid CurrentTenantId { get; }
-  bool HasRequestContext { get; }
-}
+// Tenant abstractions moved to src/backend/ServiFinance.Application/Tenancy/ITenantProvider.cs

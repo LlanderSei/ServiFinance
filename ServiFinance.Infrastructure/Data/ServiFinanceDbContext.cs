@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using ServiFinance.Infrastructure.Domain;
-using ServiFinance.Infrastructure.Tenancy;
+using ServiFinance.Domain;
+using ServiFinance.Application.Tenancy;
 
 namespace ServiFinance.Infrastructure.Data;
 
@@ -361,3 +361,4 @@ public sealed class ServiFinanceDbContext(
     propertyBuilder.HasPrecision(precision, scale);
   }
 }
+

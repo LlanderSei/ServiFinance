@@ -1,15 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:local="clr-namespace:ServiFinance"
-             xmlns:shared="clr-namespace:ServiFinance.Shared;assembly=ServiFinance.Shared"
              x:Class="ServiFinance.MainPage"
              BackgroundColor="{DynamicResource PageBackgroundColor}">
 
-    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
-        <BlazorWebView.RootComponents>
-            <RootComponent Selector="#app" ComponentType="{x:Type shared:Routes}" />
-        </BlazorWebView.RootComponents>
-    </BlazorWebView>
+    <HybridWebView x:Name="hybridWebView"
+                   HybridRoot="wwwroot"
+                   DefaultFile="index.html" />
 
 </ContentPage>

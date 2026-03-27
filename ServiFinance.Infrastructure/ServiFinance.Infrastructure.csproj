@@ -16,4 +16,20 @@
     <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="10.0.5" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\src\backend\ServiFinance.Application\ServiFinance.Application.csproj" />
+    <ProjectReference Include="..\src\backend\ServiFinance.Domain\ServiFinance.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Domain\Entities.cs" />
+    <Compile Remove="Auth\AuthDtos.cs" />
+    <Compile Remove="Auth\AuthenticationContexts.cs" />
+    <Compile Remove="Auth\IUserAuthenticationService.cs" />
+    <Compile Remove="Auth\IUserManagementService.cs" />
+    <Compile Remove="Subscriptions\ISubscriptionTierCatalogService.cs" />
+    <Compile Remove="Subscriptions\SubscriptionTierDtos.cs" />
+    <Compile Remove="Tenancy\ITenantProvider.cs" />
+  </ItemGroup>
+
 </Project>

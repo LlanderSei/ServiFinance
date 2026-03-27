@@ -2,10 +2,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ServiFinance.Application.Auth;
+using ServiFinance.Application.Subscriptions;
+using ServiFinance.Application.Tenancy;
+using ServiFinance.Domain;
 using ServiFinance.Infrastructure.Auth;
 using ServiFinance.Infrastructure.Configuration;
 using ServiFinance.Infrastructure.Data;
-using ServiFinance.Infrastructure.Domain;
 using ServiFinance.Infrastructure.Subscriptions;
 using ServiFinance.Infrastructure.Tenancy;
 
@@ -35,6 +38,9 @@ public static class ServiceCollectionExtensions {
     services.AddScoped<IUserAuthenticationService, UserAuthenticationService>();
     services.AddScoped<IUserManagementService, UserManagementService>();
     services.AddScoped<ISubscriptionTierCatalogService, SubscriptionTierCatalogService>();
+    services.AddSingleton(TimeProvider.System);
+    services.Configure<SessionTokenOptions>(configuration?.GetSection(SessionTokenOptions.SectionName) ?? new ConfigurationBuilder().Build().GetSection(SessionTokenOptions.SectionName));
+    services.AddSingleton<ISessionTokenService, JwtSessionTokenService>();
     services.AddScoped<DevelopmentDataSeeder>();
     services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
     services.AddSingleton(new DevelopmentSeedOptions {
@@ -53,3 +59,4 @@ public static class ServiceCollectionExtensions {
     return services;
   }
 }
+

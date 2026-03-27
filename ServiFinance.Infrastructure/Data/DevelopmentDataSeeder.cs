@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using ServiFinance.Infrastructure.Auth;
+using ServiFinance.Application.Auth;
 using ServiFinance.Infrastructure.Configuration;
-using ServiFinance.Infrastructure.Domain;
+using ServiFinance.Domain;
 
 namespace ServiFinance.Infrastructure.Data;
 
@@ -287,3 +287,4 @@ public sealed class DevelopmentDataSeeder(
     await dbContext.SaveChangesAsync(cancellationToken);
   }
 }
+

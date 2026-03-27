@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Infrastructure.Data;
 
+using ServiFinance.Application.Subscriptions;
+
 namespace ServiFinance.Infrastructure.Subscriptions;
 
 public sealed class SubscriptionTierCatalogService(ServiFinanceDbContext dbContext) : ISubscriptionTierCatalogService {
@@ -25,3 +27,4 @@ public sealed class SubscriptionTierCatalogService(ServiFinanceDbContext dbConte
         .ToListAsync(cancellationToken);
   }
 }
+

@@ -1,5 +1,1 @@
-namespace ServiFinance.Infrastructure.Auth;
-
-public interface IUserAuthenticationService {
-  Task<AuthenticatedUser?> AuthenticateAsync(AuthenticationRequest request, CancellationToken cancellationToken = default);
-}
+// Auth interfaces moved to src/backend/ServiFinance.Application/Auth/IUserAuthenticationService.cs

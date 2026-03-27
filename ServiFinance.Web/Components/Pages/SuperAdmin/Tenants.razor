@@ -48,7 +48,7 @@
 </ServiFinance.Web.Components.Auth.AuthenticatedRouteView>
 
 @code {
-    private List<ServiFinance.Infrastructure.Domain.Tenant>? tenants;
+    private List<ServiFinance.Domain.Tenant>? tenants;
     private readonly IReadOnlyList<BreadcrumbItem> breadcrumbs = [
         new("SaaS"),
         new("Tenants")
@@ -66,3 +66,4 @@
             .ToListAsync();
     }
 }
+

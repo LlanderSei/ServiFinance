@@ -1,7 +1,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Administrator")]
 @rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
-@using ServiFinance.Infrastructure.Auth
+@using ServiFinance.Application.Auth
 @inject IUserManagementService UserManagementService
 
 <PageTitle>User Management</PageTitle>
@@ -303,3 +303,4 @@
         public string NewPassword { get; set; } = string.Empty;
     }
 }
+

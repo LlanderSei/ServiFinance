@@ -2,7 +2,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Administrator")]
 @rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
-@using ServiFinance.Infrastructure.Auth
+@using ServiFinance.Application.Auth
 @inject IUserManagementService UserManagementService
 
 <PageTitle>User Management</PageTitle>
@@ -230,3 +230,4 @@
     private static string ToDisplayName(string slug) =>
         string.IsNullOrWhiteSpace(slug) ? "Tenant" : char.ToUpperInvariant(slug[0]) + slug[1..];
 }
+

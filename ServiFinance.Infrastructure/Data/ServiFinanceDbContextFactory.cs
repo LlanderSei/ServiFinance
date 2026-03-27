@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using ServiFinance.Infrastructure.Configuration;
-using ServiFinance.Infrastructure.Tenancy;
+using ServiFinance.Application.Tenancy;
 
 namespace ServiFinance.Infrastructure.Data;
 
@@ -18,3 +18,4 @@ public sealed class ServiFinanceDbContextFactory : IDesignTimeDbContextFactory<S
     public bool HasRequestContext => false;
   }
 }
+

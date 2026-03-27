@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using ServiFinance.Application.Tenancy;
 using ServiFinance.Infrastructure.Configuration;
 
 namespace ServiFinance.Infrastructure.Tenancy;
@@ -22,3 +23,4 @@ public sealed class ConfigurationTenantProvider(
     }
   }
 }
+

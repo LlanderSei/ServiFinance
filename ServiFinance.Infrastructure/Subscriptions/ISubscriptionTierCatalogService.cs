@@ -1,5 +1,1 @@
-namespace ServiFinance.Infrastructure.Subscriptions;
-
-public interface ISubscriptionTierCatalogService {
-  Task<IReadOnlyList<SubscriptionTierCard>> GetActiveTiersAsync(CancellationToken cancellationToken = default);
-}
+// Subscription interfaces moved to src/backend/ServiFinance.Application/Subscriptions/ISubscriptionTierCatalogService.cs

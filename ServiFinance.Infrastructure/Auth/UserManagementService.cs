@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Auth;
 using ServiFinance.Infrastructure.Data;
-using ServiFinance.Infrastructure.Domain;
+using ServiFinance.Domain;
 
 namespace ServiFinance.Infrastructure.Auth;
 
@@ -96,3 +97,4 @@ public sealed class UserManagementService(
     await dbContext.SaveChangesAsync(cancellationToken);
   }
 }
+

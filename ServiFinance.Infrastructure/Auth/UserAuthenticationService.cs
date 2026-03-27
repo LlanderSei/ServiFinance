@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Auth;
 using ServiFinance.Infrastructure.Data;
-using ServiFinance.Infrastructure.Domain;
+using ServiFinance.Infrastructure.Configuration;
+using ServiFinance.Domain;
 
 namespace ServiFinance.Infrastructure.Auth;
 
@@ -20,11 +22,11 @@ public sealed class UserAuthenticationService(
 
     query = request.Surface switch {
         AuthenticationSurface.Root =>
-            query.Where(entity => entity.TenantId == Configuration.ServiFinanceDatabaseDefaults.PlatformTenantId),
+            query.Where(entity => entity.TenantId == ServiFinanceDatabaseDefaults.PlatformTenantId),
         AuthenticationSurface.TenantWeb or AuthenticationSurface.TenantDesktop
             when !string.IsNullOrWhiteSpace(normalizedTenantSlug) =>
             query.Where(entity =>
-                entity.TenantId != Configuration.ServiFinanceDatabaseDefaults.PlatformTenantId &&
+                entity.TenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
                 entity.Tenant != null &&
                 entity.Tenant.DomainSlug == normalizedTenantSlug),
         _ => query.Where(_ => false)
@@ -83,13 +85,14 @@ public sealed class UserAuthenticationService(
       AuthenticationRequest request) {
     return request.Surface switch {
       AuthenticationSurface.Root =>
-          tenantId == Configuration.ServiFinanceDatabaseDefaults.PlatformTenantId &&
+          tenantId == ServiFinanceDatabaseDefaults.PlatformTenantId &&
           roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase),
       AuthenticationSurface.TenantWeb or AuthenticationSurface.TenantDesktop =>
-          tenantId != Configuration.ServiFinanceDatabaseDefaults.PlatformTenantId &&
+          tenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
           !string.IsNullOrWhiteSpace(request.TenantDomainSlug) &&
           string.Equals(tenantDomainSlug, request.TenantDomainSlug, StringComparison.OrdinalIgnoreCase),
       _ => false
     };
   }
 }
+

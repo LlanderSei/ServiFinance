@@ -1,4 +1,4 @@
-@using ServiFinance.Infrastructure.Subscriptions
+@using ServiFinance.Application.Subscriptions
 
 <section class="sf-register-form-panel">
     <div class="sf-register-panel-head">
@@ -105,3 +105,4 @@
 
     private Task OnChange(ChangeEventArgs args) => OnSelectedTierChanged.InvokeAsync(args.Value?.ToString());
 }
+

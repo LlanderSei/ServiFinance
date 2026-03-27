@@ -1,0 +1,12 @@
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\bin\Debug\net10.0\ServiFinance.Domain.deps.json
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\bin\Debug\net10.0\ServiFinance.Domain.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\bin\Debug\net10.0\ServiFinance.Domain.pdb
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.GeneratedMSBuildEditorConfig.editorconfig
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.AssemblyInfoInputs.cache
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.AssemblyInfo.cs
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.csproj.CoreCompileInputs.cache
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.sourcelink.json
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\refint\ServiFinance.Domain.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.pdb
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ref\ServiFinance.Domain.dll

@@ -1,14 +1,1 @@
-namespace ServiFinance.Infrastructure.Subscriptions;
-
-public sealed record SubscriptionTierCard(
-    Guid Id,
-    string Code,
-    string DisplayName,
-    string AudienceSummary,
-    string Description,
-    string PriceDisplay,
-    string BillingLabel,
-    string PlanSummary,
-    string HighlightLabel,
-    bool IncludesServiceManagementWeb,
-    bool IncludesMicroLendingDesktop);
+// Subscription DTOs moved to src/backend/ServiFinance.Application/Subscriptions/SubscriptionTierCard.cs

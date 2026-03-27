@@ -1,0 +1,16 @@
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\bin\Debug\net10.0\ServiFinance.Application.deps.json
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\bin\Debug\net10.0\ServiFinance.Application.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\bin\Debug\net10.0\ServiFinance.Application.pdb
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\bin\Debug\net10.0\ServiFinance.Domain.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\bin\Debug\net10.0\ServiFinance.Domain.pdb
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.csproj.AssemblyReference.cache
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.GeneratedMSBuildEditorConfig.editorconfig
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.AssemblyInfoInputs.cache
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.AssemblyInfo.cs
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.csproj.CoreCompileInputs.cache
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.sourcelink.json
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFin.58C9FD07.Up2Date
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\refint\ServiFinance.Application.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.pdb
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ref\ServiFinance.Application.dll

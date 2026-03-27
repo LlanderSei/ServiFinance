@@ -64,6 +64,7 @@
 
     <!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    <MauiAsset Include="..\src\frontend\ServiFinance.Frontend\dist\**\*" LogicalName="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -73,6 +74,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\src\backend\ServiFinance.Application\ServiFinance.Application.csproj" />
     <ProjectReference Include="..\ServiFinance.Shared\ServiFinance.Shared.csproj" />
   </ItemGroup>
 
