@@ -22,11 +22,11 @@ export function ProtectedRoute({ children, requireRole, tenantSlug }: Props) {
   }
 
   if (isError || !data) {
-    return <Navigate to={tenantSlug ? `/${tenantSlug}/sms/?showLogin=true` : "/?showLogin=true"} replace />;
+    return <Navigate to={tenantSlug ? `/t/${tenantSlug}/sms/?showLogin=true` : "/?showLogin=true"} replace />;
   }
 
   if (requireRole && !data.user.roles.includes(requireRole)) {
-    return <Navigate to={tenantSlug ? `/${tenantSlug}/sms/dashboard` : "/dashboard"} replace />;
+    return <Navigate to={tenantSlug ? `/t/${tenantSlug}/sms/dashboard` : "/dashboard"} replace />;
   }
 
   if (tenantSlug && data.user.tenantDomainSlug.toLowerCase() !== tenantSlug.toLowerCase()) {

@@ -3,6 +3,7 @@ import { isDesktopShell, resolveApiUrl } from "@/platform/runtime";
 import { desktopBridge } from "@/platform/desktop/bridge";
 
 let accessToken: string | null = null;
+let currentSession: AuthSessionResponse | null = null;
 let refreshRequest: Promise<AuthSessionResponse | null> | null = null;
 
 export function getAccessToken() {
@@ -13,8 +14,13 @@ export function setAccessToken(token: string | null) {
   accessToken = token;
 }
 
+export function getCurrentSession() {
+  return currentSession;
+}
+
 export async function applySession(response: AuthSessionResponse) {
   accessToken = response.tokens.accessToken;
+  currentSession = response;
 
   if (isDesktopShell()) {
     await desktopBridge.saveRefreshToken(response.tokens.refreshToken);
@@ -23,6 +29,7 @@ export async function applySession(response: AuthSessionResponse) {
 
 export async function clearSession() {
   accessToken = null;
+  currentSession = null;
 
   if (isDesktopShell()) {
     await desktopBridge.clearRefreshToken();
@@ -30,6 +37,14 @@ export async function clearSession() {
 }
 
 export async function refreshSession() {
+  if (currentSession) {
+    const expiresAtUtc = Date.parse(currentSession.tokens.expiresAtUtc);
+    if (!Number.isNaN(expiresAtUtc) && expiresAtUtc - Date.now() > 15_000) {
+      accessToken = currentSession.tokens.accessToken;
+      return currentSession;
+    }
+  }
+
   if (refreshRequest) {
     return refreshRequest;
   }
@@ -59,6 +74,7 @@ export async function refreshSession() {
       }
 
       accessToken = null;
+      currentSession = null;
       return null;
     }
 

@@ -1,7 +1,17 @@
+export type SubscriptionTierModuleCard = {
+  moduleCode: string;
+  moduleName: string;
+  channel: "Web" | "Desktop";
+  accessLevel: "Included" | "Limited" | string;
+  summary: string;
+};
+
 export type SubscriptionTierCard = {
   id: string;
   code: string;
   displayName: string;
+  businessSizeSegment: "Micro" | "Small" | "Medium" | string;
+  subscriptionEdition: "Standard" | "Premium" | string;
   audienceSummary: string;
   description: string;
   priceDisplay: string;
@@ -10,6 +20,7 @@ export type SubscriptionTierCard = {
   highlightLabel: string;
   includesServiceManagementWeb: boolean;
   includesMicroLendingDesktop: boolean;
+  modules: SubscriptionTierModuleCard[];
 };
 
 export type CurrentSessionUser = {

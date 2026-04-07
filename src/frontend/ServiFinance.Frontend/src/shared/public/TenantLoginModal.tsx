@@ -22,7 +22,7 @@ export function TenantLoginModal({ open, tenantDomainSlug, system, error, onClos
     return null;
   }
 
-  const targetRoute = `/${tenantDomainSlug}/${system}/dashboard`;
+  const targetRoute = `/t/${tenantDomainSlug}/${system}/dashboard`;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

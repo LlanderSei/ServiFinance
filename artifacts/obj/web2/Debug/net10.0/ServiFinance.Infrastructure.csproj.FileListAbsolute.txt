@@ -1,6 +1,0 @@
-e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Infrastructure.csproj.AssemblyReference.cache
-e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
-e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Infrastructure.AssemblyInfoInputs.cache
-e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Infrastructure.AssemblyInfo.cs
-e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Infrastructure.csproj.CoreCompileInputs.cache
-e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\obj\web2\Debug\net10.0\ServiFinance.Infrastructure.sourcelink.json

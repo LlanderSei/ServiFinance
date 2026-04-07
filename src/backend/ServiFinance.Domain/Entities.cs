@@ -16,6 +16,8 @@ public sealed class Tenant : Entity {
   public string Name { get; set; } = string.Empty;
   public string Code { get; set; } = string.Empty;
   public string DomainSlug { get; set; } = string.Empty;
+  public string BusinessSizeSegment { get; set; } = string.Empty;
+  public string SubscriptionEdition { get; set; } = string.Empty;
   public string SubscriptionPlan { get; set; } = string.Empty;
   public string SubscriptionStatus { get; set; } = string.Empty;
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
@@ -29,6 +31,8 @@ public sealed class Tenant : Entity {
 public sealed class SubscriptionTier : Entity {
   public string Code { get; set; } = string.Empty;
   public string DisplayName { get; set; } = string.Empty;
+  public string BusinessSizeSegment { get; set; } = string.Empty;
+  public string SubscriptionEdition { get; set; } = string.Empty;
   public string AudienceSummary { get; set; } = string.Empty;
   public string Description { get; set; } = string.Empty;
   public string PriceDisplay { get; set; } = string.Empty;
@@ -39,6 +43,29 @@ public sealed class SubscriptionTier : Entity {
   public bool IncludesServiceManagementWeb { get; set; }
   public bool IncludesMicroLendingDesktop { get; set; }
   public bool IsActive { get; set; } = true;
+
+  public ICollection<SubscriptionTierModule> Modules { get; set; } = [];
+}
+
+public sealed class PlatformModule : Entity {
+  public string Code { get; set; } = string.Empty;
+  public string Name { get; set; } = string.Empty;
+  public string Channel { get; set; } = string.Empty;
+  public string Summary { get; set; } = string.Empty;
+  public int SortOrder { get; set; }
+  public bool IsActive { get; set; } = true;
+
+  public ICollection<SubscriptionTierModule> TierAssignments { get; set; } = [];
+}
+
+public sealed class SubscriptionTierModule : Entity {
+  public Guid SubscriptionTierId { get; set; }
+  public Guid PlatformModuleId { get; set; }
+  public string AccessLevel { get; set; } = string.Empty;
+  public int SortOrder { get; set; }
+
+  public SubscriptionTier? SubscriptionTier { get; set; }
+  public PlatformModule? PlatformModule { get; set; }
 }
 
 public sealed class AppUser : TenantEntity {

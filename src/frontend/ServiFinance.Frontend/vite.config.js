@@ -5,6 +5,24 @@ import { fileURLToPath } from "node:url";
 var rootDir = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
     plugins: [react()],
+    build: {
+        rollupOptions: {
+            output: {
+                entryFileNames: "assets/index.js",
+                chunkFileNames: "assets/[name].js",
+                manualChunks: {
+                    "react-vendor": ["react", "react-dom", "react-router-dom"],
+                    "query-vendor": ["@tanstack/react-query"]
+                },
+                assetFileNames: function (assetInfo) {
+                    var _a;
+                    return ((_a = assetInfo.name) === null || _a === void 0 ? void 0 : _a.endsWith(".css"))
+                        ? "assets/index.css"
+                        : "assets/[name][extname]";
+                }
+            }
+        }
+    },
     resolve: {
         alias: {
             "@": path.resolve(rootDir, "./src")
@@ -13,9 +31,9 @@ export default defineConfig({
     server: {
         port: 5173,
         proxy: {
-            "/api": "https://localhost:7050",
-            "/account": "https://localhost:7050",
-            "/_framework": "https://localhost:7050"
+            "/api": "http://localhost:5228",
+            "/account": "http://localhost:5228",
+            "/_framework": "http://localhost:5228"
         }
     }
 });

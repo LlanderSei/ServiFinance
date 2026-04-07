@@ -1,6 +1,6 @@
 # ServiFinance Implementation Status
 
-Last updated: 2026-03-25
+Last updated: 2026-04-08
 
 ## What Has Been Implemented
 
@@ -24,7 +24,7 @@ Last updated: 2026-03-25
 - Tenant-aware query filters and save-time tenant stamping are implemented.
 - SQL Server migration support is configured.
 - Initial migration has been generated and applied:
-  - `ServiFinance.Infrastructure/Migrations/20260324164507_InitialFoundation.cs`
+  - `src/backend/ServiFinance.Infrastructure/Migrations/20260324164507_InitialFoundation.cs`
 
 ### Development Seeding
 
@@ -35,7 +35,7 @@ Last updated: 2026-03-25
   - one development admin user
   - one admin role assignment
 - Development credentials are configurable in:
-  - `ServiFinance.Web/appsettings.Development.json`
+  - `src/backend/ServiFinance.Api/appsettings.Development.json`
 
 ### Authentication
 
@@ -67,7 +67,7 @@ Last updated: 2026-03-25
 ## What Is Working Right Now
 
 - The solution builds successfully through:
-  - `ServiFinance.Web/ServiFinance.Web.csproj`
+  - `src/backend/ServiFinance.Api/ServiFinance.Api.csproj`
 - The local SQL Server database has:
   - 1 tenant
   - 2 roles
@@ -86,9 +86,14 @@ Last updated: 2026-03-25
 - There is no self-service password reset or email flow.
 - Role management is limited to using roles that already exist in the database.
 - Permissions are still role-name based; there is no fine-grained permission matrix yet.
+- MSME segment and subscription-based module entitlement enforcement is not implemented yet.
 - Audit logging for login activity, password changes, and user admin actions is not implemented yet.
 - The legacy template pages still exist and are not yet fully replaced by service-specific modules.
 - The MAUI desktop channel is not yet wired to the auth flow.
+
+Reference:
+
+- `Docs/msme-tiering-and-module-matrix.md` now defines the target module matrix for `Micro`, `Small`, and `Medium` tenants under `Standard` and `Premium`.
 
 ## Recommended Next Implementation Steps
 
@@ -113,6 +118,8 @@ Last updated: 2026-03-25
 - Build service request status tracking and assignment workflows.
 - Build invoice creation from service work.
 - Build the shared loan engine and payment posting workflows.
+- Add tenant module entitlement resolution based on MSME segment and subscription edition.
+- Gate web and desktop routes based on the documented module matrix.
 
 ### Desktop and Shared Experience
 

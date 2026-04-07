@@ -1,51 +1,99 @@
 import type { ReactNode } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { CurrentSessionUser } from "@/shared/api/contracts";
-import { useLogout } from "./useLogout";
+import { AuthSidebar } from "./shell/AuthSidebar";
+import { buildAuthSections } from "./shell/navigation";
 
 type Props = {
   user: CurrentSessionUser;
   children: ReactNode;
 };
 
+const SIDEBAR_EXPANDED_KEY = "sf:sidebar:expanded";
+const SIDEBAR_SECTIONS_KEY = "sf:sidebar:sections";
+const SIDEBAR_THEME_KEY = "sf:sidebar:theme";
+
+type ShellTheme = "light" | "dark";
+
 export function AuthenticatedShell({ user, children }: Props) {
-  const logout = useLogout();
-  const tenantBase = `/${user.tenantDomainSlug}`;
-  const items = user.roles.includes("SuperAdmin")
-    ? [
-        { to: "/dashboard", label: "Dashboard" },
-        { to: "/tenants", label: "Tenants" },
-        { to: "/subscriptions", label: "Subscriptions" }
-      ]
-    : [
-        { to: `${tenantBase}/sms/dashboard`, label: "SMS Dashboard" },
-        ...(user.roles.includes("Administrator") ? [{ to: `${tenantBase}/sms/users`, label: "SMS Users" }] : []),
-        { to: `${tenantBase}/mls/dashboard`, label: "MLS Dashboard" }
-      ];
+  const sections = useMemo(() => buildAuthSections(user), [user]);
+
+  const [isExpanded, setIsExpanded] = useState(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+
+    const saved = window.localStorage.getItem(SIDEBAR_EXPANDED_KEY);
+    return saved === null ? true : saved === "true";
+  });
+
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") {
+      return {};
+    }
+
+    const saved = window.localStorage.getItem(SIDEBAR_SECTIONS_KEY);
+    if (!saved) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(saved) as Record<string, boolean>;
+    } catch {
+      return {};
+    }
+  });
+
+  const [theme, setTheme] = useState<ShellTheme>(() => {
+    if (typeof window === "undefined") {
+      return "light";
+    }
+
+    const saved = window.localStorage.getItem(SIDEBAR_THEME_KEY);
+    return saved === "dark" ? "dark" : "light";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(SIDEBAR_EXPANDED_KEY, String(isExpanded));
+  }, [isExpanded]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(SIDEBAR_SECTIONS_KEY, JSON.stringify(collapsedSections));
+  }, [collapsedSections]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(SIDEBAR_THEME_KEY, theme);
+  }, [theme]);
 
   return (
-    <div className="authed-shell">
-      <aside className="authed-shell__sidebar">
-        <Link to={items[0]?.to ?? "/"} className="brand">
-          <span className="brand__mark">{user.roles.includes("SuperAdmin") ? "SF" : user.tenantDomainSlug.slice(0, 2).toUpperCase()}</span>
-          <span>
-            <strong>{user.roles.includes("SuperAdmin") ? "ServiFinance" : user.tenantDomainSlug}</strong>
-            <small>{user.roles.includes("SuperAdmin") ? "Platform control plane" : user.email}</small>
-          </span>
-        </Link>
-
-        <nav className="authed-nav">
-          {items.map((item) => (
-            <NavLink key={item.to} to={item.to} className={({ isActive }) => `authed-nav__item${isActive ? " is-active" : ""}`}>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <button type="button" className="button button--ghost" onClick={() => void logout()}>
-          Logout
-        </button>
-      </aside>
+    <div className={`authed-shell${isExpanded ? "" : " is-collapsed"}${theme === "dark" ? " theme-dark" : ""}`}>
+      <AuthSidebar
+        user={user}
+        sections={sections}
+        isExpanded={isExpanded}
+        theme={theme}
+        collapsedSections={collapsedSections}
+        onToggleExpanded={() => setIsExpanded((current) => !current)}
+        onToggleTheme={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+        onToggleSection={(sectionKey) =>
+          setCollapsedSections((current) => ({
+            ...current,
+            [sectionKey]: !current[sectionKey]
+          }))
+        }
+      />
 
       <section className="authed-shell__content">
         {children}

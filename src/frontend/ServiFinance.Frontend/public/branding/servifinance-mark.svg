@@ -1,0 +1,27 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="servifinance-mark-gradient" x1="28" y1="18" x2="222" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4ED8CA" />
+      <stop offset="0.56" stop-color="#6E96FF" />
+      <stop offset="1" stop-color="#8A78FF" />
+    </linearGradient>
+    <linearGradient id="servifinance-bridge-gradient" x1="88" y1="164" x2="164" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E7FFFB" />
+      <stop offset="1" stop-color="#FFFFFF" />
+    </linearGradient>
+  </defs>
+
+  <rect x="18" y="18" width="220" height="220" rx="54" fill="url(#servifinance-mark-gradient)" />
+  <rect x="34" y="34" width="188" height="188" rx="40" fill="white" fill-opacity="0.08" stroke="white" stroke-opacity="0.28" stroke-width="2" />
+
+  <path d="M80 70V162" stroke="white" stroke-width="14" stroke-linecap="round" />
+  <circle cx="80" cy="70" r="12" fill="white" />
+  <circle cx="80" cy="116" r="12" fill="white" fill-opacity="0.96" />
+  <circle cx="80" cy="162" r="12" fill="white" />
+
+  <path d="M96 162C105 147 118 133 136 122C145 116 155 112 170 112" stroke="url(#servifinance-bridge-gradient)" stroke-width="16" stroke-linecap="round" />
+
+  <rect x="132" y="76" width="52" height="14" rx="7" fill="white" />
+  <rect x="132" y="112" width="64" height="14" rx="7" fill="white" />
+  <rect x="132" y="148" width="42" height="14" rx="7" fill="white" />
+</svg>

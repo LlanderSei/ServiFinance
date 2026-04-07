@@ -95,9 +95,11 @@ export function RootLandingPage() {
               <article key={tier.id} className="tier-card">
                 <span className="tier-card__label">{tier.highlightLabel || tier.code}</span>
                 <h3>{tier.displayName}</h3>
+                <p className="tier-card__kicker">{tier.businessSizeSegment} business • {tier.subscriptionEdition} edition</p>
                 <p>{tier.description}</p>
                 <strong>{tier.priceDisplay}</strong>
                 <small>{tier.billingLabel}</small>
+                <p>{tier.modules.length} modules unlocked</p>
               </article>
             ))}
           </div>

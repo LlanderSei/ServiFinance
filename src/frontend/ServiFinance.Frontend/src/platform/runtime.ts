@@ -1,4 +1,5 @@
 import { desktopBridge } from "@/platform/desktop/bridge";
+import { isDesktopBridgeEnvironment } from "@/platform/desktop/bridge";
 
 export type DesktopShellContext = {
   appVersion: string;
@@ -9,7 +10,7 @@ export type DesktopShellContext = {
 let shellContextPromise: Promise<DesktopShellContext> | null = null;
 
 export function isDesktopShell() {
-  return typeof window !== "undefined" && typeof window.ServiFinanceDesktop !== "undefined";
+  return typeof window !== "undefined" && isDesktopBridgeEnvironment();
 }
 
 export function toPlatformRoute(path: string) {

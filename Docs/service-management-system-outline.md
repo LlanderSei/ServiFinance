@@ -32,6 +32,22 @@ The system must satisfy both class requirements without duplicating core logic:
 - The **desktop application** fulfills the Financial / Transaction requirement
 - Shared models, validation, tenancy rules, and financial logic must be implemented once and reused by both
 
+### 1.5 MSME Tiering Direction
+
+ServiFinance should use one shared product model across MSMEs instead of separate products for Micro, Small, and Medium enterprises.
+
+Recommended product structure:
+
+- `Standard` = web-based Service Management System
+- `Premium` = `Standard` plus the desktop Financial and Micro-Lending Terminal
+- `Micro` should receive a reduced module set
+- `Small` should be the full operational baseline
+- `Medium` should mostly reuse `Small` modules with stronger reporting and audit visibility
+
+The detailed matrix is documented in:
+
+- `Docs/msme-tiering-and-module-matrix.md`
+
 ## 2. Solution Architecture
 
 ### 2.1 Logical Components
@@ -113,12 +129,22 @@ This rule ensures:
 - `Id`
 - `Name`
 - `Code`
+- `BusinessSizeSegment`
+- `SubscriptionEdition`
 - `SubscriptionPlan`
 - `SubscriptionStatus`
 - `CreatedAtUtc`
 - `IsActive`
 
 This is the only table without `TenantId`.
+
+Recommended supporting entitlement tables:
+
+- `SubscriptionTiers`
+- `ModuleCatalog`
+- `TenantModuleEntitlements`
+
+These support module gating by MSME segment and edition without hard-coding the full matrix into UI routing alone.
 
 #### `Users`
 
@@ -505,6 +531,19 @@ Although the delivery channels differ, both must use the same tenant-aware appli
 - the web application must enforce tenant filters for service-side records
 - the desktop terminal must enforce the same rules for invoices, loans, and ledger transactions
 - shared business services must assume tenant scoping is mandatory, not optional
+
+### 5.7 Subscription Tier And Module Enforcement
+
+Tenant isolation is not enough by itself. The system must also enforce which modules a tenant is allowed to access.
+
+Recommended enforcement model:
+
+- determine entitlement from `BusinessSizeSegment + SubscriptionEdition`
+- expose effective module access through a shared resolver
+- enforce module access in both UI navigation and backend endpoints
+- treat any per-tenant override as an exception handled by superadmin controls
+
+This keeps module access consistent between the SaaS web channel and the desktop finance terminal.
 
 ## 6. Implementation Phases
 

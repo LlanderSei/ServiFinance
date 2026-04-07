@@ -12,6 +12,7 @@ export function useRefreshSession(enabled = true) {
 
       return session;
     },
+    staleTime: 30_000,
     retry: false,
     enabled
   });

@@ -5,7 +5,7 @@
       "name": "Web + Desktop",
       "configurations": [
         "Web",
-        "Desktop"
+        "Desktop (Windows)"
       ]
     }
   ],
@@ -14,8 +14,8 @@
       "name": "Web",
       "type": "dotnet",
       "request": "launch",
-      "projectPath": "${workspaceFolder}/ServiFinance.Web/ServiFinance.Web.csproj",
-      "launchSettingsProfile": "https-vscode",
+      "projectPath": "${workspaceFolder}/src/backend/ServiFinance.Api/ServiFinance.Api.csproj",
+      "launchSettingsProfile": "https",
       "serverReadyAction": {
         "action": "startDebugging",
         "name": "Web Browser (Edge)",
@@ -23,12 +23,12 @@
       }
     },
     {
-      "name": "Desktop",
+      "name": "Desktop (Windows)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-desktop",
-      "program": "${workspaceFolder}/ServiFinance/bin/Debug/net10.0-windows10.0.19041.0/win-x64/ServiFinance.exe",
-      "cwd": "${workspaceFolder}/ServiFinance",
+      "program": "${workspaceFolder}/src/desktop/ServiFinance.Desktop/bin/Debug/net10.0-windows10.0.19041.0/win-x64/ServiFinance.Desktop.exe",
+      "cwd": "${workspaceFolder}/src/desktop/ServiFinance.Desktop",
       "console": "internalConsole",
       "stopAtEntry": false
     },

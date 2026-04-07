@@ -7,7 +7,7 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/ServiFinance/ServiFinance.csproj",
+        "${workspaceFolder}/src/desktop/ServiFinance.Desktop/ServiFinance.Desktop.csproj",
         "-f",
         "net10.0-windows10.0.19041.0"
       ],

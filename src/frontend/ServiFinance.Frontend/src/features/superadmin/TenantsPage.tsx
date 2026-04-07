@@ -7,6 +7,8 @@ type TenantRow = {
   name: string;
   code: string;
   domainSlug: string;
+  businessSizeSegment: string;
+  subscriptionEdition: string;
   subscriptionPlan: string;
   subscriptionStatus: string;
   isActive: boolean;
@@ -34,6 +36,8 @@ export function TenantsPage() {
                 <th>Name</th>
                 <th>Code</th>
                 <th>Domain slug</th>
+                <th>Segment</th>
+                <th>Edition</th>
                 <th>Plan</th>
                 <th>Status</th>
               </tr>
@@ -44,6 +48,8 @@ export function TenantsPage() {
                   <td>{tenant.name}</td>
                   <td>{tenant.code}</td>
                   <td>{tenant.domainSlug}</td>
+                  <td>{tenant.businessSizeSegment}</td>
+                  <td>{tenant.subscriptionEdition}</td>
                   <td>{tenant.subscriptionPlan}</td>
                   <td>{tenant.subscriptionStatus}</td>
                 </tr>
