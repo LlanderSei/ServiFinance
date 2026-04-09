@@ -49,7 +49,7 @@ export function RootLoginModal({ open, error, onClose }: Props) {
       }
 
       const payload = await response.json() as AuthSessionResponse;
-      await applySession(payload);
+      await applySession(payload, { rememberOnWeb: rememberMe && !isDesktopShell() });
       window.location.assign(toPlatformRoute(returnUrl));
     } catch {
       setLocalError("Unable to reach the authentication endpoint.");

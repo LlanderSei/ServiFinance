@@ -28,6 +28,7 @@ public sealed class ServiFinanceDbContext(
   public DbSet<Tenant> Tenants => Set<Tenant>();
   public DbSet<SubscriptionTier> SubscriptionTiers => Set<SubscriptionTier>();
   public DbSet<PlatformModule> PlatformModules => Set<PlatformModule>();
+  public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
   public DbSet<SubscriptionTierModule> SubscriptionTierModules => Set<SubscriptionTierModule>();
   public DbSet<AppUser> Users => Set<AppUser>();
   public DbSet<Role> Roles => Set<Role>();
@@ -46,6 +47,7 @@ public sealed class ServiFinanceDbContext(
     ConfigureTenant(modelBuilder);
     ConfigureSubscriptionTiers(modelBuilder);
     ConfigurePlatformModules(modelBuilder);
+    ConfigureRefreshSessions(modelBuilder);
     ConfigureSubscriptionTierModules(modelBuilder);
     ConfigureUsers(modelBuilder);
     ConfigureRoles(modelBuilder);
@@ -155,6 +157,19 @@ public sealed class ServiFinanceDbContext(
     platformModule.Property(entity => entity.Channel).HasMaxLength(50);
     platformModule.Property(entity => entity.Summary).HasMaxLength(300);
     platformModule.HasIndex(entity => entity.Code).IsUnique();
+  }
+
+  private void ConfigureRefreshSessions(ModelBuilder modelBuilder) {
+    var refreshSession = modelBuilder.Entity<RefreshSession>();
+    refreshSession.ToTable("RefreshSessions");
+    refreshSession.Property(entity => entity.Surface).HasMaxLength(50);
+    refreshSession.Property(entity => entity.RefreshTokenHash).HasMaxLength(128);
+    refreshSession.HasIndex(entity => entity.RefreshTokenHash).IsUnique();
+    refreshSession.HasIndex(entity => entity.ExpiresAtUtc);
+    refreshSession.HasOne(entity => entity.User)
+        .WithMany(entity => entity.RefreshSessions)
+        .HasForeignKey(entity => entity.UserId)
+        .OnDelete(DeleteBehavior.Cascade);
   }
 
   private void ConfigureSubscriptionTierModules(ModelBuilder modelBuilder) {

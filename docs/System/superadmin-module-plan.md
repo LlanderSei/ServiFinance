@@ -26,12 +26,18 @@ Purpose:
 
 - Give the SuperAdmin a root-domain snapshot of platform activity.
 
-Must add next:
+Implemented:
 
 - top-line tenant counts by status
 - subscription counts by MSME segment and edition
 - recent provisioning or registration activity
-- quick warnings for overdue platform issues
+- quick warnings for inactive tenants or catalog issues
+
+Still to add next:
+
+- cross-module warning correlation with deeper health signals
+- richer provisioning timeline filters
+- adoption metrics beyond tenant counts
 
 ### System Health
 
@@ -39,13 +45,18 @@ Purpose:
 
 - Monitor whether the SaaS platform is operational.
 
-Must add next:
+Implemented:
 
 - API health and uptime summary
 - database connectivity and migration status
-- background job / queue status if used
 - desktop bridge health indicators for hybrid scenarios
 - last deployment or build metadata
+
+Still to add next:
+
+- real background job / queue status when a worker exists
+- log-linked incident drill-down
+- health history instead of current-state reporting only
 
 ### Tenants
 
@@ -53,10 +64,14 @@ Purpose:
 
 - Manage tenant accounts and inspect tenant subscription posture.
 
-Must add next:
+Implemented:
 
 - tenant filtering by segment, edition, and status
 - activate / suspend / reactivate flows
+- tenant detail modal for inspection
+
+Still to add next:
+
 - tenant detail drawer or page
 - module override visibility when tenant-specific exceptions are introduced
 

@@ -23,6 +23,105 @@ export type SubscriptionTierCard = {
   modules: SubscriptionTierModuleCard[];
 };
 
+export type SuperadminTenantRow = {
+  id: string;
+  name: string;
+  code: string;
+  domainSlug: string;
+  businessSizeSegment: string;
+  subscriptionEdition: string;
+  subscriptionPlan: string;
+  subscriptionStatus: string;
+  createdAtUtc: string;
+  isActive: boolean;
+};
+
+export type SuperadminModuleRow = {
+  id: string;
+  code: string;
+  name: string;
+  channel: "Web" | "Desktop" | string;
+  summary: string;
+  assignedTierCount: number;
+  isActive: boolean;
+};
+
+export type SuperadminOverviewWarning = {
+  code: string;
+  severity: "Info" | "Warning" | "Critical" | string;
+  title: string;
+  message: string;
+};
+
+export type SuperadminOverviewMetric = {
+  totalTenants: number;
+  activeTenants: number;
+  suspendedTenants: number;
+  standardTenants: number;
+  premiumTenants: number;
+};
+
+export type SuperadminOverviewMixRow = {
+  businessSizeSegment: string;
+  subscriptionEdition: string;
+  count: number;
+};
+
+export type SuperadminOverviewRecentTenant = {
+  id: string;
+  name: string;
+  domainSlug: string;
+  businessSizeSegment: string;
+  subscriptionEdition: string;
+  subscriptionStatus: string;
+  createdAtUtc: string;
+};
+
+export type SuperadminOverviewResponse = {
+  summary: SuperadminOverviewMetric;
+  subscriptionMix: SuperadminOverviewMixRow[];
+  recentTenants: SuperadminOverviewRecentTenant[];
+  warnings: SuperadminOverviewWarning[];
+};
+
+export type SuperadminSystemHealthApi = {
+  status: string;
+  environment: string;
+  version: string;
+  startedAtUtc: string;
+  uptimeMinutes: number;
+  buildTimestampUtc: string;
+};
+
+export type SuperadminSystemHealthDatabase = {
+  status: string;
+  canConnect: boolean;
+  appliedMigrationCount: number;
+  pendingMigrationCount: number;
+  latestAppliedMigration: string;
+};
+
+export type SuperadminSystemHealthCatalog = {
+  activeTierCount: number;
+  inactiveTierCount: number;
+  activeModuleCount: number;
+  inactiveModuleCount: number;
+};
+
+export type SuperadminSystemHealthArea = {
+  status: string;
+  summary: string;
+};
+
+export type SuperadminSystemHealthResponse = {
+  api: SuperadminSystemHealthApi;
+  database: SuperadminSystemHealthDatabase;
+  catalog: SuperadminSystemHealthCatalog;
+  queues: SuperadminSystemHealthArea;
+  hybrid: SuperadminSystemHealthArea;
+  warnings: SuperadminOverviewWarning[];
+};
+
 export type CurrentSessionUser = {
   userId: string;
   tenantId: string;

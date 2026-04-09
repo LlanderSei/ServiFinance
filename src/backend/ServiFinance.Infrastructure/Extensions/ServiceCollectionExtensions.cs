@@ -40,7 +40,7 @@ public static class ServiceCollectionExtensions {
     services.AddScoped<ISubscriptionTierCatalogService, SubscriptionTierCatalogService>();
     services.AddSingleton(TimeProvider.System);
     services.Configure<SessionTokenOptions>(configuration?.GetSection(SessionTokenOptions.SectionName) ?? new ConfigurationBuilder().Build().GetSection(SessionTokenOptions.SectionName));
-    services.AddSingleton<ISessionTokenService, JwtSessionTokenService>();
+    services.AddScoped<ISessionTokenService, JwtSessionTokenService>();
     services.AddScoped<DevelopmentDataSeeder>();
     services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
     services.AddSingleton(new DevelopmentSeedOptions {

@@ -1,10 +1,15 @@
 import type { AuthSessionResponse } from "@/shared/api/contracts";
 import { isDesktopShell, resolveApiUrl } from "@/platform/runtime";
 import { desktopBridge } from "@/platform/desktop/bridge";
+import { webSessionStorage } from "@/platform/web/sessionStorage";
 
 let accessToken: string | null = null;
 let currentSession: AuthSessionResponse | null = null;
 let refreshRequest: Promise<AuthSessionResponse | null> | null = null;
+
+type ApplySessionOptions = {
+  rememberOnWeb?: boolean;
+};
 
 export function getAccessToken() {
   return accessToken;
@@ -18,12 +23,19 @@ export function getCurrentSession() {
   return currentSession;
 }
 
-export async function applySession(response: AuthSessionResponse) {
+export async function applySession(response: AuthSessionResponse, options: ApplySessionOptions = {}) {
   accessToken = response.tokens.accessToken;
   currentSession = response;
 
   if (isDesktopShell()) {
     await desktopBridge.saveRefreshToken(response.tokens.refreshToken);
+    return;
+  }
+
+  if (options.rememberOnWeb) {
+    webSessionStorage.saveRefreshToken(response.tokens.refreshToken);
+  } else {
+    webSessionStorage.clear();
   }
 }
 
@@ -33,7 +45,10 @@ export async function clearSession() {
 
   if (isDesktopShell()) {
     await desktopBridge.clearRefreshToken();
+    return;
   }
+
+  webSessionStorage.clear();
 }
 
 export async function refreshSession() {
@@ -51,26 +66,34 @@ export async function refreshSession() {
 
   refreshRequest = (async () => {
     const requestUrl = await resolveApiUrl("/api/auth/refresh");
-    const body = isDesktopShell()
-      ? { refreshToken: await desktopBridge.getRefreshToken() }
-      : {};
+    const storedRefreshToken = isDesktopShell()
+      ? await desktopBridge.getRefreshToken()
+      : webSessionStorage.getRefreshToken();
 
-    if (isDesktopShell() && !body.refreshToken) {
+    const useTokenBody = Boolean(storedRefreshToken);
+
+    if (isDesktopShell() && !storedRefreshToken) {
       return null;
     }
 
     const response = await fetch(requestUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      method: useTokenBody ? "POST" : "GET",
+      headers: useTokenBody
+        ? {
+            "Content-Type": "application/json"
+          }
+        : undefined,
       credentials: isDesktopShell() ? "omit" : "include",
-      body: JSON.stringify(body)
+      body: useTokenBody
+        ? JSON.stringify({ refreshToken: storedRefreshToken })
+        : undefined
     });
 
     if (!response.ok) {
       if (isDesktopShell()) {
         await desktopBridge.clearRefreshToken();
+      } else {
+        webSessionStorage.clear();
       }
 
       accessToken = null;
@@ -79,7 +102,7 @@ export async function refreshSession() {
     }
 
     const payload = await response.json() as AuthSessionResponse;
-    await applySession(payload);
+    await applySession(payload, { rememberOnWeb: !isDesktopShell() && useTokenBody });
     return payload;
   })().finally(() => {
     refreshRequest = null;

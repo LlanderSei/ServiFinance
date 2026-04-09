@@ -58,6 +58,18 @@ public sealed class PlatformModule : Entity {
   public ICollection<SubscriptionTierModule> TierAssignments { get; set; } = [];
 }
 
+public sealed class RefreshSession : Entity {
+  public Guid UserId { get; set; }
+  public string Surface { get; set; } = string.Empty;
+  public bool RememberMe { get; set; }
+  public string RefreshTokenHash { get; set; } = string.Empty;
+  public DateTime ExpiresAtUtc { get; set; }
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime LastRotatedAtUtc { get; set; } = DateTime.UtcNow;
+
+  public AppUser? User { get; set; }
+}
+
 public sealed class SubscriptionTierModule : Entity {
   public Guid SubscriptionTierId { get; set; }
   public Guid PlatformModuleId { get; set; }
@@ -83,6 +95,7 @@ public sealed class AppUser : TenantEntity {
   public ICollection<Assignment> CreatedAssignments { get; set; } = [];
   public ICollection<MicroLoan> CreatedMicroLoans { get; set; } = [];
   public ICollection<LedgerTransaction> CreatedTransactions { get; set; } = [];
+  public ICollection<RefreshSession> RefreshSessions { get; set; } = [];
 }
 
 public sealed class Role : TenantEntity {

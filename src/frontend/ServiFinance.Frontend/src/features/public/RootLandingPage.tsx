@@ -1,18 +1,35 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useSubscriptionTiers } from "@/shared/api/useSubscriptionTiers";
+import { CurrentSessionUser } from "@/shared/api/contracts";
+import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { PublicFooter } from "@/shared/public/PublicFooter";
 import { PublicHeader } from "@/shared/public/PublicHeader";
 import { RootLoginModal } from "@/shared/public/RootLoginModal";
 
+function getAuthenticatedHomeRoute(user: CurrentSessionUser) {
+  if (user.roles.includes("SuperAdmin")) {
+    return "/dashboard";
+  }
+
+  return user.surface === "TenantDesktop"
+    ? `/t/${user.tenantDomainSlug}/mls/dashboard`
+    : `/t/${user.tenantDomainSlug}/sms/dashboard`;
+}
+
 export function RootLandingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [manualOpen, setManualOpen] = useState(false);
+  const { data: session } = useRefreshSession();
   const { data: tiers } = useSubscriptionTiers();
   const loginOpen = manualOpen || searchParams.get("showLogin") === "true";
   const error = searchParams.get("error");
 
   const visibleTiers = useMemo(() => tiers ?? [], [tiers]);
+
+  if (session) {
+    return <Navigate to={getAuthenticatedHomeRoute(session.user)} replace />;
+  }
 
   const openLogin = () => setManualOpen(true);
   const closeLogin = () => {
