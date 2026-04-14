@@ -6,7 +6,7 @@ import { httpGet } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { RecordTableStateRow } from "@/shared/records/RecordTable";
-import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { RecordContentStack, RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceInlineNote, WorkspaceNotice } from "@/shared/records/WorkspaceControls";
 import {
   WorkspaceEmptyState,
@@ -185,12 +185,12 @@ export function SmsReportsPage() {
         recordCount={reportsQuery.data?.catalog.length ?? 0}
         singularLabel="report"
       >
-        <div className="record-content-stack record-content-stack--with-fab">
+        <RecordContentStack>
           {reportsQuery.isError ? (
             <WorkspaceNotice tone="error">Unable to load operational reports.</WorkspaceNotice>
           ) : null}
 
-          <div className="record-content-stack__scroll-region">
+          <RecordScrollRegion>
             <WorkspaceScrollStack>
               <WorkspaceMetricGrid className="2xl:grid-cols-4">
                 <MetricCard
@@ -348,7 +348,7 @@ export function SmsReportsPage() {
                 />
               </WorkspacePanel>
             </WorkspaceScrollStack>
-          </div>
+          </RecordScrollRegion>
 
           <WorkspaceFabDock
             actions={[
@@ -376,7 +376,7 @@ export function SmsReportsPage() {
               }
             ]}
           />
-        </div>
+        </RecordContentStack>
       </RecordWorkspace>
     </ProtectedRoute>
   );

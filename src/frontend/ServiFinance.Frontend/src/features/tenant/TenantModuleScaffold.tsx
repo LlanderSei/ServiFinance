@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { RecordTable, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
-import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceNoteList, WorkspacePanel, WorkspacePanelHeader } from "@/shared/records/WorkspacePanel";
 
 type TenantModuleScaffoldProps = {
@@ -36,7 +36,7 @@ export function TenantModuleScaffold({
         title={title}
         description={description}
       >
-        <div className="record-content-stack record-content-stack--with-fab">
+        <RecordContentStack>
           <RecordTableShell>
             <RecordTable>
               <thead>
@@ -58,7 +58,7 @@ export function TenantModuleScaffold({
           </WorkspacePanel>
 
           {dock}
-        </div>
+        </RecordContentStack>
       </RecordWorkspace>
     </ProtectedRoute>
   );

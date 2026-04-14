@@ -172,10 +172,25 @@ That removed the remaining shell-owned structural selectors from `src/frontend/S
 - `record-workspace`
 - `workspace-fab-dock*`
 
+The remaining record-content stack helpers are now componentized too:
+
+- `src/frontend/ServiFinance.Frontend/src/shared/records/RecordWorkspace.tsx`
+- `src/frontend/ServiFinance.Frontend/src/features/superadmin/TenantsPage.tsx`
+- `src/frontend/ServiFinance.Frontend/src/features/tenant/TenantModuleScaffold.tsx`
+- `src/frontend/ServiFinance.Frontend/src/features/tenant/sms/SmsUsersPage.tsx`
+- `src/frontend/ServiFinance.Frontend/src/features/tenant/sms/SmsCustomersPage.tsx`
+- `src/frontend/ServiFinance.Frontend/src/features/tenant/sms/SmsServiceRequestsPage.tsx`
+- `src/frontend/ServiFinance.Frontend/src/features/tenant/sms/SmsDispatchPage.tsx`
+- `src/frontend/ServiFinance.Frontend/src/features/tenant/sms/SmsReportsPage.tsx`
+
+That removed the last record-content layout selectors from `src/frontend/ServiFinance.Frontend/src/styles.css`, including:
+
+- `record-content-stack*`
+
 ## Next migration slices
 
-1. Review the remaining record-content stack helpers in `styles.css` and decide whether they stay as cross-app layout helpers or become utility composition in the shared record workspace.
-2. Keep `styles.css` limited to global tokens, base document styles, reduced-motion fallback, and any truly shared non-componentized layout rules.
+1. Keep `styles.css` limited to global tokens, base document styles, and reduced-motion fallback.
+2. When new layout primitives are needed, add them to shared React components first instead of reintroducing page-scoped CSS selectors.
 
 ## Constraint
 

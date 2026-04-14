@@ -52,36 +52,6 @@ select {
   min-height: 100vh;
 }
 
-.record-content-stack {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 1rem;
-  min-height: 0;
-  position: relative;
-}
-
-.record-content-stack--with-fab {
-  padding-bottom: 0;
-}
-
-.record-content-stack--scrollable {
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding-right: 0.1rem;
-  padding-bottom: 5.5rem;
-  scroll-padding-bottom: 5.5rem;
-}
-
-.record-content-stack__scroll-region {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding-bottom: 5.5rem;
-  scroll-padding-bottom: 5.5rem;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -90,7 +60,4 @@ select {
     transition: none !important;
     scroll-behavior: auto !important;
   }
-}
-
-@media (max-width: 960px) {
 }

@@ -17,7 +17,7 @@ import {
   WorkspaceSelect,
   WorkspaceStatusPill
 } from "@/shared/records/WorkspaceControls";
-import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceToolbar } from "@/shared/records/WorkspacePanel";
 
 const tenantDateFormatter = new Intl.DateTimeFormat("en-PH", {
@@ -110,7 +110,7 @@ export function TenantsPage() {
           recordCount={rows.length}
           singularLabel="tenant"
         >
-          <div className="record-content-stack">
+          <RecordContentStack>
             <WorkspaceToolbar>
               <WorkspaceFilter label="Segment">
                 <WorkspaceSelect
@@ -205,7 +205,7 @@ export function TenantsPage() {
                 </tbody>
               </RecordTable>
             </RecordTableShell>
-          </div>
+          </RecordContentStack>
         </RecordWorkspace>
 
         <RecordDetailsModal

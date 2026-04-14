@@ -11,6 +11,20 @@ type RecordWorkspaceProps = {
   children: ReactNode;
 };
 
+type RecordContentStackProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+type RecordScrollRegionProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+function joinClasses(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
+
 export function RecordWorkspace({
   breadcrumbs,
   title,
@@ -50,5 +64,26 @@ export function RecordWorkspace({
         </section>
       </section>
     </main>
+  );
+}
+
+export function RecordContentStack({ children, className }: RecordContentStackProps) {
+  return (
+    <div className={joinClasses("relative flex min-h-0 flex-1 flex-col gap-4", className)}>
+      {children}
+    </div>
+  );
+}
+
+export function RecordScrollRegion({ children, className }: RecordScrollRegionProps) {
+  return (
+    <div
+      className={joinClasses(
+        "min-h-0 flex-1 overflow-auto overscroll-contain pb-[5.5rem] [scroll-padding-bottom:5.5rem]",
+        className
+      )}
+    >
+      {children}
+    </div>
   );
 }

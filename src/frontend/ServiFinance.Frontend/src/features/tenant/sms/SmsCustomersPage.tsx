@@ -20,7 +20,7 @@ import {
   WorkspaceModalButton,
   WorkspaceNotice
 } from "@/shared/records/WorkspaceControls";
-import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
 
 export function SmsCustomersPage() {
@@ -105,7 +105,7 @@ export function SmsCustomersPage() {
           recordCount={customersQuery.data?.length ?? 0}
           singularLabel="customer"
         >
-          <div className="record-content-stack record-content-stack--with-fab">
+          <RecordContentStack>
             {message ? <WorkspaceNotice>{message}</WorkspaceNotice> : null}
             {error ? <WorkspaceNotice tone="error">{error}</WorkspaceNotice> : null}
 
@@ -174,7 +174,7 @@ export function SmsCustomersPage() {
                 }
               ]}
             />
-          </div>
+          </RecordContentStack>
         </RecordWorkspace>
 
         <RecordFormModal

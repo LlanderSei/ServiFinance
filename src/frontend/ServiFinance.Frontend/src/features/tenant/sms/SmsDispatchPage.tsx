@@ -20,7 +20,7 @@ import {
   RecordTableShell,
   RecordTableStateRow
 } from "@/shared/records/RecordTable";
-import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import {
   WorkspaceField,
   WorkspaceFieldGrid,
@@ -289,7 +289,7 @@ export function SmsDispatchPage() {
           recordCount={visibleAssignments.length}
           singularLabel="assignment"
         >
-          <div className="record-content-stack record-content-stack--with-fab">
+          <RecordContentStack>
             {message ? <WorkspaceNotice>{message}</WorkspaceNotice> : null}
             {error ? <WorkspaceNotice tone="error">{error}</WorkspaceNotice> : null}
 
@@ -428,7 +428,7 @@ export function SmsDispatchPage() {
                 }] : [])
               ]}
             />
-          </div>
+          </RecordContentStack>
         </RecordWorkspace>
 
         <RecordFormModal
