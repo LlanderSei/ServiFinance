@@ -1,36 +1,43 @@
-import { Link } from "react-router-dom";
 import { PublicFooter } from "@/shared/public/PublicFooter";
 import { PublicHeader } from "@/shared/public/PublicHeader";
+import {
+  PublicActionRow,
+  PublicButtonLink,
+  PublicCard,
+  PublicContainer,
+  PublicSectionHeading,
+  PublicShell
+} from "@/shared/public/PublicPrimitives";
 
 export function ForbiddenPage() {
   return (
-    <div className="marketing-page">
+    <PublicShell>
       <PublicHeader />
 
-      <main className="page">
-        <div className="section-heading">
-          <p className="eyebrow">Access</p>
-          <h1>Access denied</h1>
-          <p className="lede">
-            Your account is authenticated, but this route is outside the scope of its current role or tenant assignment.
-          </p>
-        </div>
+      <main className="py-10">
+        <PublicContainer>
+          <PublicSectionHeading
+            eyebrow="Access"
+            title="Access denied"
+            description="Your account is authenticated, but this route is outside the scope of its current role or tenant assignment."
+          />
 
-        <article className="surface-card">
-          <p className="eyebrow">Why this happens</p>
-          <strong>Role or tenant mismatch</strong>
-          <p>
-            Root users cannot enter tenant-only routes, and tenant users cannot cross into another tenant slug or protected platform areas.
-          </p>
-        </article>
+          <PublicCard className="mt-7">
+            <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Why this happens</p>
+            <strong className="mt-2 block text-lg text-slate-950">Role or tenant mismatch</strong>
+            <p className="mt-2 text-slate-600">
+              Root users cannot enter tenant-only routes, and tenant users cannot cross into another tenant slug or protected platform areas.
+            </p>
+          </PublicCard>
 
-        <div className="hero__actions" style={{ marginTop: "1.5rem" }}>
-          <Link className="button button--primary" to="/">Return home</Link>
-          <Link className="button button--ghost" to="/dashboard">Go to dashboard</Link>
-        </div>
+          <PublicActionRow>
+            <PublicButtonLink to="/" tone="primary">Return home</PublicButtonLink>
+            <PublicButtonLink to="/dashboard" tone="ghost">Go to dashboard</PublicButtonLink>
+          </PublicActionRow>
+        </PublicContainer>
       </main>
 
       <PublicFooter />
-    </div>
+    </PublicShell>
   );
 }

@@ -77,8 +77,18 @@ export function AuthenticatedShell({ user, children }: Props) {
     window.localStorage.setItem(SIDEBAR_THEME_KEY, theme);
   }, [theme]);
 
+  const shellWidthClass = isExpanded
+    ? "md:grid-cols-[290px_minmax(0,1fr)]"
+    : "md:grid-cols-[88px_minmax(0,1fr)]";
+  const shellThemeClass = theme === "dark"
+    ? "bg-[radial-gradient(circle_at_top_left,rgba(67,116,255,0.16),transparent_24%),linear-gradient(180deg,#111626_0%,#0d1220_100%)]"
+    : "bg-[radial-gradient(circle_at_top_left,rgba(210,233,255,0.42),transparent_26%),linear-gradient(180deg,#f8fbff_0%,#f1f4fb_100%)]";
+
   return (
-    <div className={`authed-shell${isExpanded ? "" : " is-collapsed"}${theme === "dark" ? " theme-dark" : ""}`}>
+    <div
+      data-theme={theme === "dark" ? "servifinance-dark" : "servifinance-light"}
+      className={`grid min-h-dvh grid-cols-1 text-base-content transition-[grid-template-columns] duration-300 ease-out ${shellWidthClass} ${shellThemeClass}`}
+    >
       <AuthSidebar
         user={user}
         sections={sections}
@@ -95,7 +105,7 @@ export function AuthenticatedShell({ user, children }: Props) {
         }
       />
 
-      <section className="authed-shell__content">
+      <section className="min-w-0 bg-base-100 text-base-content">
         {children}
       </section>
     </div>

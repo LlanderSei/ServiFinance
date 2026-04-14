@@ -3,6 +3,12 @@ import { SubscriptionTierCard } from "@/shared/api/contracts";
 import { useSubscriptionTiers } from "@/shared/api/useSubscriptionTiers";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
+import {
+  RecordTable,
+  RecordTableActionButton,
+  RecordTableShell,
+  RecordTableStateRow
+} from "@/shared/records/RecordTable";
 import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
 
 const segmentOrder = ["Micro", "Small", "Medium"];
@@ -86,8 +92,8 @@ export function SubscriptionsPage() {
           singularLabel="tier"
           pluralLabel="tiers"
         >
-          <div className="record-table-shell">
-            <table className="record-table">
+          <RecordTableShell>
+            <RecordTable>
               <thead>
                 <tr>
                   <th>Tier</th>
@@ -102,9 +108,7 @@ export function SubscriptionsPage() {
               </thead>
               <tbody>
                 {!tiers.length ? (
-                  <tr>
-                    <td className="record-table__state" colSpan={8}>No subscription tiers found.</td>
-                  </tr>
+                  <RecordTableStateRow colSpan={8}>No subscription tiers found.</RecordTableStateRow>
                 ) : null}
 
                 {tiers.map((tier) => {
@@ -124,16 +128,16 @@ export function SubscriptionsPage() {
                       <td>{webModules.length}</td>
                       <td>{desktopModules.length}</td>
                       <td>
-                        <button type="button" className="record-table__action" onClick={() => setSelectedTier(tier)}>
+                        <RecordTableActionButton onClick={() => setSelectedTier(tier)}>
                           View
-                        </button>
+                        </RecordTableActionButton>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+            </RecordTable>
+          </RecordTableShell>
         </RecordWorkspace>
 
         <RecordDetailsModal

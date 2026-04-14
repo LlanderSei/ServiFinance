@@ -32,35 +32,35 @@ export function RecordDetailsModal({
   }
 
   return (
-    <div className="record-modal-backdrop" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="record-modal"
+        className="relative z-[81] max-h-[min(90vh,48rem)] w-full max-w-[44rem] overflow-auto rounded-[1.6rem] border border-base-300/70 bg-base-100 text-base-content shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="record-modal__header">
+        <header className="flex items-start justify-between gap-4 border-b border-base-300/70 px-5 pt-5 pb-4">
           <div>
-            <p className="record-modal__eyebrow">{eyebrow}</p>
-            <h2 className="record-modal__title">{title}</h2>
+            <p className="m-0 text-[0.75rem] font-extrabold uppercase tracking-[0.14em] text-base-content/60">{eyebrow}</p>
+            <h2 className="mt-1.5 mb-0 text-[1.8rem] tracking-[-0.04em] text-base-content">{title}</h2>
           </div>
 
-          <button type="button" className="record-modal__close" onClick={onClose} aria-label="Close details">
+          <button type="button" className="btn btn-circle btn-sm btn-ghost" onClick={onClose} aria-label="Close details">
             x
           </button>
         </header>
 
-        <div className="record-modal__content">
+        <div className="grid gap-4 px-5 py-5">
           {sections.map((section) => (
-            <section key={section.title} className="record-modal__section">
-              <h3 className="record-modal__section-title">{section.title}</h3>
+            <section key={section.title} className="grid gap-3">
+              <h3 className="m-0 text-[0.9rem] font-extrabold uppercase tracking-[0.1em] text-base-content/60">{section.title}</h3>
 
-              <dl className="record-modal__grid">
+              <dl className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {section.items.map((item) => (
-                  <div key={`${section.title}-${item.label}`} className="record-modal__item">
-                    <dt>{item.label}</dt>
-                    <dd>{item.value}</dd>
+                  <div key={`${section.title}-${item.label}`} className="grid gap-1 rounded-2xl border border-base-300/70 bg-base-200/40 px-4 py-3">
+                    <dt className="text-[0.76rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">{item.label}</dt>
+                    <dd className="m-0 leading-6 text-base-content">{item.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -69,7 +69,7 @@ export function RecordDetailsModal({
         </div>
 
         {actions ? (
-          <footer className="record-modal__actions">
+          <footer className="flex flex-col justify-end gap-3 border-t border-base-300/70 px-5 pt-4 pb-5 md:flex-row">
             {actions}
           </footer>
         ) : null}

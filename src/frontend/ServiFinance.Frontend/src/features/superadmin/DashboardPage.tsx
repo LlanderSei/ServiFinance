@@ -1,7 +1,21 @@
-import { Link } from "react-router-dom";
 import { useSuperadminOverview } from "@/shared/api/useSuperadminOverview";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { MetricCard } from "@/shared/records/MetricCard";
+import { WorkspaceActionLink } from "@/shared/records/WorkspaceControls";
 import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import {
+  WorkspaceAlertItem,
+  WorkspaceAlertList,
+  WorkspaceEmptyState,
+  WorkspaceMetricGrid,
+  WorkspacePanel,
+  WorkspacePanelGrid,
+  WorkspacePanelHeader,
+  WorkspaceScrollStack,
+  WorkspaceSubtable,
+  WorkspaceSubtableShell,
+  WorkspaceTenantCell
+} from "@/shared/records/WorkspacePanel";
 
 const dateFormatter = new Intl.DateTimeFormat("en-PH", {
   year: "numeric",
@@ -22,50 +36,41 @@ export function DashboardPage() {
         title="Platform control plane"
         description="Monitor the root domain with live tenant posture, segment coverage, recent provisioning activity, and platform warnings from one surface."
       >
-        <div className="superadmin-module-scroll">
-          <section className="superadmin-metric-grid">
-            <article className="superadmin-metric-card">
-              <span>Total tenants</span>
-              <strong>{overview?.summary.totalTenants ?? "--"}</strong>
-              <small>Subscribed customer workspaces on the root domain.</small>
-            </article>
+        <WorkspaceScrollStack>
+          <WorkspaceMetricGrid>
+            <MetricCard
+              label="Total tenants"
+              value={overview?.summary.totalTenants ?? "--"}
+              description="Subscribed customer workspaces on the root domain."
+            />
+            <MetricCard
+              label="Active tenants"
+              value={overview?.summary.activeTenants ?? "--"}
+              description="Tenant accounts currently allowed to operate."
+            />
+            <MetricCard
+              label="Suspended tenants"
+              value={overview?.summary.suspendedTenants ?? "--"}
+              description="Accounts waiting on manual platform review."
+            />
+            <MetricCard
+              label="Standard edition"
+              value={overview?.summary.standardTenants ?? "--"}
+              description="Tenants currently on web-only commercial coverage."
+            />
+            <MetricCard
+              label="Premium edition"
+              value={overview?.summary.premiumTenants ?? "--"}
+              description="Tenants with web and desktop commercial coverage."
+            />
+          </WorkspaceMetricGrid>
 
-            <article className="superadmin-metric-card">
-              <span>Active tenants</span>
-              <strong>{overview?.summary.activeTenants ?? "--"}</strong>
-              <small>Tenant accounts currently allowed to operate.</small>
-            </article>
+          <WorkspacePanelGrid>
+            <WorkspacePanel>
+              <WorkspacePanelHeader eyebrow="Subscription mix" title="MSME coverage" />
 
-            <article className="superadmin-metric-card">
-              <span>Suspended tenants</span>
-              <strong>{overview?.summary.suspendedTenants ?? "--"}</strong>
-              <small>Accounts waiting on manual platform review.</small>
-            </article>
-
-            <article className="superadmin-metric-card">
-              <span>Standard edition</span>
-              <strong>{overview?.summary.standardTenants ?? "--"}</strong>
-              <small>Tenants currently on web-only commercial coverage.</small>
-            </article>
-
-            <article className="superadmin-metric-card">
-              <span>Premium edition</span>
-              <strong>{overview?.summary.premiumTenants ?? "--"}</strong>
-              <small>Tenants with web and desktop commercial coverage.</small>
-            </article>
-          </section>
-
-          <section className="superadmin-panel-grid">
-            <article className="superadmin-panel">
-              <div className="superadmin-panel__header">
-                <div>
-                  <p className="superadmin-panel__eyebrow">Subscription mix</p>
-                  <h2>MSME coverage</h2>
-                </div>
-              </div>
-
-              <div className="superadmin-subtable-shell">
-                <table className="superadmin-subtable">
+              <WorkspaceSubtableShell>
+                <WorkspaceSubtable>
                   <thead>
                     <tr>
                       <th>Segment</th>
@@ -100,20 +105,15 @@ export function DashboardPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
-            </article>
+                </WorkspaceSubtable>
+              </WorkspaceSubtableShell>
+            </WorkspacePanel>
 
-            <article className="superadmin-panel">
-              <div className="superadmin-panel__header">
-                <div>
-                  <p className="superadmin-panel__eyebrow">Recent activity</p>
-                  <h2>Provisioning stream</h2>
-                </div>
-              </div>
+            <WorkspacePanel>
+              <WorkspacePanelHeader eyebrow="Recent activity" title="Provisioning stream" />
 
-              <div className="superadmin-subtable-shell">
-                <table className="superadmin-subtable">
+              <WorkspaceSubtableShell>
+                <WorkspaceSubtable>
                   <thead>
                     <tr>
                       <th>Tenant</th>
@@ -144,10 +144,7 @@ export function DashboardPage() {
                     {overview?.recentTenants.map((tenant) => (
                       <tr key={tenant.id}>
                         <td>
-                          <div className="superadmin-tenant-cell">
-                            <strong>{tenant.name}</strong>
-                            <span>/{tenant.domainSlug}</span>
-                          </div>
+                          <WorkspaceTenantCell title={tenant.name} subtitle={`/${tenant.domainSlug}`} />
                         </td>
                         <td>{tenant.businessSizeSegment}</td>
                         <td>{tenant.subscriptionEdition}</td>
@@ -155,48 +152,53 @@ export function DashboardPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
-            </article>
-          </section>
+                </WorkspaceSubtable>
+              </WorkspaceSubtableShell>
+            </WorkspacePanel>
+          </WorkspacePanelGrid>
 
-          <section className="superadmin-panel-grid superadmin-panel-grid--single">
-            <article className="superadmin-panel">
-              <div className="superadmin-panel__header">
-                <div>
-                  <p className="superadmin-panel__eyebrow">Warnings</p>
-                  <h2>Platform watch list</h2>
-                </div>
+          <WorkspacePanelGrid singleColumn>
+            <WorkspacePanel>
+              <WorkspacePanelHeader
+                eyebrow="Warnings"
+                title="Platform watch list"
+                actions={(
+                  <>
+                    <WorkspaceActionLink to="/tenants">Manage tenants</WorkspaceActionLink>
+                    <WorkspaceActionLink to="/system-health">Open health</WorkspaceActionLink>
+                  </>
+                )}
+              />
 
-                <div className="superadmin-panel__actions">
-                  <Link className="record-action-button" to="/tenants">Manage tenants</Link>
-                  <Link className="record-action-button" to="/system-health">Open health</Link>
-                </div>
-              </div>
-
-              {overviewQuery.isLoading ? <p className="superadmin-empty">Loading platform warnings...</p> : null}
-              {overviewQuery.isError ? <p className="superadmin-empty">Unable to load platform warnings.</p> : null}
+              {overviewQuery.isLoading ? <WorkspaceEmptyState>Loading platform warnings...</WorkspaceEmptyState> : null}
+              {overviewQuery.isError ? <WorkspaceEmptyState>Unable to load platform warnings.</WorkspaceEmptyState> : null}
 
               {!overviewQuery.isLoading && !overviewQuery.isError && !overview?.warnings.length ? (
-                <p className="superadmin-empty">No platform warnings at the moment.</p>
+                <WorkspaceEmptyState>No platform warnings at the moment.</WorkspaceEmptyState>
               ) : null}
 
               {overview?.warnings.length ? (
-                <ul className="superadmin-warning-list">
+                <WorkspaceAlertList>
                   {overview.warnings.map((warning) => (
-                    <li key={warning.code} className={`superadmin-warning superadmin-warning--${warning.severity.toLowerCase()}`}>
-                      <div>
-                        <strong>{warning.title}</strong>
-                        <p>{warning.message}</p>
-                      </div>
-                      <span>{warning.severity}</span>
-                    </li>
+                    <WorkspaceAlertItem
+                      key={warning.code}
+                      title={warning.title}
+                      message={warning.message}
+                      badge={warning.severity}
+                      tone={
+                        warning.severity === "Critical"
+                          ? "critical"
+                          : warning.severity === "Warning"
+                            ? "warning"
+                            : "info"
+                      }
+                    />
                   ))}
-                </ul>
+                </WorkspaceAlertList>
               ) : null}
-            </article>
-          </section>
-        </div>
+            </WorkspacePanel>
+          </WorkspacePanelGrid>
+        </WorkspaceScrollStack>
       </RecordWorkspace>
     </ProtectedRoute>
   );

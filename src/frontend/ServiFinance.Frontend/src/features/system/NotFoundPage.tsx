@@ -1,38 +1,46 @@
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { PublicFooter } from "@/shared/public/PublicFooter";
 import { PublicHeader } from "@/shared/public/PublicHeader";
+import {
+  PublicActionRow,
+  PublicButtonLink,
+  PublicCard,
+  PublicContainer,
+  PublicSectionHeading,
+  PublicShell
+} from "@/shared/public/PublicPrimitives";
 
 export function NotFoundPage() {
   const location = useLocation();
 
   return (
-    <div className="marketing-page">
+    <PublicShell>
       <PublicHeader />
 
-      <main className="page">
-        <div className="section-heading">
-          <p className="eyebrow">Not found</p>
-          <h1>That route does not exist</h1>
-          <p className="lede">
-            The requested path is not part of the current ServiFinance web surface.
-          </p>
-        </div>
+      <main className="py-10">
+        <PublicContainer>
+          <PublicSectionHeading
+            eyebrow="Not found"
+            title="That route does not exist"
+            description="The requested path is not part of the current ServiFinance web surface."
+          />
 
-        <article className="surface-card">
-          <p className="eyebrow">Requested path</p>
-          <strong>{location.pathname || "/"}</strong>
-          <p>
-            Tenant routes now live under `/t/{'{'}tenantSlug{'}'}/...`, while root platform pages stay under the root domain.
-          </p>
-        </article>
+          <PublicCard className="mt-7">
+            <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Requested path</p>
+            <strong className="mt-2 block text-lg text-slate-950">{location.pathname || "/"}</strong>
+            <p className="mt-2 text-slate-600">
+              Tenant routes now live under `/t/{'{'}tenantSlug{'}'}/...`, while root platform pages stay under the root domain.
+            </p>
+          </PublicCard>
 
-        <div className="hero__actions" style={{ marginTop: "1.5rem" }}>
-          <Link className="button button--primary" to="/">Return home</Link>
-          <Link className="button button--ghost" to="/tenants">Open tenants</Link>
-        </div>
+          <PublicActionRow>
+            <PublicButtonLink to="/" tone="primary">Return home</PublicButtonLink>
+            <PublicButtonLink to="/tenants" tone="ghost">Open tenants</PublicButtonLink>
+          </PublicActionRow>
+        </PublicContainer>
       </main>
 
       <PublicFooter />
-    </div>
+    </PublicShell>
   );
 }

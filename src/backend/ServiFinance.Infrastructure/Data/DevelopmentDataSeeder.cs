@@ -15,6 +15,10 @@ public sealed class DevelopmentDataSeeder(
     var tierSeeds = GetSubscriptionTierSeeds();
     var moduleSeeds = GetPlatformModuleSeeds();
     var tierModuleSeeds = GetTierModuleSeeds();
+    var customerSeeds = GetDevelopmentCustomerSeeds();
+    var serviceRequestSeeds = GetDevelopmentServiceRequestSeeds();
+    var staffUserSeeds = GetDevelopmentStaffUserSeeds();
+    var assignmentSeeds = GetDevelopmentAssignmentSeeds();
 
     var tiersById = await dbContext.SubscriptionTiers
         .ToDictionaryAsync(entity => entity.Id, cancellationToken);
@@ -234,6 +238,13 @@ public sealed class DevelopmentDataSeeder(
     adminUser.PasswordHash = passwordHasher.HashPassword(adminUser, options.AdminPassword);
     adminUser.IsActive = true;
 
+    var tenantUsersById = await dbContext.Users
+        .IgnoreQueryFilters()
+        .Where(entity => entity.TenantId == options.TenantId)
+        .ToDictionaryAsync(entity => entity.Id, cancellationToken);
+
+    tenantUsersById[adminUser.Id] = adminUser;
+
     var userRole = await dbContext.UserRoles
         .IgnoreQueryFilters()
         .SingleOrDefaultAsync(entity => entity.UserId == adminUser.Id && entity.RoleId == adminRole.Id, cancellationToken);
@@ -253,6 +264,47 @@ public sealed class DevelopmentDataSeeder(
       userRole.TenantId = options.TenantId;
       userRole.RoleId = adminRole.Id;
       userRole.UserId = adminUser.Id;
+    }
+
+    foreach (var seed in staffUserSeeds) {
+      if (!tenantUsersById.TryGetValue(seed.Id, out var staffUser)) {
+        staffUser = new AppUser {
+            Id = seed.Id,
+            TenantId = options.TenantId,
+            CreatedAtUtc = seed.CreatedAtUtc
+        };
+        dbContext.Users.Add(staffUser);
+        tenantUsersById[seed.Id] = staffUser;
+        logger.LogInformation("Seeded development staff user '{Email}'.", seed.Email);
+      }
+
+      staffUser.TenantId = options.TenantId;
+      staffUser.FullName = seed.FullName;
+      staffUser.Email = seed.Email;
+      staffUser.PasswordHash = passwordHasher.HashPassword(staffUser, options.AdminPassword);
+      staffUser.IsActive = true;
+      staffUser.CreatedAtUtc = seed.CreatedAtUtc;
+
+      var staffUserRole = await dbContext.UserRoles
+          .IgnoreQueryFilters()
+          .SingleOrDefaultAsync(entity => entity.UserId == staffUser.Id && entity.RoleId == staffRole.Id, cancellationToken);
+
+      if (staffUserRole is null) {
+        dbContext.UserRoles.Add(new UserRole {
+            Id = seed.UserRoleId,
+            TenantId = options.TenantId,
+            UserId = staffUser.Id,
+            RoleId = staffRole.Id,
+            AssignedAtUtc = DateTime.UtcNow
+        });
+
+        logger.LogInformation("Linked development staff user '{Email}' to staff role.", seed.Email);
+      }
+      else {
+        staffUserRole.TenantId = options.TenantId;
+        staffUserRole.UserId = staffUser.Id;
+        staffUserRole.RoleId = staffRole.Id;
+      }
     }
 
     var superAdminUserRole = await dbContext.UserRoles
@@ -276,6 +328,86 @@ public sealed class DevelopmentDataSeeder(
       superAdminUserRole.TenantId = ServiFinanceDatabaseDefaults.PlatformTenantId;
       superAdminUserRole.RoleId = superAdminRole.Id;
       superAdminUserRole.UserId = superAdminUser.Id;
+    }
+
+    var customersById = await dbContext.Customers
+        .IgnoreQueryFilters()
+        .Where(entity => entity.TenantId == options.TenantId)
+        .ToDictionaryAsync(entity => entity.Id, cancellationToken);
+
+    foreach (var seed in customerSeeds) {
+      if (!customersById.TryGetValue(seed.Id, out var customer)) {
+        customer = new Customer {
+            Id = seed.Id,
+            TenantId = options.TenantId
+        };
+        dbContext.Customers.Add(customer);
+        customersById[seed.Id] = customer;
+        logger.LogInformation("Seeded development customer '{CustomerCode}'.", seed.CustomerCode);
+      }
+
+      customer.TenantId = options.TenantId;
+      customer.CustomerCode = seed.CustomerCode;
+      customer.FullName = seed.FullName;
+      customer.MobileNumber = seed.MobileNumber;
+      customer.Email = seed.Email;
+      customer.Address = seed.Address;
+      customer.CreatedAtUtc = seed.CreatedAtUtc;
+    }
+
+    var serviceRequestsById = await dbContext.ServiceRequests
+        .IgnoreQueryFilters()
+        .Where(entity => entity.TenantId == options.TenantId)
+        .ToDictionaryAsync(entity => entity.Id, cancellationToken);
+
+    foreach (var seed in serviceRequestSeeds) {
+      if (!serviceRequestsById.TryGetValue(seed.Id, out var serviceRequest)) {
+        serviceRequest = new ServiceRequest {
+            Id = seed.Id,
+            TenantId = options.TenantId
+        };
+        dbContext.ServiceRequests.Add(serviceRequest);
+        serviceRequestsById[seed.Id] = serviceRequest;
+        logger.LogInformation("Seeded development service request '{RequestNumber}'.", seed.RequestNumber);
+      }
+
+      serviceRequest.TenantId = options.TenantId;
+      serviceRequest.CustomerId = seed.CustomerId;
+      serviceRequest.RequestNumber = seed.RequestNumber;
+      serviceRequest.ItemType = seed.ItemType;
+      serviceRequest.ItemDescription = seed.ItemDescription;
+      serviceRequest.IssueDescription = seed.IssueDescription;
+      serviceRequest.RequestedServiceDate = seed.RequestedServiceDate;
+      serviceRequest.Priority = seed.Priority;
+      serviceRequest.CurrentStatus = seed.CurrentStatus;
+      serviceRequest.CreatedByUserId = adminUser.Id;
+      serviceRequest.CreatedAtUtc = seed.CreatedAtUtc;
+    }
+
+    var assignmentsById = await dbContext.Assignments
+        .IgnoreQueryFilters()
+        .Where(entity => entity.TenantId == options.TenantId)
+        .ToDictionaryAsync(entity => entity.Id, cancellationToken);
+
+    foreach (var seed in assignmentSeeds) {
+      if (!assignmentsById.TryGetValue(seed.Id, out var assignment)) {
+        assignment = new Assignment {
+            Id = seed.Id,
+            TenantId = options.TenantId
+        };
+        dbContext.Assignments.Add(assignment);
+        assignmentsById[seed.Id] = assignment;
+        logger.LogInformation("Seeded development assignment for request '{RequestId}'.", seed.ServiceRequestId);
+      }
+
+      assignment.TenantId = options.TenantId;
+      assignment.ServiceRequestId = seed.ServiceRequestId;
+      assignment.AssignedUserId = seed.AssignedUserId;
+      assignment.AssignedByUserId = adminUser.Id;
+      assignment.ScheduledStartUtc = seed.ScheduledStartUtc;
+      assignment.ScheduledEndUtc = seed.ScheduledEndUtc;
+      assignment.AssignmentStatus = seed.AssignmentStatus;
+      assignment.CreatedAtUtc = seed.CreatedAtUtc;
     }
 
     await dbContext.SaveChangesAsync(cancellationToken);
@@ -454,6 +586,84 @@ public sealed class DevelopmentDataSeeder(
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D7_COLLECTIONS_QUEUE", "Included", 170)
   ];
 
+  private static IReadOnlyList<DevelopmentCustomerSeed> GetDevelopmentCustomerSeeds() => [
+      new(
+          Guid.Parse("aaaa1111-1111-1111-1111-111111111111"),
+          "CUS-0001",
+          "Marian Dela Cruz",
+          "09171234567",
+          "marian.delacruz@example.test",
+          "San Pedro, Laguna",
+          DateTime.UtcNow.AddDays(-7)),
+      new(
+          Guid.Parse("aaaa2222-2222-2222-2222-222222222222"),
+          "CUS-0002",
+          "Rogelio Santos",
+          "09179876543",
+          "rogelio.santos@example.test",
+          "Santa Rosa, Laguna",
+          DateTime.UtcNow.AddDays(-4))
+  ];
+
+  private static IReadOnlyList<DevelopmentServiceRequestSeed> GetDevelopmentServiceRequestSeeds() => [
+      new(
+          Guid.Parse("bbbb1111-1111-1111-1111-111111111111"),
+          Guid.Parse("aaaa1111-1111-1111-1111-111111111111"),
+          "SR-0001",
+          "Commercial Oven",
+          "Double-deck gas oven",
+          "Uneven heating on the lower deck during production runs.",
+          DateTime.UtcNow.AddDays(1),
+          "High",
+          "Scheduled",
+          DateTime.UtcNow.AddDays(-3)),
+      new(
+          Guid.Parse("bbbb2222-2222-2222-2222-222222222222"),
+          Guid.Parse("aaaa2222-2222-2222-2222-222222222222"),
+          "SR-0002",
+          "Laptop",
+          "15-inch office laptop",
+          "Intermittent power loss and battery swelling concerns.",
+          DateTime.UtcNow.AddDays(2),
+          "Normal",
+          "In Service",
+          DateTime.UtcNow.AddDays(-1))
+  ];
+
+  private static IReadOnlyList<DevelopmentStaffUserSeed> GetDevelopmentStaffUserSeeds() => [
+      new(
+          Guid.Parse("12121212-1212-1212-1212-121212121212"),
+          Guid.Parse("34343434-3434-3434-3434-343434343434"),
+          "Ramon Villanueva",
+          "ramon.villanueva@example.test",
+          DateTime.UtcNow.AddDays(-12)),
+      new(
+          Guid.Parse("56565656-5656-5656-5656-565656565656"),
+          Guid.Parse("78787878-7878-7878-7878-787878787878"),
+          "Lucia Mendoza",
+          "lucia.mendoza@example.test",
+          DateTime.UtcNow.AddDays(-10))
+  ];
+
+  private static IReadOnlyList<DevelopmentAssignmentSeed> GetDevelopmentAssignmentSeeds() => [
+      new(
+          Guid.Parse("cccc1111-1111-1111-1111-111111111111"),
+          Guid.Parse("bbbb1111-1111-1111-1111-111111111111"),
+          Guid.Parse("12121212-1212-1212-1212-121212121212"),
+          DateTime.UtcNow.AddDays(1).Date.AddHours(9),
+          DateTime.UtcNow.AddDays(1).Date.AddHours(12),
+          "Scheduled",
+          DateTime.UtcNow.AddDays(-2)),
+      new(
+          Guid.Parse("cccc2222-2222-2222-2222-222222222222"),
+          Guid.Parse("bbbb2222-2222-2222-2222-222222222222"),
+          Guid.Parse("56565656-5656-5656-5656-565656565656"),
+          DateTime.UtcNow.Date.AddHours(13),
+          DateTime.UtcNow.Date.AddHours(17),
+          "In Progress",
+          DateTime.UtcNow.AddHours(-8))
+  ];
+
   private sealed record SubscriptionTierSeed(
       Guid Id,
       string Code,
@@ -482,4 +692,41 @@ public sealed class DevelopmentDataSeeder(
       string ModuleCode,
       string AccessLevel,
       int SortOrder);
+
+  private sealed record DevelopmentCustomerSeed(
+      Guid Id,
+      string CustomerCode,
+      string FullName,
+      string MobileNumber,
+      string Email,
+      string Address,
+      DateTime CreatedAtUtc);
+
+  private sealed record DevelopmentServiceRequestSeed(
+      Guid Id,
+      Guid CustomerId,
+      string RequestNumber,
+      string ItemType,
+      string ItemDescription,
+      string IssueDescription,
+      DateTime? RequestedServiceDate,
+      string Priority,
+      string CurrentStatus,
+      DateTime CreatedAtUtc);
+
+  private sealed record DevelopmentStaffUserSeed(
+      Guid Id,
+      Guid UserRoleId,
+      string FullName,
+      string Email,
+      DateTime CreatedAtUtc);
+
+  private sealed record DevelopmentAssignmentSeed(
+      Guid Id,
+      Guid ServiceRequestId,
+      Guid AssignedUserId,
+      DateTime? ScheduledStartUtc,
+      DateTime? ScheduledEndUtc,
+      string AssignmentStatus,
+      DateTime CreatedAtUtc);
 }

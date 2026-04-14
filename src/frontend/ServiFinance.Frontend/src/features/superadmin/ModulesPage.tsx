@@ -3,6 +3,12 @@ import { SuperadminModuleRow } from "@/shared/api/contracts";
 import { useSuperadminModules } from "@/shared/api/useSuperadminModules";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
+import {
+  RecordTable,
+  RecordTableActionButton,
+  RecordTableShell,
+  RecordTableStateRow
+} from "@/shared/records/RecordTable";
 import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
 
 export function ModulesPage() {
@@ -45,8 +51,8 @@ export function ModulesPage() {
           recordCount={rows.length}
           singularLabel="module"
         >
-          <div className="record-table-shell">
-            <table className="record-table">
+          <RecordTableShell>
+            <RecordTable>
               <thead>
                 <tr>
                   <th>Name</th>
@@ -59,21 +65,17 @@ export function ModulesPage() {
               </thead>
               <tbody>
                 {query.isLoading ? (
-                  <tr>
-                    <td className="record-table__state" colSpan={6}>Loading module catalog...</td>
-                  </tr>
+                  <RecordTableStateRow colSpan={6}>Loading module catalog...</RecordTableStateRow>
                 ) : null}
 
                 {query.isError ? (
-                  <tr>
-                    <td className="record-table__state record-table__state--error" colSpan={6}>Unable to load module catalog.</td>
-                  </tr>
+                  <RecordTableStateRow colSpan={6} tone="error">
+                    Unable to load module catalog.
+                  </RecordTableStateRow>
                 ) : null}
 
                 {!query.isLoading && !query.isError && !rows.length ? (
-                  <tr>
-                    <td className="record-table__state" colSpan={6}>No modules found.</td>
-                  </tr>
+                  <RecordTableStateRow colSpan={6}>No modules found.</RecordTableStateRow>
                 ) : null}
 
                 {rows.map((module) => (
@@ -84,15 +86,15 @@ export function ModulesPage() {
                     <td>{module.assignedTierCount}</td>
                     <td>{module.isActive ? "Active" : "Inactive"}</td>
                     <td>
-                      <button type="button" className="record-table__action" onClick={() => setSelectedModule(module)}>
+                      <RecordTableActionButton onClick={() => setSelectedModule(module)}>
                         View
-                      </button>
+                      </RecordTableActionButton>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </RecordTable>
+          </RecordTableShell>
         </RecordWorkspace>
 
         <RecordDetailsModal

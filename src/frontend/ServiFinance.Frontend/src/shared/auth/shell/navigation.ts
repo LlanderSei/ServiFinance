@@ -3,7 +3,19 @@ import type { CurrentSessionUser } from "@/shared/api/contracts";
 export type NavItem = {
   to: string;
   label: string;
-  icon: "dashboard" | "tenants" | "subscriptions" | "modules" | "health" | "users" | "service" | "desktop";
+  icon:
+    | "dashboard"
+    | "tenants"
+    | "subscriptions"
+    | "modules"
+    | "health"
+    | "users"
+    | "service"
+    | "desktop"
+    | "customers"
+    | "requests"
+    | "dispatch"
+    | "reports";
   badge?: string;
 };
 
@@ -52,6 +64,10 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
       title: "Service Management",
       items: [
         { to: `${tenantBase}/sms/dashboard`, label: "SMS Dashboard", icon: "service" },
+        { to: `${tenantBase}/sms/customers`, label: "Customers", icon: "customers" },
+        { to: `${tenantBase}/sms/service-requests`, label: "Service Requests", icon: "requests" },
+        { to: `${tenantBase}/sms/dispatch`, label: "Dispatch", icon: "dispatch" },
+        { to: `${tenantBase}/sms/reports`, label: "Reports", icon: "reports" },
         ...(isTenantAdmin
           ? [{ to: `${tenantBase}/sms/users`, label: "SMS Users", icon: "users" as const }]
           : [])

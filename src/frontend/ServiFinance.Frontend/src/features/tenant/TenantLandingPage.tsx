@@ -2,6 +2,14 @@ import { useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { PublicFooter } from "@/shared/public/PublicFooter";
 import { PublicHeader } from "@/shared/public/PublicHeader";
+import {
+  PublicActionRow,
+  PublicButton,
+  PublicCard,
+  PublicContainer,
+  PublicSectionHeading,
+  PublicShell
+} from "@/shared/public/PublicPrimitives";
 import { TenantLoginModal } from "@/shared/public/TenantLoginModal";
 
 type Props = {
@@ -20,7 +28,7 @@ export function TenantLandingPage({ system }: Props) {
       system === "sms"
         ? "Public tenant-facing web surface for intake, scheduling, dispatching, and operator coordination."
         : "Public tenant-facing desktop companion surface for collections, amortization, and lending execution.",
-    [system],
+    [system]
   );
 
   const openLogin = () => setManualOpen(true);
@@ -34,37 +42,39 @@ export function TenantLandingPage({ system }: Props) {
   };
 
   return (
-    <div className="marketing-page">
+    <PublicShell>
       <PublicHeader onLoginRequested={openLogin} />
 
-      <main className="page tenant-public-page">
-        <div className="section-heading">
-          <p className="eyebrow">{tenantDomainSlug} / {system.toUpperCase()}</p>
-          <h1>{systemName}</h1>
-          <p className="lede">{systemLead}</p>
-        </div>
+      <main className="py-10">
+        <PublicContainer>
+          <PublicSectionHeading
+            eyebrow={`${tenantDomainSlug} / ${system.toUpperCase()}`}
+            title={systemName}
+            description={systemLead}
+          />
 
-        <div className="detail-grid">
-          <article className="surface-card">
-            <p className="eyebrow">Tenant identity</p>
-            <strong>{tenantDomainSlug}</strong>
-            <p>This route remains tenant-scoped and will never authenticate accounts from other domains.</p>
-          </article>
-          <article className="surface-card">
-            <p className="eyebrow">Delivery</p>
-            <strong>{system === "sms" ? "Web workspace" : "Desktop workspace"}</strong>
-            <p>{system === "sms" ? "Browser-based workflow execution for service operations." : "Desktop-oriented workflow execution for financial and lending actions."}</p>
-          </article>
-          <article className="surface-card">
-            <p className="eyebrow">Access</p>
-            <strong>Tenant-only sign in</strong>
-            <p>The same tenant account can cross SMS and MLS when the plan allows it, but never into another tenant slug.</p>
-          </article>
-        </div>
+          <div className="mt-7 grid gap-5 md:grid-cols-3">
+            <PublicCard>
+              <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Tenant identity</p>
+              <strong className="mt-2 block text-lg text-slate-950">{tenantDomainSlug}</strong>
+              <p className="mt-2 text-slate-600">This route remains tenant-scoped and will never authenticate accounts from other domains.</p>
+            </PublicCard>
+            <PublicCard>
+              <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Delivery</p>
+              <strong className="mt-2 block text-lg text-slate-950">{system === "sms" ? "Web workspace" : "Desktop workspace"}</strong>
+              <p className="mt-2 text-slate-600">{system === "sms" ? "Browser-based workflow execution for service operations." : "Desktop-oriented workflow execution for financial and lending actions."}</p>
+            </PublicCard>
+            <PublicCard>
+              <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Access</p>
+              <strong className="mt-2 block text-lg text-slate-950">Tenant-only sign in</strong>
+              <p className="mt-2 text-slate-600">The same tenant account can cross SMS and MLS when the plan allows it, but never into another tenant slug.</p>
+            </PublicCard>
+          </div>
 
-        <div className="hero__actions" style={{ marginTop: "1.5rem" }}>
-          <button type="button" className="button button--primary" onClick={openLogin}>Login</button>
-        </div>
+          <PublicActionRow>
+            <PublicButton tone="primary" onClick={openLogin}>Login</PublicButton>
+          </PublicActionRow>
+        </PublicContainer>
       </main>
 
       <PublicFooter />
@@ -75,6 +85,6 @@ export function TenantLandingPage({ system }: Props) {
         error={error}
         onClose={closeLogin}
       />
-    </div>
+    </PublicShell>
   );
 }

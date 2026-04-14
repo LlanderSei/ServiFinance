@@ -69,6 +69,44 @@ export function SidebarIcon({ name }: Props) {
           <path d="M21 21v-1a3.8 3.8 0 0 0-2.8-3.67" />
         </svg>
       );
+    case "customers":
+      return (
+        <svg {...common}>
+          <path d="M4 19.5v-1a3.5 3.5 0 0 1 3.5-3.5h4a3.5 3.5 0 0 1 3.5 3.5v1" />
+          <circle cx="9.5" cy="8" r="3.5" />
+          <path d="M18 8h3" />
+          <path d="M19.5 6.5v3" />
+        </svg>
+      );
+    case "requests":
+      return (
+        <svg {...common}>
+          <rect x="5" y="3.5" width="14" height="17" rx="2" />
+          <path d="M8.5 8h7" />
+          <path d="M8.5 12h7" />
+          <path d="M8.5 16h4.5" />
+        </svg>
+      );
+    case "dispatch":
+      return (
+        <svg {...common}>
+          <path d="M5 17h4" />
+          <path d="M15 17h4" />
+          <circle cx="8" cy="17" r="2" />
+          <circle cx="16" cy="17" r="2" />
+          <path d="M5 17V9h7l3 3h4v5" />
+          <path d="M12 9V5H7" />
+        </svg>
+      );
+    case "reports":
+      return (
+        <svg {...common}>
+          <path d="M5 19V9" />
+          <path d="M12 19V5" />
+          <path d="M19 19v-7" />
+          <path d="M3 19h18" />
+        </svg>
+      );
     case "service":
       return (
         <svg {...common}>

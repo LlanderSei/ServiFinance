@@ -14,9 +14,9 @@ export function ProtectedRoute({ children, requireRole, tenantSlug }: Props) {
 
   if (isLoading) {
     return (
-      <main className="page">
-        <p className="eyebrow">Session</p>
-        <h1>Loading...</h1>
+      <main className="mx-auto grid min-h-screen w-full max-w-5xl place-content-center gap-2 px-6 text-center">
+        <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-base-content/60">Session</p>
+        <h1 className="text-3xl font-semibold tracking-[-0.04em] text-base-content">Loading...</h1>
       </main>
     );
   }

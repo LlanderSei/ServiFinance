@@ -4,7 +4,21 @@ import { SuperadminTenantRow } from "@/shared/api/contracts";
 import { httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
+import {
+  RecordTable,
+  RecordTableActionButton,
+  RecordTableShell,
+  RecordTableStateRow
+} from "@/shared/records/RecordTable";
+import {
+  WorkspaceActionButton,
+  WorkspaceFilter,
+  WorkspaceModalButton,
+  WorkspaceSelect,
+  WorkspaceStatusPill
+} from "@/shared/records/WorkspaceControls";
 import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { WorkspaceToolbar } from "@/shared/records/WorkspacePanel";
 
 const tenantDateFormatter = new Intl.DateTimeFormat("en-PH", {
   year: "numeric",
@@ -97,10 +111,9 @@ export function TenantsPage() {
           singularLabel="tenant"
         >
           <div className="record-content-stack">
-            <div className="record-toolbar">
-              <label className="record-filter">
-                <span>Segment</span>
-                <select
+            <WorkspaceToolbar>
+              <WorkspaceFilter label="Segment">
+                <WorkspaceSelect
                   value={filters.segment}
                   onChange={(event) => setFilters((current) => ({ ...current, segment: event.target.value }))}
                 >
@@ -108,44 +121,38 @@ export function TenantsPage() {
                   <option value="Micro">Micro</option>
                   <option value="Small">Small</option>
                   <option value="Medium">Medium</option>
-                </select>
-              </label>
+                </WorkspaceSelect>
+              </WorkspaceFilter>
 
-              <label className="record-filter">
-                <span>Edition</span>
-                <select
+              <WorkspaceFilter label="Edition">
+                <WorkspaceSelect
                   value={filters.edition}
                   onChange={(event) => setFilters((current) => ({ ...current, edition: event.target.value }))}
                 >
                   <option value="">All editions</option>
                   <option value="Standard">Standard</option>
                   <option value="Premium">Premium</option>
-                </select>
-              </label>
+                </WorkspaceSelect>
+              </WorkspaceFilter>
 
-              <label className="record-filter">
-                <span>Status</span>
-                <select
+              <WorkspaceFilter label="Status">
+                <WorkspaceSelect
                   value={filters.status}
                   onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
                 >
                   <option value="">All statuses</option>
                   <option value="active">Active</option>
                   <option value="suspended">Suspended</option>
-                </select>
-              </label>
+                </WorkspaceSelect>
+              </WorkspaceFilter>
 
-              <button
-                type="button"
-                className="record-action-button"
-                onClick={() => setFilters({ segment: "", edition: "", status: "" })}
-              >
+              <WorkspaceActionButton onClick={() => setFilters({ segment: "", edition: "", status: "" })}>
                 Reset filters
-              </button>
-            </div>
+              </WorkspaceActionButton>
+            </WorkspaceToolbar>
 
-            <div className="record-table-shell">
-              <table className="record-table">
+            <RecordTableShell>
+              <RecordTable>
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -160,21 +167,19 @@ export function TenantsPage() {
                 </thead>
                 <tbody>
                   {query.isLoading ? (
-                    <tr>
-                      <td className="record-table__state" colSpan={8}>Loading tenant records...</td>
-                    </tr>
+                    <RecordTableStateRow colSpan={8}>Loading tenant records...</RecordTableStateRow>
                   ) : null}
 
                   {query.isError ? (
-                    <tr>
-                      <td className="record-table__state record-table__state--error" colSpan={8}>Unable to load tenant records.</td>
-                    </tr>
+                    <RecordTableStateRow colSpan={8} tone="error">
+                      Unable to load tenant records.
+                    </RecordTableStateRow>
                   ) : null}
 
                   {!query.isLoading && !query.isError && !rows.length ? (
-                    <tr>
-                      <td className="record-table__state" colSpan={8}>No tenant records found for the current filters.</td>
-                    </tr>
+                    <RecordTableStateRow colSpan={8}>
+                      No tenant records found for the current filters.
+                    </RecordTableStateRow>
                   ) : null}
 
                   {rows.map((tenant) => (
@@ -186,20 +191,20 @@ export function TenantsPage() {
                       <td>{tenant.subscriptionEdition}</td>
                       <td>{tenant.subscriptionPlan}</td>
                       <td>
-                        <span className={`record-status-pill ${tenant.isActive ? "is-active" : "is-inactive"}`}>
+                        <WorkspaceStatusPill tone={tenant.isActive ? "active" : "inactive"}>
                           {tenant.subscriptionStatus}
-                        </span>
+                        </WorkspaceStatusPill>
                       </td>
                       <td>
-                        <button type="button" className="record-table__action" onClick={() => setSelectedTenant(tenant)}>
+                        <RecordTableActionButton onClick={() => setSelectedTenant(tenant)}>
                           View
-                        </button>
+                        </RecordTableActionButton>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </RecordTable>
+            </RecordTableShell>
           </div>
         </RecordWorkspace>
 
@@ -210,12 +215,11 @@ export function TenantsPage() {
           sections={tenantDetails}
           actions={selectedTenant ? (
             <>
-              <button type="button" className="record-modal__button" onClick={() => setSelectedTenant(null)}>
+              <WorkspaceModalButton onClick={() => setSelectedTenant(null)}>
                 Close
-              </button>
-              <button
-                type="button"
-                className={`record-modal__button ${selectedTenant.isActive ? "is-danger" : "is-primary"}`}
+              </WorkspaceModalButton>
+              <WorkspaceModalButton
+                tone={selectedTenant.isActive ? "danger" : "primary"}
                 disabled={tenantStatusMutation.isPending}
                 onClick={() => {
                   void tenantStatusMutation.mutateAsync({
@@ -226,10 +230,10 @@ export function TenantsPage() {
               >
                 {tenantStatusMutation.isPending
                   ? "Updating..."
-                  : selectedTenant.isActive
-                    ? "Suspend tenant"
-                    : "Reactivate tenant"}
-              </button>
+                    : selectedTenant.isActive
+                      ? "Suspend tenant"
+                      : "Reactivate tenant"}
+              </WorkspaceModalButton>
             </>
           ) : null}
           onClose={() => setSelectedTenant(null)}
