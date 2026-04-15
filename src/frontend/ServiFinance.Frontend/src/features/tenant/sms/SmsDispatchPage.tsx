@@ -4,11 +4,14 @@ import { useParams } from "react-router-dom";
 import type {
   CreateTenantAssignmentRequest,
   TenantDispatchAssignmentRow,
+  TenantDispatchAssignmentDetailResponse,
+  TenantDispatchAssignmentEvidenceRow,
   TenantDispatchMetaResponse,
-  TenantServiceRequestDetailResponse,
+  RescheduleTenantAssignmentRequest,
+  UpdateTenantAssignmentEvidenceRequest,
   UpdateTenantAssignmentStatusRequest
 } from "@/shared/api/contracts";
-import { httpGet, httpPostJson } from "@/shared/api/http";
+import { httpDelete, httpGet, httpPostFormData, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
@@ -24,11 +27,13 @@ import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWork
 import {
   WorkspaceField,
   WorkspaceFieldGrid,
+  WorkspaceFilter,
+  WorkspaceFileInput,
   WorkspaceForm,
+  WorkspaceActionButton,
   WorkspaceInlineNote,
   WorkspaceInput,
   WorkspaceModalButton,
-  WorkspaceNotice,
   WorkspaceSelect,
   WorkspaceStatusPill,
   WorkspaceToggleGroup,
@@ -42,8 +47,10 @@ import {
   WorkspacePanelHeader
 } from "@/shared/records/WorkspacePanel";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
+import { useToast } from "@/shared/toast/ToastProvider";
 
 type DispatchViewMode = "workspace" | "mine";
+type DispatchLayoutMode = "register" | "timeline";
 type ScheduleFormState = {
   serviceRequestId: string;
   assignedUserId: string;
@@ -52,18 +59,46 @@ type ScheduleFormState = {
   assignmentStatus: string;
 };
 
+type DispatchFilterState = {
+  assignedUserId: string;
+  assignmentStatus: string;
+  priority: string;
+  dateFrom: string;
+  dateTo: string;
+};
+
+type RescheduleFormState = {
+  assignedUserId: string;
+  scheduledStartUtc: string;
+  scheduledEndUtc: string;
+  assignmentStatus: string;
+  remarks: string;
+};
+
 const assignmentStatuses = ["Scheduled", "In Progress", "On Hold", "Completed"] as const;
+const priorityOptions = ["Low", "Normal", "High", "Urgent"] as const;
 
 export function SmsDispatchPage() {
   const { tenantDomainSlug = "" } = useParams();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const currentUser = getCurrentSession()?.user ?? null;
   const isAdmin = currentUser?.roles.includes("Administrator") ?? false;
   const [selectedAssignment, setSelectedAssignment] = useState<TenantDispatchAssignmentRow | null>(null);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
+  const [isEvidenceEditModalOpen, setIsEvidenceEditModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<DispatchViewMode>(isAdmin ? "workspace" : "mine");
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [layoutMode, setLayoutMode] = useState<DispatchLayoutMode>("register");
+  const [editingEvidence, setEditingEvidence] = useState<TenantDispatchAssignmentEvidenceRow | null>(null);
+  const [filters, setFilters] = useState<DispatchFilterState>({
+    assignedUserId: "",
+    assignmentStatus: "",
+    priority: "",
+    dateFrom: "",
+    dateTo: ""
+  });
   const [scheduleForm, setScheduleForm] = useState<ScheduleFormState>({
     serviceRequestId: "",
     assignedUserId: "",
@@ -71,10 +106,47 @@ export function SmsDispatchPage() {
     scheduledEndUtc: "",
     assignmentStatus: "Scheduled"
   });
+  const [rescheduleForm, setRescheduleForm] = useState<RescheduleFormState>({
+    assignedUserId: "",
+    scheduledStartUtc: "",
+    scheduledEndUtc: "",
+    assignmentStatus: "Scheduled",
+    remarks: ""
+  });
+  const [evidenceNote, setEvidenceNote] = useState("");
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
+  const [editingEvidenceNote, setEditingEvidenceNote] = useState("");
+
+  const dispatchQueryString = useMemo(() => {
+    const searchParams = new URLSearchParams();
+
+    if (filters.assignedUserId) {
+      searchParams.set("assignedUserId", filters.assignedUserId);
+    }
+
+    if (filters.assignmentStatus) {
+      searchParams.set("assignmentStatus", filters.assignmentStatus);
+    }
+
+    if (filters.priority) {
+      searchParams.set("priority", filters.priority);
+    }
+
+    if (filters.dateFrom) {
+      searchParams.set("dateFrom", new Date(filters.dateFrom).toISOString());
+    }
+
+    if (filters.dateTo) {
+      searchParams.set("dateTo", new Date(filters.dateTo).toISOString());
+    }
+
+    const query = searchParams.toString();
+    return query ? `?${query}` : "";
+  }, [filters]);
 
   const dispatchQuery = useQuery({
-    queryKey: ["tenant", tenantDomainSlug, "sms-dispatch"],
-    queryFn: () => httpGet<TenantDispatchAssignmentRow[]>(`/api/tenants/${tenantDomainSlug}/sms/dispatch`)
+    queryKey: ["tenant", tenantDomainSlug, "sms-dispatch", filters],
+    queryFn: () => httpGet<TenantDispatchAssignmentRow[]>(`/api/tenants/${tenantDomainSlug}/sms/dispatch${dispatchQueryString}`)
   });
 
   const dispatchMetaQuery = useQuery({
@@ -84,10 +156,10 @@ export function SmsDispatchPage() {
   });
 
   const assignmentDetailQuery = useQuery({
-    queryKey: ["tenant", tenantDomainSlug, "sms-service-request-detail", selectedAssignment?.serviceRequestId],
+    queryKey: ["tenant", tenantDomainSlug, "sms-dispatch-detail", selectedAssignment?.id],
     queryFn: () =>
-      httpGet<TenantServiceRequestDetailResponse>(
-        `/api/tenants/${tenantDomainSlug}/sms/service-requests/${selectedAssignment?.serviceRequestId}/details`
+      httpGet<TenantDispatchAssignmentDetailResponse>(
+        `/api/tenants/${tenantDomainSlug}/sms/dispatch/${selectedAssignment?.id}/details`
       ),
     enabled: selectedAssignment !== null
   });
@@ -110,12 +182,22 @@ export function SmsDispatchPage() {
         scheduledEndUtc: "",
         assignmentStatus: "Scheduled"
       });
-      setMessage("Dispatch assignment created.");
-      setError(null);
+      toast.success({
+        title: "Dispatch assignment created",
+        message: `Request ${assignment.requestNumber} is now scheduled under ${assignment.assignedUserName}.`
+      });
+      if (assignment.scheduleConflictCount > 0) {
+        toast.warning({
+          title: "Schedule conflict detected",
+          message: `${assignment.scheduleConflictCount} overlapping assignment(s) already exist for this staff member.`
+        });
+      }
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message);
-      setMessage(null);
+      toast.error({
+        title: "Unable to create dispatch assignment",
+        message: mutationError.message
+      });
     }
   });
 
@@ -135,15 +217,146 @@ export function SmsDispatchPage() {
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-dispatch"] });
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-service-requests"] });
       void queryClient.invalidateQueries({
-        queryKey: ["tenant", tenantDomainSlug, "sms-service-request-detail", assignment.serviceRequestId]
+        queryKey: ["tenant", tenantDomainSlug, "sms-dispatch-detail", assignment.id]
       });
       setSelectedAssignment(assignment);
-      setMessage(`Assignment updated to ${assignment.assignmentStatus}.`);
-      setError(null);
+      toast.success({
+        title: "Dispatch assignment updated",
+        message: `Assignment ${assignment.requestNumber} moved to ${assignment.assignmentStatus}.`
+      });
+      if (assignment.scheduleConflictCount > 0) {
+        toast.warning({
+          title: "Dispatch overlap still present",
+          message: `${assignment.scheduleConflictCount} scheduling conflict(s) remain for this assignment.`
+        });
+      }
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message);
-      setMessage(null);
+      toast.error({
+        title: "Unable to update dispatch assignment",
+        message: mutationError.message
+      });
+    }
+  });
+
+  const rescheduleAssignmentMutation = useMutation({
+    mutationFn: ({
+      assignmentId,
+      payload
+    }: {
+      assignmentId: string;
+      payload: RescheduleTenantAssignmentRequest;
+    }) =>
+      httpPostJson<TenantDispatchAssignmentRow, RescheduleTenantAssignmentRequest>(
+        `/api/tenants/${tenantDomainSlug}/sms/dispatch/${assignmentId}/reschedule`,
+        payload
+      ),
+    onSuccess: (assignment) => {
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-dispatch"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["tenant", tenantDomainSlug, "sms-dispatch-detail", assignment.id]
+      });
+      setSelectedAssignment(assignment);
+      setIsRescheduleModalOpen(false);
+      toast.success({
+        title: "Assignment rescheduled",
+        message: `Request ${assignment.requestNumber} was updated for ${assignment.assignedUserName}.`
+      });
+      if (assignment.scheduleConflictCount > 0) {
+        toast.warning({
+          title: "Schedule conflict detected",
+          message: `${assignment.scheduleConflictCount} overlapping assignment(s) still exist for this staff member.`
+        });
+      }
+    },
+    onError: (mutationError: Error) => {
+      toast.error({
+        title: "Unable to reschedule assignment",
+        message: mutationError.message
+      });
+    }
+  });
+
+  const submitEvidenceMutation = useMutation({
+    mutationFn: ({ assignmentId, payload }: { assignmentId: string; payload: FormData }) =>
+      httpPostFormData(`/api/tenants/${tenantDomainSlug}/sms/dispatch/${assignmentId}/evidence`, payload),
+    onSuccess: async () => {
+      if (selectedAssignment) {
+        await queryClient.invalidateQueries({
+          queryKey: ["tenant", tenantDomainSlug, "sms-dispatch-detail", selectedAssignment.id]
+        });
+      }
+      setIsEvidenceModalOpen(false);
+      setEvidenceNote("");
+      setEvidenceFiles([]);
+      toast.success({
+        title: "Evidence submitted",
+        message: "Technician completion evidence is now attached to the assignment."
+      });
+    },
+    onError: (mutationError: Error) => {
+      toast.error({
+        title: "Unable to submit evidence",
+        message: mutationError.message
+      });
+    }
+  });
+
+  const updateEvidenceMutation = useMutation({
+    mutationFn: ({
+      assignmentId,
+      evidenceId,
+      payload
+    }: {
+      assignmentId: string;
+      evidenceId: string;
+      payload: UpdateTenantAssignmentEvidenceRequest;
+    }) =>
+      httpPostJson<TenantDispatchAssignmentEvidenceRow, UpdateTenantAssignmentEvidenceRequest>(
+        `/api/tenants/${tenantDomainSlug}/sms/dispatch/${assignmentId}/evidence/${evidenceId}/note`,
+        payload
+      ),
+    onSuccess: async () => {
+      if (selectedAssignment) {
+        await queryClient.invalidateQueries({
+          queryKey: ["tenant", tenantDomainSlug, "sms-dispatch-detail", selectedAssignment.id]
+        });
+      }
+      setIsEvidenceEditModalOpen(false);
+      setEditingEvidence(null);
+      setEditingEvidenceNote("");
+      toast.success({
+        title: "Evidence updated",
+        message: "The technician evidence note was updated successfully."
+      });
+    },
+    onError: (mutationError: Error) => {
+      toast.error({
+        title: "Unable to update evidence",
+        message: mutationError.message
+      });
+    }
+  });
+
+  const deleteEvidenceMutation = useMutation({
+    mutationFn: ({ assignmentId, evidenceId }: { assignmentId: string; evidenceId: string }) =>
+      httpDelete(`/api/tenants/${tenantDomainSlug}/sms/dispatch/${assignmentId}/evidence/${evidenceId}`),
+    onSuccess: async () => {
+      if (selectedAssignment) {
+        await queryClient.invalidateQueries({
+          queryKey: ["tenant", tenantDomainSlug, "sms-dispatch-detail", selectedAssignment.id]
+        });
+      }
+      toast.success({
+        title: "Evidence removed",
+        message: "The selected technician proof entry was removed."
+      });
+    },
+    onError: (mutationError: Error) => {
+      toast.error({
+        title: "Unable to remove evidence",
+        message: mutationError.message
+      });
     }
   });
 
@@ -161,8 +374,10 @@ export function SmsDispatchPage() {
       return null;
     }
 
-    return dispatchQuery.data?.find((assignment) => assignment.id === selectedAssignment.id) ?? selectedAssignment;
-  }, [dispatchQuery.data, selectedAssignment]);
+    return assignmentDetailQuery.data?.assignment ??
+      dispatchQuery.data?.find((assignment) => assignment.id === selectedAssignment.id) ??
+      selectedAssignment;
+  }, [assignmentDetailQuery.data?.assignment, dispatchQuery.data, selectedAssignment]);
 
   const assignmentDetails = useMemo(() => {
     if (!activeAssignment) {
@@ -185,7 +400,13 @@ export function SmsDispatchPage() {
           { label: "Assigned staff", value: activeAssignment.assignedUserName },
           { label: "Scheduled start", value: formatDateTime(activeAssignment.scheduledStartUtc) },
           { label: "Scheduled end", value: formatDateTime(activeAssignment.scheduledEndUtc) },
-          { label: "Assignment status", value: activeAssignment.assignmentStatus }
+          { label: "Assignment status", value: activeAssignment.assignmentStatus },
+          {
+            label: "Schedule conflicts",
+            value: activeAssignment.scheduleConflictCount
+              ? `${activeAssignment.scheduleConflictCount} overlap(s) detected`
+              : "No overlapping assignments"
+          }
         ]
       },
       {
@@ -221,11 +442,110 @@ export function SmsDispatchPage() {
         items: [
           { label: "Assigned by", value: activeAssignment.assignedByUserName },
           { label: "Created", value: formatDateTime(activeAssignment.createdAtUtc) },
-          { label: "Job photo uploads", value: "Placeholder only in this phase." }
+          {
+            label: "Evidence",
+            value: assignmentDetailQuery.data?.evidence.length
+              ? `${assignmentDetailQuery.data.evidence.length} evidence item(s) submitted`
+              : "No technician evidence yet"
+          }
         ]
       },
       {
-        title: "Audit trail",
+        title: "Assignment history",
+        items: [
+          {
+            label: "Event log",
+            value: assignmentDetailQuery.data?.events.length ? (
+              <ul className="grid list-none gap-3 p-0 m-0">
+                {assignmentDetailQuery.data.events.map((entry) => (
+                  <li key={entry.id} className="grid gap-1 rounded-2xl border border-base-300/70 bg-base-200/40 px-4 py-3">
+                    <strong className="text-base-content">{entry.eventType}</strong>
+                    <span className="text-base-content/70">{entry.remarks}</span>
+                    <small className="text-base-content/60">
+                      {entry.changedByUserName} - {formatDateTime(entry.createdAtUtc)}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            ) : assignmentDetailQuery.isLoading ? "Loading assignment history..." : "No assignment history yet."
+          }
+        ]
+      },
+      {
+        title: "Technician evidence",
+        items: [
+          {
+            label: "Evidence log",
+            value: assignmentDetailQuery.data?.evidence.length ? (
+              <ul className="grid list-none gap-3 p-0 m-0">
+                {assignmentDetailQuery.data.evidence.map((entry) => (
+                  <li key={entry.id} className="grid gap-1 rounded-2xl border border-base-300/70 bg-base-200/40 px-4 py-3">
+                    <strong className="text-base-content">{entry.originalFileName ?? "Note entry"}</strong>
+                    <span className="text-base-content/70">{entry.note || "No note provided."}</span>
+                    {entry.relativeUrl ? (
+                      <a
+                        href={entry.relativeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="link link-primary w-fit"
+                      >
+                        Open attachment
+                      </a>
+                    ) : null}
+                    {canManageEvidence(entry) ? (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <WorkspaceActionButton
+                          className="btn-xs"
+                          onClick={() => openEvidenceEditModal(entry)}
+                        >
+                          Edit note
+                        </WorkspaceActionButton>
+                        <WorkspaceActionButton
+                          className="btn-xs border-error/30 text-error hover:bg-error/10"
+                          onClick={() => handleEvidenceDelete(entry)}
+                          disabled={deleteEvidenceMutation.isPending}
+                        >
+                          Remove
+                        </WorkspaceActionButton>
+                      </div>
+                    ) : null}
+                    <small className="text-base-content/60">
+                      {entry.submittedByUserName} - {formatDateTime(entry.createdAtUtc)}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            ) : assignmentDetailQuery.isLoading ? "Loading technician evidence..." : "No technician evidence yet."
+          }
+        ]
+      },
+      {
+        title: "Schedule conflicts",
+        items: [
+          {
+            label: "Overlaps",
+            value: assignmentDetailQuery.data?.conflicts.length ? (
+              <ul className="grid list-none gap-3 p-0 m-0">
+                {assignmentDetailQuery.data.conflicts.map((entry) => (
+                  <li key={entry.assignmentId} className="grid gap-1 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3">
+                    <strong className="text-base-content">
+                      {entry.requestNumber} - {entry.customerName}
+                    </strong>
+                    <span className="text-base-content/70">
+                      {formatDateTime(entry.scheduledStartUtc)} to {formatDateTime(entry.scheduledEndUtc)}
+                    </span>
+                    <small className="text-base-content/60">
+                      {entry.assignedUserName} - {entry.assignmentStatus}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            ) : assignmentDetailQuery.isLoading ? "Checking schedule conflicts..." : "No schedule conflicts detected."
+          }
+        ]
+      },
+      {
+        title: "Service audit trail",
         items: [
           {
             label: "History",
@@ -244,7 +564,14 @@ export function SmsDispatchPage() {
         ]
       }
     ];
-  }, [activeAssignment, assignmentDetailQuery.data?.auditTrail, assignmentDetailQuery.isLoading]);
+  }, [
+    activeAssignment,
+    assignmentDetailQuery.data?.auditTrail,
+    assignmentDetailQuery.data?.conflicts,
+    assignmentDetailQuery.data?.evidence,
+    assignmentDetailQuery.data?.events,
+    assignmentDetailQuery.isLoading
+  ]);
 
   const summary = useMemo(() => {
     const assignments = dispatchQuery.data ?? [];
@@ -253,9 +580,40 @@ export function SmsDispatchPage() {
       inProgress: assignments.filter((assignment) => assignment.assignmentStatus === "In Progress").length,
       mine: currentUser?.userId
         ? assignments.filter((assignment) => assignment.assignedUserId === currentUser.userId).length
-        : 0
+      : 0
     };
   }, [currentUser?.userId, dispatchQuery.data]);
+
+  const timelineGroups = useMemo(() => {
+    const sortedAssignments = [...visibleAssignments].sort((left, right) => {
+      const leftTicks = left.scheduledStartUtc ? new Date(left.scheduledStartUtc).getTime() : Number.MAX_SAFE_INTEGER;
+      const rightTicks = right.scheduledStartUtc ? new Date(right.scheduledStartUtc).getTime() : Number.MAX_SAFE_INTEGER;
+      return leftTicks - rightTicks || left.assignedUserName.localeCompare(right.assignedUserName);
+    });
+
+    const groups = new Map<string, { label: string; assignments: TenantDispatchAssignmentRow[] }>();
+    for (const assignment of sortedAssignments) {
+      const key = assignment.scheduledStartUtc
+        ? new Date(assignment.scheduledStartUtc).toISOString().slice(0, 10)
+        : "unscheduled";
+      const label = assignment.scheduledStartUtc
+        ? new Date(assignment.scheduledStartUtc).toLocaleDateString("en-PH", {
+          month: "long",
+          day: "numeric",
+          year: "numeric"
+        })
+        : "Unscheduled assignments";
+
+      const existing = groups.get(key);
+      if (existing) {
+        existing.assignments.push(assignment);
+      } else {
+        groups.set(key, { label, assignments: [assignment] });
+      }
+    }
+
+    return Array.from(groups.values());
+  }, [visibleAssignments]);
 
   function handleScheduleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -279,6 +637,100 @@ export function SmsDispatchPage() {
     });
   }
 
+  function openRescheduleModal() {
+    if (!activeAssignment) {
+      return;
+    }
+
+    setRescheduleForm({
+      assignedUserId: activeAssignment.assignedUserId,
+      scheduledStartUtc: toDateTimeLocalValue(activeAssignment.scheduledStartUtc),
+      scheduledEndUtc: toDateTimeLocalValue(activeAssignment.scheduledEndUtc),
+      assignmentStatus: activeAssignment.assignmentStatus,
+      remarks: ""
+    });
+    setIsRescheduleModalOpen(true);
+  }
+
+  function handleRescheduleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeAssignment) {
+      return;
+    }
+
+    rescheduleAssignmentMutation.mutate({
+      assignmentId: activeAssignment.id,
+      payload: {
+        assignedUserId: rescheduleForm.assignedUserId,
+        scheduledStartUtc: toIsoString(rescheduleForm.scheduledStartUtc),
+        scheduledEndUtc: toIsoString(rescheduleForm.scheduledEndUtc),
+        assignmentStatus: rescheduleForm.assignmentStatus,
+        remarks: rescheduleForm.remarks || null
+      }
+    });
+  }
+
+  function handleEvidenceSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeAssignment) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("note", evidenceNote);
+    evidenceFiles.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    submitEvidenceMutation.mutate({
+      assignmentId: activeAssignment.id,
+      payload: formData
+    });
+  }
+
+  function openEvidenceEditModal(evidence: TenantDispatchAssignmentEvidenceRow) {
+    setEditingEvidence(evidence);
+    setEditingEvidenceNote(evidence.note);
+    setIsEvidenceEditModalOpen(true);
+  }
+
+  function handleEvidenceEditSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeAssignment || !editingEvidence) {
+      return;
+    }
+
+    updateEvidenceMutation.mutate({
+      assignmentId: activeAssignment.id,
+      evidenceId: editingEvidence.id,
+      payload: {
+        note: editingEvidenceNote
+      }
+    });
+  }
+
+  function handleEvidenceDelete(evidence: TenantDispatchAssignmentEvidenceRow) {
+    if (!activeAssignment) {
+      return;
+    }
+
+    const approved = window.confirm(
+      `Remove ${evidence.originalFileName ?? "this evidence note"} from assignment ${activeAssignment.requestNumber}?`
+    );
+    if (!approved) {
+      return;
+    }
+
+    deleteEvidenceMutation.mutate({
+      assignmentId: activeAssignment.id,
+      evidenceId: evidence.id
+    });
+  }
+
+  function canManageEvidence(evidence: TenantDispatchAssignmentEvidenceRow) {
+    return isAdmin || evidence.submittedByUserId === currentUser?.userId;
+  }
+
   return (
     <ProtectedRoute tenantSlug={tenantDomainSlug}>
       <>
@@ -290,9 +742,6 @@ export function SmsDispatchPage() {
           singularLabel="assignment"
         >
           <RecordContentStack>
-            {message ? <WorkspaceNotice>{message}</WorkspaceNotice> : null}
-            {error ? <WorkspaceNotice tone="error">{error}</WorkspaceNotice> : null}
-
             <WorkspaceMetricGrid className="2xl:grid-cols-3">
               <MetricCard
                 label="Scheduled"
@@ -318,88 +767,248 @@ export function SmsDispatchPage() {
                 actions={(
                   <WorkspaceToolbar>
                     {isAdmin ? (
-                      <WorkspaceToggleGroup>
-                        <WorkspaceToggleButton active={viewMode === "workspace"} onClick={() => setViewMode("workspace")}>
-                          Workspace
-                        </WorkspaceToggleButton>
-                        <WorkspaceToggleButton active={viewMode === "mine"} onClick={() => setViewMode("mine")}>
-                          My tasks
-                        </WorkspaceToggleButton>
-                      </WorkspaceToggleGroup>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <WorkspaceToggleGroup>
+                          <WorkspaceToggleButton active={viewMode === "workspace"} onClick={() => setViewMode("workspace")}>
+                            Workspace
+                          </WorkspaceToggleButton>
+                          <WorkspaceToggleButton active={viewMode === "mine"} onClick={() => setViewMode("mine")}>
+                            My tasks
+                          </WorkspaceToggleButton>
+                        </WorkspaceToggleGroup>
+
+                        <WorkspaceToggleGroup>
+                          <WorkspaceToggleButton active={layoutMode === "register"} onClick={() => setLayoutMode("register")}>
+                            Register
+                          </WorkspaceToggleButton>
+                          <WorkspaceToggleButton active={layoutMode === "timeline"} onClick={() => setLayoutMode("timeline")}>
+                            Timeline
+                          </WorkspaceToggleButton>
+                        </WorkspaceToggleGroup>
+                      </div>
                     ) : (
-                      <WorkspaceInlineNote>Showing assignments currently owned by your account.</WorkspaceInlineNote>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <WorkspaceInlineNote>Showing assignments currently owned by your account.</WorkspaceInlineNote>
+                        <WorkspaceToggleGroup>
+                          <WorkspaceToggleButton active={layoutMode === "register"} onClick={() => setLayoutMode("register")}>
+                            Register
+                          </WorkspaceToggleButton>
+                          <WorkspaceToggleButton active={layoutMode === "timeline"} onClick={() => setLayoutMode("timeline")}>
+                            Timeline
+                          </WorkspaceToggleButton>
+                        </WorkspaceToggleGroup>
+                      </div>
                     )}
                   </WorkspaceToolbar>
                 )}
               />
             </WorkspacePanel>
 
-            <RecordTableShell>
-              <RecordTable>
-                <thead>
-                  <tr>
-                    <th>Request No.</th>
-                    <th>Customer</th>
-                    <th>Assigned Staff</th>
-                    <th>Scheduled Start</th>
-                    <th>Scheduled End</th>
-                    <th>Assignment Status</th>
-                    <th>Service Status</th>
-                    <th>Finance</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dispatchQuery.isLoading ? (
-                    <RecordTableStateRow colSpan={9}>Loading dispatch assignments...</RecordTableStateRow>
-                  ) : null}
+            <WorkspacePanel>
+              <WorkspacePanelHeader eyebrow="Filters" title="Schedule intelligence" />
+              <WorkspaceToolbar>
+                {isAdmin ? (
+                  <WorkspaceFilter label="Assigned staff">
+                    <WorkspaceSelect
+                      value={filters.assignedUserId}
+                      onChange={(event) => setFilters((current) => ({ ...current, assignedUserId: event.target.value }))}
+                    >
+                      <option value="">All staff</option>
+                      {dispatchMetaQuery.data?.assignableUsers.map((user) => (
+                        <option key={user.id} value={user.id}>{user.fullName}</option>
+                      ))}
+                    </WorkspaceSelect>
+                  </WorkspaceFilter>
+                ) : null}
 
-                  {dispatchQuery.isError ? (
-                    <RecordTableStateRow colSpan={9} tone="error">
-                      Unable to load dispatch assignments.
-                    </RecordTableStateRow>
-                  ) : null}
+                <WorkspaceFilter label="Assignment status">
+                  <WorkspaceSelect
+                    value={filters.assignmentStatus}
+                    onChange={(event) => setFilters((current) => ({ ...current, assignmentStatus: event.target.value }))}
+                  >
+                    <option value="">All statuses</option>
+                    {assignmentStatuses.map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </WorkspaceSelect>
+                </WorkspaceFilter>
 
-                  {!dispatchQuery.isLoading && !dispatchQuery.isError && !visibleAssignments.length ? (
-                    <RecordTableStateRow colSpan={9}>
-                      {isAdmin ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
-                    </RecordTableStateRow>
-                  ) : null}
+                <WorkspaceFilter label="Priority">
+                  <WorkspaceSelect
+                    value={filters.priority}
+                    onChange={(event) => setFilters((current) => ({ ...current, priority: event.target.value }))}
+                  >
+                    <option value="">All priorities</option>
+                    {priorityOptions.map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </WorkspaceSelect>
+                </WorkspaceFilter>
 
-                  {visibleAssignments.map((assignment) => (
-                    <tr key={assignment.id}>
-                      <td>{assignment.requestNumber}</td>
-                      <td>{assignment.customerName}</td>
-                      <td>{assignment.assignedUserName}</td>
-                      <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
-                      <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
-                      <td>
-                        <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
-                      </td>
-                      <td>{assignment.serviceStatus}</td>
-                      <td>
-                        <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
-                          {assignment.financeHandoffStatus}
-                        </WorkspaceStatusPill>
-                      </td>
-                      <td>
-                        <RecordTableActionButton onClick={() => setSelectedAssignment(assignment)}>
-                          View
-                        </RecordTableActionButton>
-                      </td>
+                <WorkspaceFilter label="Date from">
+                  <WorkspaceInput
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))}
+                  />
+                </WorkspaceFilter>
+
+                <WorkspaceFilter label="Date to">
+                  <WorkspaceInput
+                    type="date"
+                    value={filters.dateTo}
+                    onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))}
+                  />
+                </WorkspaceFilter>
+              </WorkspaceToolbar>
+            </WorkspacePanel>
+
+            {layoutMode === "register" ? (
+              <RecordTableShell>
+                <RecordTable>
+                  <thead>
+                    <tr>
+                      <th>Request No.</th>
+                      <th>Customer</th>
+                      <th>Assigned Staff</th>
+                      <th>Scheduled Start</th>
+                      <th>Scheduled End</th>
+                      <th>Assignment Status</th>
+                      <th>Service Status</th>
+                      <th>Finance</th>
+                      <th>Conflicts</th>
+                      <th>Action</th>
                     </tr>
+                  </thead>
+                  <tbody>
+                    {dispatchQuery.isLoading ? (
+                      <RecordTableStateRow colSpan={10}>Loading dispatch assignments...</RecordTableStateRow>
+                    ) : null}
+
+                    {dispatchQuery.isError ? (
+                      <RecordTableStateRow colSpan={10} tone="error">
+                        Unable to load dispatch assignments.
+                      </RecordTableStateRow>
+                    ) : null}
+
+                    {!dispatchQuery.isLoading && !dispatchQuery.isError && !visibleAssignments.length ? (
+                      <RecordTableStateRow colSpan={10}>
+                        {isAdmin ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+                      </RecordTableStateRow>
+                    ) : null}
+
+                    {visibleAssignments.map((assignment) => (
+                      <tr key={assignment.id}>
+                        <td>{assignment.requestNumber}</td>
+                        <td>{assignment.customerName}</td>
+                        <td>{assignment.assignedUserName}</td>
+                        <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
+                        <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
+                        <td>
+                          <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
+                        </td>
+                        <td>{assignment.serviceStatus}</td>
+                        <td>
+                          <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
+                            {assignment.financeHandoffStatus}
+                          </WorkspaceStatusPill>
+                        </td>
+                        <td>
+                          <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
+                            {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
+                          </WorkspaceStatusPill>
+                        </td>
+                        <td>
+                          <RecordTableActionButton onClick={() => setSelectedAssignment(assignment)}>
+                            View
+                          </RecordTableActionButton>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </RecordTable>
+              </RecordTableShell>
+            ) : (
+              <WorkspacePanel>
+                <WorkspacePanelHeader
+                  eyebrow="Technician planning"
+                  title="Timeline view"
+                />
+                <WorkspaceInlineNote>
+                  Review scheduled work grouped by service day so dispatchers can spot collisions and handoff timing faster.
+                </WorkspaceInlineNote>
+
+                {dispatchQuery.isLoading ? (
+                  <WorkspaceInlineNote>Loading dispatch timeline...</WorkspaceInlineNote>
+                ) : null}
+
+                {dispatchQuery.isError ? (
+                  <WorkspaceInlineNote>Unable to load dispatch timeline.</WorkspaceInlineNote>
+                ) : null}
+
+                {!dispatchQuery.isLoading && !dispatchQuery.isError && !timelineGroups.length ? (
+                  <WorkspaceInlineNote>No assignments are available for the current filters.</WorkspaceInlineNote>
+                ) : null}
+
+                <div className="grid gap-4">
+                  {timelineGroups.map((group) => (
+                    <div key={group.label} className="grid gap-3 rounded-box border border-base-300/70 bg-base-200/20 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-base-content">{group.label}</p>
+                          <p className="text-sm text-base-content/60">
+                            {group.assignments.length} assignment{group.assignments.length === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 xl:grid-cols-2">
+                        {group.assignments.map((assignment) => (
+                          <button
+                            key={assignment.id}
+                            type="button"
+                            className="grid gap-3 rounded-box border border-base-300/70 bg-base-100/70 p-4 text-left shadow-none transition hover:border-primary/30 hover:bg-base-100"
+                            onClick={() => setSelectedAssignment(assignment)}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="grid gap-1">
+                                <strong className="text-base-content">{assignment.requestNumber}</strong>
+                                <span className="text-sm text-base-content/70">{assignment.customerName}</span>
+                              </div>
+                              <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
+                            </div>
+
+                            <div className="grid gap-1 text-sm text-base-content/75">
+                              <span>{assignment.assignedUserName}</span>
+                              <span>
+                                {formatDateTime(assignment.scheduledStartUtc)} to {formatDateTime(assignment.scheduledEndUtc)}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
+                                {assignment.financeHandoffStatus}
+                              </WorkspaceStatusPill>
+                              <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
+                                {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
+                              </WorkspaceStatusPill>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </RecordTable>
-            </RecordTableShell>
+                </div>
+              </WorkspacePanel>
+            )}
 
             <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Execution notes" title="Phase 5 alignment" />
+              <WorkspacePanelHeader eyebrow="Execution notes" title="Phase 6 rollout" />
               <WorkspaceNoteList
                 items={[
-                  "Dispatch now surfaces finance handoff readiness so completed work is visible before MLS conversion.",
-                  "Assignment details reuse the shared request audit trail, keeping status and dispatch history on one thread.",
-                  "Job photo uploads remain a placeholder and are intentionally deferred to a deeper operational slice."
+                  "Assignment details now include schedule overlap visibility so admins can catch conflicts without leaving the register.",
+                  "Dispatch history is now separated into assignment events and service audit trail instead of relying on service status changes alone.",
+                  "Timeline mode now gives planners a day-grouped view, while hard overlaps on scheduled and in-progress work are blocked at save time."
                 ]}
               />
             </WorkspacePanel>
@@ -520,6 +1129,159 @@ export function SmsDispatchPage() {
           </WorkspaceForm>
         </RecordFormModal>
 
+        <RecordFormModal
+          open={isRescheduleModalOpen}
+          eyebrow="Dispatch reassignment"
+          title="Reschedule assignment"
+          description="Update assignment ownership, timing, and status while preserving a proper reassignment history."
+          actions={(
+            <>
+              <WorkspaceModalButton onClick={() => setIsRescheduleModalOpen(false)}>
+                Cancel
+              </WorkspaceModalButton>
+              <WorkspaceModalButton
+                type="submit"
+                form="tenant-dispatch-reschedule-form"
+                tone="primary"
+                disabled={rescheduleAssignmentMutation.isPending || !dispatchMetaQuery.data?.assignableUsers.length}
+              >
+                {rescheduleAssignmentMutation.isPending ? "Saving..." : "Save reassignment"}
+              </WorkspaceModalButton>
+            </>
+          )}
+          onClose={() => setIsRescheduleModalOpen(false)}
+        >
+          <WorkspaceForm id="tenant-dispatch-reschedule-form" onSubmit={handleRescheduleSubmit}>
+            <WorkspaceFieldGrid>
+              <WorkspaceField label="Assigned staff">
+                <WorkspaceSelect
+                  value={rescheduleForm.assignedUserId}
+                  onChange={(event) => setRescheduleForm((current) => ({ ...current, assignedUserId: event.target.value }))}
+                  required
+                >
+                  <option value="">Select staff member</option>
+                  {dispatchMetaQuery.data?.assignableUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.fullName} ({user.roles.join(", ")})
+                    </option>
+                  ))}
+                </WorkspaceSelect>
+              </WorkspaceField>
+
+              <WorkspaceField label="Assignment status">
+                <WorkspaceSelect
+                  value={rescheduleForm.assignmentStatus}
+                  onChange={(event) => setRescheduleForm((current) => ({ ...current, assignmentStatus: event.target.value }))}
+                >
+                  {assignmentStatuses.map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </WorkspaceSelect>
+              </WorkspaceField>
+
+              <WorkspaceField label="Scheduled start">
+                <WorkspaceInput
+                  type="datetime-local"
+                  value={rescheduleForm.scheduledStartUtc}
+                  onChange={(event) => setRescheduleForm((current) => ({ ...current, scheduledStartUtc: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Scheduled end">
+                <WorkspaceInput
+                  type="datetime-local"
+                  value={rescheduleForm.scheduledEndUtc}
+                  onChange={(event) => setRescheduleForm((current) => ({ ...current, scheduledEndUtc: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Reason for change" wide>
+                <WorkspaceInput
+                  value={rescheduleForm.remarks}
+                  onChange={(event) => setRescheduleForm((current) => ({ ...current, remarks: event.target.value }))}
+                />
+              </WorkspaceField>
+            </WorkspaceFieldGrid>
+          </WorkspaceForm>
+        </RecordFormModal>
+
+        <RecordFormModal
+          open={isEvidenceModalOpen}
+          eyebrow="Technician evidence"
+          title="Submit completion evidence"
+          description="Attach job notes and supporting evidence for the selected assignment."
+          actions={(
+            <>
+              <WorkspaceModalButton onClick={() => setIsEvidenceModalOpen(false)}>
+                Cancel
+              </WorkspaceModalButton>
+              <WorkspaceModalButton
+                type="submit"
+                form="tenant-dispatch-evidence-form"
+                tone="primary"
+                disabled={submitEvidenceMutation.isPending}
+              >
+                {submitEvidenceMutation.isPending ? "Uploading..." : "Submit evidence"}
+              </WorkspaceModalButton>
+            </>
+          )}
+          onClose={() => setIsEvidenceModalOpen(false)}
+        >
+          <WorkspaceForm id="tenant-dispatch-evidence-form" onSubmit={handleEvidenceSubmit}>
+            <WorkspaceFieldGrid>
+              <WorkspaceField label="Evidence note" wide>
+                <WorkspaceInput
+                  value={evidenceNote}
+                  onChange={(event) => setEvidenceNote(event.target.value)}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Photo attachments" wide>
+                <WorkspaceFileInput
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(event) => setEvidenceFiles(Array.from(event.target.files ?? []))}
+                />
+              </WorkspaceField>
+            </WorkspaceFieldGrid>
+          </WorkspaceForm>
+        </RecordFormModal>
+
+        <RecordFormModal
+          open={isEvidenceEditModalOpen}
+          eyebrow="Evidence review"
+          title="Update evidence note"
+          description="Refine or correct the note attached to the selected technician proof entry."
+          actions={(
+            <>
+              <WorkspaceModalButton onClick={() => setIsEvidenceEditModalOpen(false)}>
+                Cancel
+              </WorkspaceModalButton>
+              <WorkspaceModalButton
+                type="submit"
+                form="tenant-dispatch-evidence-edit-form"
+                tone="primary"
+                disabled={updateEvidenceMutation.isPending}
+              >
+                {updateEvidenceMutation.isPending ? "Saving..." : "Save note"}
+              </WorkspaceModalButton>
+            </>
+          )}
+          onClose={() => setIsEvidenceEditModalOpen(false)}
+        >
+          <WorkspaceForm id="tenant-dispatch-evidence-edit-form" onSubmit={handleEvidenceEditSubmit}>
+            <WorkspaceFieldGrid>
+              <WorkspaceField label="Evidence note" wide>
+                <WorkspaceInput
+                  value={editingEvidenceNote}
+                  onChange={(event) => setEditingEvidenceNote(event.target.value)}
+                />
+              </WorkspaceField>
+            </WorkspaceFieldGrid>
+          </WorkspaceForm>
+        </RecordFormModal>
+
         <RecordDetailsModal
           open={selectedAssignment !== null}
           eyebrow="Dispatch assignment"
@@ -530,6 +1292,22 @@ export function SmsDispatchPage() {
               <WorkspaceModalButton onClick={() => setSelectedAssignment(null)}>
                 Close
               </WorkspaceModalButton>
+              {(isAdmin || activeAssignment.assignedUserId === currentUser?.userId) ? (
+                <WorkspaceModalButton
+                  onClick={() => setIsEvidenceModalOpen(true)}
+                  disabled={submitEvidenceMutation.isPending}
+                >
+                  Add evidence
+                </WorkspaceModalButton>
+              ) : null}
+              {isAdmin ? (
+                <WorkspaceModalButton
+                  onClick={openRescheduleModal}
+                  disabled={rescheduleAssignmentMutation.isPending || dispatchMetaQuery.isLoading}
+                >
+                  Reschedule
+                </WorkspaceModalButton>
+              ) : null}
               {activeAssignment.assignmentStatus !== "In Progress" ? (
                 <WorkspaceModalButton
                   tone="primary"
@@ -581,6 +1359,17 @@ function formatDateTime(value: string | null) {
 
 function toIsoString(value: string) {
   return value ? new Date(value).toISOString() : null;
+}
+
+function toDateTimeLocalValue(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  const timezoneOffset = date.getTimezoneOffset();
+  const normalizedDate = new Date(date.getTime() - timezoneOffset * 60_000);
+  return normalizedDate.toISOString().slice(0, 16);
 }
 
 function getFinanceTone(status: string) {

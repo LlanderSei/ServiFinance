@@ -15,7 +15,7 @@ export function MetricCard({ label, value, description, className }: MetricCardP
   return (
     <article
       className={joinClasses(
-        "grid gap-1.5 rounded-box border border-base-300/70 bg-base-100/70 px-4 py-4 shadow-sm backdrop-blur-sm",
+        "grid gap-1.5 rounded-box border border-base-300/65 bg-base-100/88 px-4 py-4 shadow-sm backdrop-blur-sm",
         className
       )}
     >

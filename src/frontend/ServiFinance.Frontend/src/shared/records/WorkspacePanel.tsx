@@ -87,8 +87,10 @@ function joinClasses(...values: Array<string | false | null | undefined>) {
 
 export function WorkspaceScrollStack({ children, className }: WorkspaceScrollStackProps) {
   return (
-    <div className={joinClasses("grid min-h-0 w-full gap-4 overflow-auto pr-1", className)}>
-      {children}
+    <div className={joinClasses("min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pr-1", className)}>
+      <div className="grid auto-rows-max gap-4">
+        {children}
+      </div>
     </div>
   );
 }
@@ -123,7 +125,7 @@ export function WorkspacePanel({ children, className }: WorkspacePanelProps) {
   return (
     <section
       className={joinClasses(
-        "grid gap-4 rounded-box border border-base-300/70 bg-base-100/70 p-4 shadow-sm backdrop-blur-sm",
+        "flex min-h-0 flex-col gap-4 rounded-box border border-base-300/65 bg-base-100/88 p-4 shadow-sm backdrop-blur-sm",
         className
       )}
     >
@@ -155,7 +157,7 @@ export function WorkspaceToolbar({ children, className }: WorkspaceToolbarProps)
 
 export function WorkspaceSubtableShell({ children, className }: WorkspaceSubtableShellProps) {
   return (
-    <div className={joinClasses("overflow-hidden rounded-box border border-base-300/70 bg-base-100/60", className)}>
+    <div className={joinClasses("overflow-x-auto overflow-y-hidden rounded-box border border-base-300/65 bg-base-100/82", className)}>
       {children}
     </div>
   );
@@ -165,7 +167,7 @@ export function WorkspaceSubtable({ children, className, ...props }: WorkspaceSu
   return (
     <table
       className={joinClasses(
-        "table table-pin-rows text-sm text-base-content [&_th]:bg-primary/5 [&_th]:text-[0.76rem] [&_th]:font-extrabold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-base-content/60",
+        "table table-pin-rows text-sm text-base-content [&_td]:border-base-300/55 [&_th]:border-b [&_th]:border-base-300/70 [&_th]:bg-base-200/72 [&_th]:text-[0.76rem] [&_th]:font-extrabold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-base-content/64 [&_tr:hover_td]:bg-base-content/3",
         className
       )}
       {...props}
@@ -185,7 +187,7 @@ export function WorkspaceDetailGrid({ children, className }: WorkspaceDetailGrid
 
 export function WorkspaceDetailItem({ label, value }: WorkspaceDetailItemProps) {
   return (
-    <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
+    <div className="rounded-box border border-base-300/65 bg-base-200/52 px-4 py-3">
       <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">{label}</dt>
       <dd className="mt-1 text-base-content">{value}</dd>
     </div>
@@ -227,16 +229,16 @@ export function WorkspaceAlertItem({
 }: WorkspaceAlertItemProps) {
   const toneClasses =
     tone === "critical"
-      ? "border-error/25 bg-error/8"
+      ? "border-error/24 bg-error/10"
       : tone === "warning"
-        ? "border-warning/30 bg-warning/10"
-        : "border-base-300/70 bg-primary/5";
+        ? "border-warning/30 bg-warning/12"
+        : "border-base-300/70 bg-base-200/48";
   const badgeClasses =
     tone === "critical"
-      ? "bg-error/12 text-error"
+      ? "border border-error/20 bg-error/14 text-error"
       : tone === "warning"
-        ? "bg-warning/16 text-warning-content"
-        : "bg-base-200 text-base-content/70";
+        ? "border border-warning/20 bg-warning/18 text-warning"
+        : "border border-base-300/65 bg-base-100/92 text-base-content/72";
 
   return (
     <li className={joinClasses("flex flex-wrap items-start justify-between gap-4 rounded-2xl border px-4 py-4", toneClasses)}>

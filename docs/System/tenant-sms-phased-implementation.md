@@ -75,14 +75,6 @@ Current implementation:
 - assignment status updates now push service status changes back into the linked service request
 - job photo upload remains documented as a placeholder for the next slice
 
-To deepen Phase 3 further:
-
-- add reassignment history so schedule changes are auditable from the dispatch surface
-- support technician completion evidence such as job notes and job photo attachments
-- add dispatch conflict detection for overlapping staff schedules
-- surface technician-specific task timelines or calendar views beyond the current table register
-- expose assignment filtering by priority, status, and date window for busier tenants
-
 ## Phase 4: Reporting and Operator Visibility
 
 Goal:
@@ -124,3 +116,77 @@ Current implementation:
 - completed service requests can now be finalized into finance-ready invoices from the SMS workspace
 - request and dispatch detail views now expose invoice traceability, loan-conversion readiness, and audit history
 - dispatch records now reflect whether work is still awaiting invoicing, ready for desktop loan conversion, or already converted in MLS
+
+## Phase 6: Dispatch Evidence and Schedule Intelligence
+
+Goal:
+
+- deepen the dispatch workspace so it can support busier tenants with auditable schedule changes, richer technician evidence, and smarter execution planning.
+
+Must add:
+
+- reassignment history so assignment ownership and schedule changes are auditable
+- technician completion evidence such as job notes and job photo attachments
+- dispatch conflict detection for overlapping staff schedules
+- technician timeline or calendar views in addition to the table register
+- assignment filtering by priority, status, assigned staff, and date window
+
+Planned outputs:
+
+- assignment detail history showing who reassigned work, when, and why
+- technician completion submission flow for notes and uploaded proof of service
+- schedule validation feedback before conflicting assignments are saved
+- alternate dispatch view optimized for technician timelines and daily planning
+- richer dispatch filtering controls for higher-volume tenants
+
+Implementation notes:
+
+- this phase should build on the existing `Assignments` model and detail modals rather than introducing a separate workflow surface
+- evidence uploads should be designed so the same proof objects can later support MLS-side validation or dispute review
+- conflict detection should be advisory first, then block only clearly invalid overlaps if tenant rules require it
+
+Current implementation:
+
+- dispatch register now supports filtering by assigned staff, assignment status, priority, and date window
+- dispatch rows now surface overlapping schedule counts so conflicts are visible directly from the table
+- assignment detail now exposes reassignment and status event history separate from the service audit trail
+- technicians and administrators can now submit completion evidence with notes and photo attachments
+- administrators can now reschedule or reassign work from the existing dispatch detail flow
+- dispatch workspace now includes an alternate timeline view for day-grouped technician planning
+- schedule validation now blocks hard overlaps when scheduled or in-progress assignments share the same technician and service window
+- evidence review now supports note editing and proof removal from the existing dispatch detail modal
+
+## Phase 7: Reporting Windows and Turnaround Analytics
+
+Goal:
+
+- extend the reporting workspace beyond static snapshots so tenant operators can compare recent operating windows and measure execution speed.
+
+Must add:
+
+- report date-window controls with a previous-period comparison
+- selected-window activity metrics for intake, dispatch, completion, and invoice finalization
+- turnaround metrics for intake-to-completion, request-to-schedule, and scheduled work duration
+- overdue open-request visibility for operational follow-up
+- report exports that include the selected analysis window and comparison results
+
+Planned outputs:
+
+- reports workspace controls for last-7-day, last-30-day, and custom comparison windows
+- current-versus-previous comparison rows for core service activity metrics
+- turnaround cards that quantify service completion pace and scheduling lead time
+- export-ready CSV and print packets that preserve the chosen reporting window
+
+Implementation notes:
+
+- compute completion timing from existing status logs and assignment timestamps before introducing dedicated SLA entities
+- keep window comparison period-based so the current and previous windows always span equal day counts
+- overdue visibility should stay advisory inside the reporting workspace until tenant escalation rules exist
+
+Current implementation:
+
+- reports workspace now supports last-7-day, last-30-day, and custom date-window analysis
+- selected-window activity now surfaces new customers, new requests, assignments scheduled, assignments completed, completed requests, and invoices finalized
+- current-versus-previous comparison now quantifies delta values and percentage changes for the selected reporting window
+- turnaround metrics now show average intake-to-completion time, request-to-schedule lead time, scheduled work duration, and overdue open requests
+- CSV and print exports now include the selected reporting window, comparison results, and turnaround metrics

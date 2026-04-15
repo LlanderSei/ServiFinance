@@ -93,6 +93,8 @@ public sealed class AppUser : TenantEntity {
   public ICollection<StatusLog> StatusLogs { get; set; } = [];
   public ICollection<Assignment> AssignedAssignments { get; set; } = [];
   public ICollection<Assignment> CreatedAssignments { get; set; } = [];
+  public ICollection<AssignmentEvent> AssignmentEvents { get; set; } = [];
+  public ICollection<AssignmentEvidence> AssignmentEvidenceItems { get; set; } = [];
   public ICollection<MicroLoan> CreatedMicroLoans { get; set; } = [];
   public ICollection<LedgerTransaction> CreatedTransactions { get; set; } = [];
   public ICollection<RefreshSession> RefreshSessions { get; set; } = [];
@@ -172,6 +174,42 @@ public sealed class Assignment : TenantEntity {
   public ServiceRequest? ServiceRequest { get; set; }
   public AppUser? AssignedUser { get; set; }
   public AppUser? AssignedByUser { get; set; }
+  public ICollection<AssignmentEvent> Events { get; set; } = [];
+  public ICollection<AssignmentEvidence> EvidenceItems { get; set; } = [];
+}
+
+public sealed class AssignmentEvent : TenantEntity {
+  public Guid AssignmentId { get; set; }
+  public string EventType { get; set; } = string.Empty;
+  public Guid? PreviousAssignedUserId { get; set; }
+  public Guid AssignedUserId { get; set; }
+  public DateTime? PreviousScheduledStartUtc { get; set; }
+  public DateTime? PreviousScheduledEndUtc { get; set; }
+  public DateTime? ScheduledStartUtc { get; set; }
+  public DateTime? ScheduledEndUtc { get; set; }
+  public string AssignmentStatus { get; set; } = string.Empty;
+  public string Remarks { get; set; } = string.Empty;
+  public Guid ChangedByUserId { get; set; }
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+  public Assignment? Assignment { get; set; }
+  public AppUser? PreviousAssignedUser { get; set; }
+  public AppUser? AssignedUser { get; set; }
+  public AppUser? ChangedByUser { get; set; }
+}
+
+public sealed class AssignmentEvidence : TenantEntity {
+  public Guid AssignmentId { get; set; }
+  public Guid SubmittedByUserId { get; set; }
+  public string Note { get; set; } = string.Empty;
+  public string? OriginalFileName { get; set; }
+  public string? StoredFileName { get; set; }
+  public string? ContentType { get; set; }
+  public string? RelativeUrl { get; set; }
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+  public Assignment? Assignment { get; set; }
+  public AppUser? SubmittedByUser { get; set; }
 }
 
 public sealed class Invoice : TenantEntity {
@@ -204,7 +242,7 @@ public sealed class InvoiceLine : TenantEntity {
 }
 
 public sealed class MicroLoan : TenantEntity {
-  public Guid InvoiceId { get; set; }
+  public Guid? InvoiceId { get; set; }
   public Guid CustomerId { get; set; }
   public decimal PrincipalAmount { get; set; }
   public decimal AnnualInterestRate { get; set; }

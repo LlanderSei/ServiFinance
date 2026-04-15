@@ -1,5 +1,9 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.LifecycleEvents;
 using ServiFinance.Services;
+#if WINDOWS
+using ServiFinance.Platforms.Windows;
+#endif
 
 namespace ServiFinance;
 
@@ -15,6 +19,16 @@ public static class MauiProgram {
         .ConfigureFonts(fonts => {
           fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
         });
+
+#if WINDOWS
+    builder.ConfigureLifecycleEvents(events => {
+      events.AddWindows(windows => {
+        windows.OnWindowCreated(window => {
+          DesktopWindowSizing.ApplyMinimumSize(window);
+        });
+      });
+    });
+#endif
 
     builder.Services.AddSingleton<MainPage>();
     builder.Services.AddSingleton<DesktopHybridWebViewBridgeTarget>();

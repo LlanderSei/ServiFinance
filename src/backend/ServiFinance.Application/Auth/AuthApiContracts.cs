@@ -10,7 +10,7 @@ public sealed record RootApiLoginRequest(
 public sealed record TenantApiLoginRequest(
     string Email,
     string Password,
-    string TenantDomainSlug,
+    string? TenantDomainSlug,
     string TargetSystem,
     bool UseCookieSession = false,
     string? ReturnUrl = null);

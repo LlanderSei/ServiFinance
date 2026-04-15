@@ -17,19 +17,18 @@ import {
   WorkspaceFieldGrid,
   WorkspaceForm,
   WorkspaceInput,
-  WorkspaceModalButton,
-  WorkspaceNotice
+  WorkspaceModalButton
 } from "@/shared/records/WorkspaceControls";
 import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
+import { useToast } from "@/shared/toast/ToastProvider";
 
 export function SmsCustomersPage() {
   const { tenantDomainSlug = "" } = useParams();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [selectedCustomer, setSelectedCustomer] = useState<TenantCustomerRow | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<CreateTenantCustomerRequest>({
     fullName: "",
     mobileNumber: "",
@@ -55,12 +54,16 @@ export function SmsCustomersPage() {
         email: "",
         address: ""
       });
-      setMessage("Customer record created.");
-      setError(null);
+      toast.success({
+        title: "Customer record created",
+        message: "The customer profile is now available for intake, dispatch, and billing workflows."
+      });
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message);
-      setMessage(null);
+      toast.error({
+        title: "Unable to create customer record",
+        message: mutationError.message
+      });
     }
   });
 
@@ -106,9 +109,6 @@ export function SmsCustomersPage() {
           singularLabel="customer"
         >
           <RecordContentStack>
-            {message ? <WorkspaceNotice>{message}</WorkspaceNotice> : null}
-            {error ? <WorkspaceNotice tone="error">{error}</WorkspaceNotice> : null}
-
             <RecordTableShell>
               <RecordTable>
                 <thead>

@@ -2,7 +2,7 @@ import { resolveApiUrl } from "@/platform/runtime";
 import { isDesktopShell } from "@/platform/runtime";
 import { ensureAccessToken, getAccessToken } from "@/shared/auth/session";
 
-async function createRequestInit(method: "GET" | "POST", path: string, body?: unknown): Promise<RequestInit> {
+async function createRequestInit(method: "GET" | "POST" | "DELETE", path: string, body?: unknown): Promise<RequestInit> {
   const headers: Record<string, string> = {};
   const shouldAttachToken = path.startsWith("/api/") && !path.startsWith("/api/auth/");
 
@@ -22,6 +22,25 @@ async function createRequestInit(method: "GET" | "POST", path: string, body?: un
     headers,
     credentials: isDesktopShell() ? "omit" : "include",
     body: body === undefined ? undefined : JSON.stringify(body)
+  };
+}
+
+async function createFormDataRequestInit(path: string, body: FormData): Promise<RequestInit> {
+  const headers: Record<string, string> = {};
+  const shouldAttachToken = path.startsWith("/api/") && !path.startsWith("/api/auth/");
+
+  if (shouldAttachToken) {
+    const token = getAccessToken() ?? await ensureAccessToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  return {
+    method: "POST",
+    headers,
+    credentials: isDesktopShell() ? "omit" : "include",
+    body
   };
 }
 
@@ -58,4 +77,48 @@ export async function httpPostJson<TResponse, TBody>(path: string, body: TBody):
   }
 
   return response.json() as Promise<TResponse>;
+}
+
+export async function httpPostFormData<TResponse>(path: string, body: FormData): Promise<TResponse> {
+  const response = await fetch(await resolveApiUrl(path), await createFormDataRequestInit(path, body));
+
+  if (!response.ok) {
+    try {
+      const payload = await response.json() as { error?: string };
+      if (payload.error) {
+        throw new Error(payload.error);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        throw error;
+      }
+    }
+
+    throw new Error(`Request failed: ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as TResponse;
+  }
+
+  return response.json() as Promise<TResponse>;
+}
+
+export async function httpDelete(path: string): Promise<void> {
+  const response = await fetch(await resolveApiUrl(path), await createRequestInit("DELETE", path));
+
+  if (!response.ok) {
+    try {
+      const payload = await response.json() as { error?: string };
+      if (payload.error) {
+        throw new Error(payload.error);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        throw error;
+      }
+    }
+
+    throw new Error(`Request failed: ${response.status}`);
+  }
 }

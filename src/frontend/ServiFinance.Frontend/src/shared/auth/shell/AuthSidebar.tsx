@@ -3,6 +3,7 @@ import type { CurrentSessionUser } from "@/shared/api/contracts";
 import { useLogout } from "../useLogout";
 import { SidebarIcon } from "./SidebarIcon";
 import type { NavSection } from "./navigation";
+import { useToast } from "@/shared/toast/ToastProvider";
 
 type Props = {
   user: CurrentSessionUser;
@@ -26,6 +27,7 @@ export function AuthSidebar({
   onToggleSection
 }: Props) {
   const logout = useLogout();
+  const toast = useToast();
   const isSuperAdmin = user.roles.includes("SuperAdmin");
   const displayTitle = isSuperAdmin ? "ServiFinance" : user.tenantDomainSlug;
   const displaySubtitle = isSuperAdmin ? "Platform control plane" : user.email;
@@ -42,11 +44,11 @@ export function AuthSidebar({
 
   return (
     <aside
-      className={`authed-shell__sidebar relative flex h-auto flex-col gap-4 border-r border-base-300/50 bg-base-100/90 p-4 shadow-sm backdrop-blur transition-[padding] duration-300 ease-out md:sticky md:top-0 md:h-dvh ${railSpacingClass}`}
+      className={`authed-shell__sidebar relative flex h-full min-h-0 flex-col gap-4 overflow-visible border-r border-base-300/55 bg-base-100/94 p-4 shadow-sm backdrop-blur transition-[padding] duration-300 ease-out ${railSpacingClass}`}
     >
       <button
         type="button"
-        className="authed-sidebar__toggle btn btn-circle btn-sm static self-start border-base-300/60 bg-base-100/90 text-base-content shadow-sm transition-transform duration-200 hover:scale-105 md:absolute md:top-1/2 md:right-0 md:z-10 md:-translate-y-1/2 md:translate-x-1/2"
+        className="authed-sidebar__toggle btn btn-circle btn-sm static self-start border-base-300/60 bg-base-100/96 text-base-content shadow-sm transition-transform duration-200 hover:scale-105 md:absolute md:top-1/2 md:right-0 md:z-10 md:-translate-y-1/2 md:translate-x-1/2"
         onClick={onToggleExpanded}
         aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
         title={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
@@ -75,7 +77,7 @@ export function AuthSidebar({
 
       <button
         type="button"
-        className={`authed-user-card flex w-full items-center gap-3 rounded-box border border-base-300/50 bg-base-100/60 p-2 text-left shadow-sm transition-[padding] duration-300 ease-out ${isExpanded ? "" : "justify-center"}`}
+        className={`authed-user-card flex w-full items-center gap-3 rounded-box border border-base-300/55 bg-base-100/78 p-2 text-left shadow-sm transition-[padding] duration-300 ease-out ${isExpanded ? "" : "justify-center"}`}
         title={user.fullName}
       >
         <span className="authed-user-card__avatar inline-flex h-[2.7rem] w-[2.7rem] items-center justify-center rounded-full bg-primary/15 text-[0.86rem] font-bold tracking-[0.04em] text-primary">
@@ -109,21 +111,42 @@ export function AuthSidebar({
               ) : null}
 
               <div className={`authed-nav__items grid gap-[0.3rem]${isExpanded && isSectionCollapsed ? " hidden" : ""}`}>
-                {section.items.map((item) => (
+                {section.items.map((item) => item.to ? (
                   <NavLink
                     key={item.to}
                     to={item.to}
                     title={!isExpanded ? item.label : undefined}
                     className={({ isActive }) =>
-                      `authed-nav__item flex items-center gap-3 rounded-box text-base-content/75 no-underline transition-all duration-200 hover:-translate-y-px hover:bg-base-content/5 hover:text-base-content ${navItemBaseClass}${isActive ? " bg-primary/15 font-bold text-base-content" : ""}`
+                      `authed-nav__item flex items-center gap-3 rounded-box text-base-content/75 no-underline transition-all duration-200 hover:-translate-y-px hover:bg-base-content/5 hover:text-base-content ${navItemBaseClass}${isActive ? " border border-primary/18 bg-primary/14 font-bold text-base-content" : ""}`
                     }
                   >
                     <span className="authed-nav__item-icon inline-flex shrink-0 items-center justify-center">
                       <SidebarIcon name={item.icon} />
                     </span>
                     {isExpanded ? <span className="authed-nav__item-label min-w-0 truncate">{item.label}</span> : null}
-                    {isExpanded && item.badge ? <span className="authed-nav__item-badge badge badge-ghost badge-sm ml-auto">{item.badge}</span> : null}
+                    {isExpanded && item.badge ? <span className="authed-nav__item-badge ml-auto inline-flex items-center rounded-full border border-base-300/65 bg-base-100/92 px-2 py-0.5 text-[0.68rem] font-bold text-base-content/72">{item.badge}</span> : null}
                   </NavLink>
+                ) : (
+                  <button
+                    key={`${section.key}:${item.label}`}
+                    type="button"
+                    title={!isExpanded ? item.label : undefined}
+                    className={`authed-nav__item flex items-center gap-3 rounded-box text-base-content/75 transition-all duration-200 hover:-translate-y-px hover:bg-base-content/5 hover:text-base-content ${navItemBaseClass}`}
+                    onClick={() => {
+                      if (item.unavailableMessage) {
+                        toast.info({
+                          title: item.label,
+                          message: item.unavailableMessage
+                        });
+                      }
+                    }}
+                  >
+                    <span className="authed-nav__item-icon inline-flex shrink-0 items-center justify-center">
+                      <SidebarIcon name={item.icon} />
+                    </span>
+                    {isExpanded ? <span className="authed-nav__item-label min-w-0 truncate">{item.label}</span> : null}
+                    {isExpanded && item.badge ? <span className="authed-nav__item-badge ml-auto inline-flex items-center rounded-full border border-base-300/65 bg-base-100/92 px-2 py-0.5 text-[0.68rem] font-bold text-base-content/72">{item.badge}</span> : null}
+                  </button>
                 ))}
               </div>
             </div>

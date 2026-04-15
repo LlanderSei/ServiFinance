@@ -17,12 +17,12 @@ import {
   WorkspaceForm,
   WorkspaceInput,
   WorkspaceModalButton,
-  WorkspaceNotice,
   WorkspaceSelect,
   WorkspaceStatusPill
 } from "@/shared/records/WorkspaceControls";
 import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
+import { useToast } from "@/shared/toast/ToastProvider";
 
 type UserListItem = {
   id: string;
@@ -41,10 +41,9 @@ type AvailableRole = {
 export function SmsUsersPage() {
   const { tenantDomainSlug = "" } = useParams();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [form, setForm] = useState<CreateUserRequest>({ fullName: "", email: "", password: "", roleId: "" });
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ["tenant", tenantDomainSlug, "sms-users"],
@@ -62,12 +61,16 @@ export function SmsUsersPage() {
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-users"] });
       setForm((current) => ({ ...current, fullName: "", email: "", password: "" }));
       setIsCreateModalOpen(false);
-      setMessage("User created.");
-      setError(null);
+      toast.success({
+        title: "Staff account created",
+        message: "The tenant operator account is now active in the SMS workspace."
+      });
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message);
-      setMessage(null);
+      toast.error({
+        title: "Unable to create staff account",
+        message: mutationError.message
+      });
     }
   });
 
@@ -76,12 +79,16 @@ export function SmsUsersPage() {
       httpPostJson<void, { isActive: boolean }>(`/api/tenants/${tenantDomainSlug}/sms/users/${userId}/toggle`, { isActive }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-users"] });
-      setMessage("User state updated.");
-      setError(null);
+      toast.success({
+        title: "Staff account updated",
+        message: "The account status was updated successfully."
+      });
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message);
-      setMessage(null);
+      toast.error({
+        title: "Unable to update staff account",
+        message: mutationError.message
+      });
     }
   });
 
@@ -107,9 +114,6 @@ export function SmsUsersPage() {
           singularLabel="user"
         >
           <RecordContentStack>
-            {message ? <WorkspaceNotice>{message}</WorkspaceNotice> : null}
-            {error ? <WorkspaceNotice tone="error">{error}</WorkspaceNotice> : null}
-
             <RecordTableShell>
               <RecordTable>
                 <thead>

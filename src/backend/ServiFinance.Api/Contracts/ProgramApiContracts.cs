@@ -1,0 +1,356 @@
+namespace ServiFinance.Api.Contracts;
+
+using Microsoft.AspNetCore.Http;
+
+internal sealed record RootLoginRequest(string Email, string Password, bool RememberMe, string? ReturnUrl);
+internal sealed record TenantLoginRequest(string Email, string Password, string? TenantDomainSlug, string TargetSystem, string? ReturnUrl);
+internal sealed record ToggleUserStateRequest(bool IsActive);
+internal sealed record ToggleTenantStateRequest(bool IsActive);
+internal sealed record CreateCustomerRecordRequest(string FullName, string MobileNumber, string Email, string Address);
+internal sealed record CreateServiceRequestRecordRequest(
+    Guid CustomerId,
+    string ItemType,
+    string ItemDescription,
+    string IssueDescription,
+    DateTime? RequestedServiceDate,
+    string Priority);
+internal sealed record CreateTenantAssignmentRequest(
+    Guid ServiceRequestId,
+    Guid AssignedUserId,
+    DateTime? ScheduledStartUtc,
+    DateTime? ScheduledEndUtc,
+    string AssignmentStatus);
+internal sealed record RescheduleTenantAssignmentRequest(
+    Guid AssignedUserId,
+    DateTime? ScheduledStartUtc,
+    DateTime? ScheduledEndUtc,
+    string AssignmentStatus,
+    string? Remarks);
+internal sealed record UpdateTenantAssignmentStatusRequest(
+    string AssignmentStatus,
+    string? ServiceStatus,
+    string? Remarks);
+internal sealed record UpdateTenantAssignmentEvidenceRequest(string Note);
+internal sealed class SubmitTenantAssignmentEvidenceRequest {
+  public string? Note { get; init; }
+  public List<IFormFile> Files { get; init; } = [];
+}
+internal sealed record FinalizeTenantServiceInvoiceRequest(
+    decimal SubtotalAmount,
+    decimal InterestableAmount,
+    decimal DiscountAmount,
+    string? Remarks);
+internal sealed record TenantServiceRequestRowResponse(
+    Guid Id,
+    Guid CustomerId,
+    string CustomerCode,
+    string CustomerName,
+    string RequestNumber,
+    string ItemType,
+    string ItemDescription,
+    string IssueDescription,
+    DateTime? RequestedServiceDate,
+    string Priority,
+    string CurrentStatus,
+    DateTime CreatedAtUtc,
+    string CreatedByUserName,
+    Guid? InvoiceId,
+    string? InvoiceNumber,
+    string? InvoiceStatus,
+    decimal? InvoiceTotalAmount,
+    decimal? InvoiceOutstandingAmount,
+    decimal? InterestableAmount,
+    string FinanceHandoffStatus,
+    bool CanFinalizeInvoice,
+    bool CanConvertToLoan,
+    bool HasMicroLoan);
+internal sealed record TenantServiceRequestAuditRowResponse(
+    Guid Id,
+    string Status,
+    string Remarks,
+    string ChangedByUserName,
+    DateTime ChangedAtUtc);
+internal sealed record TenantServiceRequestDetailResponse(
+    TenantServiceRequestRowResponse ServiceRequest,
+    IReadOnlyList<TenantServiceRequestAuditRowResponse> AuditTrail);
+internal sealed record TenantDispatchAssignmentRowResponse(
+    Guid Id,
+    Guid ServiceRequestId,
+    string RequestNumber,
+    string CustomerName,
+    string ItemType,
+    string Priority,
+    string ServiceStatus,
+    Guid AssignedUserId,
+    string AssignedUserName,
+    Guid AssignedByUserId,
+    string AssignedByUserName,
+    DateTime? ScheduledStartUtc,
+    DateTime? ScheduledEndUtc,
+    string AssignmentStatus,
+    DateTime CreatedAtUtc,
+    string FinanceHandoffStatus,
+    string? InvoiceNumber,
+    string? InvoiceStatus,
+    int ScheduleConflictCount,
+    bool CanConvertToLoan,
+    bool HasMicroLoan);
+internal sealed record TenantDispatchAssignmentEventRowResponse(
+    Guid Id,
+    string EventType,
+    string AssignedUserName,
+    string? PreviousAssignedUserName,
+    DateTime? ScheduledStartUtc,
+    DateTime? ScheduledEndUtc,
+    DateTime? PreviousScheduledStartUtc,
+    DateTime? PreviousScheduledEndUtc,
+    string AssignmentStatus,
+    string Remarks,
+    string ChangedByUserName,
+    DateTime CreatedAtUtc);
+internal sealed record TenantDispatchAssignmentEvidenceRowResponse(
+    Guid Id,
+    Guid SubmittedByUserId,
+    string Note,
+    string? OriginalFileName,
+    string? RelativeUrl,
+    string SubmittedByUserName,
+    DateTime CreatedAtUtc);
+internal sealed record TenantDispatchConflictRowResponse(
+    Guid AssignmentId,
+    string RequestNumber,
+    string CustomerName,
+    string AssignedUserName,
+    DateTime? ScheduledStartUtc,
+    DateTime? ScheduledEndUtc,
+    string AssignmentStatus);
+internal sealed record TenantDispatchAssignmentDetailResponse(
+    TenantDispatchAssignmentRowResponse Assignment,
+    IReadOnlyList<TenantServiceRequestAuditRowResponse> AuditTrail,
+    IReadOnlyList<TenantDispatchAssignmentEventRowResponse> Events,
+    IReadOnlyList<TenantDispatchAssignmentEvidenceRowResponse> Evidence,
+    IReadOnlyList<TenantDispatchConflictRowResponse> Conflicts);
+internal sealed record TenantMlsDashboardSummaryResponse(
+    int FinanceReadyInvoices,
+    int ConvertedLoans,
+    int FinalizedInvoices,
+    int LedgerEntries,
+    decimal ReadyOutstandingAmount,
+    decimal ActiveLoanPrincipalAmount);
+internal sealed record TenantMlsFinanceQueueRowResponse(
+    Guid InvoiceId,
+    Guid? ServiceRequestId,
+    Guid CustomerId,
+    string CustomerName,
+    string RequestNumber,
+    string InvoiceNumber,
+    DateTime InvoiceDateUtc,
+    decimal OutstandingAmount,
+    decimal InterestableAmount,
+    string FinanceHandoffStatus,
+    bool HasMicroLoan);
+internal sealed record TenantMlsLoanRowResponse(
+    Guid MicroLoanId,
+    Guid CustomerId,
+    string CustomerName,
+    string InvoiceNumber,
+    decimal PrincipalAmount,
+    decimal TotalRepayableAmount,
+    string LoanStatus,
+    DateTime CreatedAtUtc);
+internal sealed record TenantMlsHandoffDistributionRowResponse(
+    string Label,
+    int Count);
+internal sealed record TenantMlsDashboardResponse(
+    TenantMlsDashboardSummaryResponse Summary,
+    IReadOnlyList<TenantMlsFinanceQueueRowResponse> FinanceQueue,
+    IReadOnlyList<TenantMlsLoanRowResponse> RecentLoans,
+    IReadOnlyList<TenantMlsHandoffDistributionRowResponse> HandoffDistribution);
+internal sealed record TenantMlsLoanConversionTermsRequest(
+    decimal AnnualInterestRate,
+    int TermMonths,
+    DateOnly LoanStartDate);
+internal sealed record CreateTenantMlsLoanConversionRequest(
+    Guid InvoiceId,
+    decimal AnnualInterestRate,
+    int TermMonths,
+    DateOnly LoanStartDate);
+internal sealed record TenantMlsLoanConversionCandidateResponse(
+    Guid InvoiceId,
+    Guid? ServiceRequestId,
+    Guid CustomerId,
+    string CustomerName,
+    string RequestNumber,
+    string InvoiceNumber,
+    DateTime InvoiceDateUtc,
+    decimal OutstandingAmount,
+    decimal InterestableAmount);
+internal sealed record TenantMlsLoanConversionSummaryResponse(
+    decimal PrincipalAmount,
+    decimal AnnualInterestRate,
+    int TermMonths,
+    decimal MonthlyInstallment,
+    decimal TotalInterestAmount,
+    decimal TotalRepayableAmount,
+    DateOnly LoanStartDate,
+    DateOnly MaturityDate);
+internal sealed record TenantMlsAmortizationScheduleRowResponse(
+    int InstallmentNumber,
+    DateOnly DueDate,
+    decimal BeginningBalance,
+    decimal PrincipalPortion,
+    decimal InterestPortion,
+    decimal InstallmentAmount,
+    decimal EndingBalance);
+internal sealed record TenantMlsLoanConversionPreviewResponse(
+    TenantMlsLoanConversionCandidateResponse Invoice,
+    TenantMlsLoanConversionSummaryResponse Summary,
+    IReadOnlyList<TenantMlsAmortizationScheduleRowResponse> Schedule);
+internal sealed record TenantMlsLoanConversionWorkspaceResponse(
+    IReadOnlyList<TenantMlsLoanConversionCandidateResponse> Candidates);
+internal sealed record TenantMlsLoanCreatedResponse(
+    Guid MicroLoanId,
+    string InvoiceNumber,
+    string CustomerName,
+    TenantMlsLoanConversionSummaryResponse Summary);
+internal sealed record TenantMlsLoanAccountRowResponse(
+    Guid MicroLoanId,
+    Guid CustomerId,
+    string CustomerName,
+    string InvoiceNumber,
+    decimal PrincipalAmount,
+    decimal TotalRepayableAmount,
+    decimal TotalPaidAmount,
+    decimal OutstandingBalance,
+    int PendingInstallments,
+    DateOnly? NextDueDate,
+    string LoanStatus,
+    DateTime CreatedAtUtc);
+internal sealed record TenantMlsLoanAccountsWorkspaceResponse(
+    IReadOnlyList<TenantMlsLoanAccountRowResponse> Loans);
+internal sealed record TenantMlsLoanLedgerRowResponse(
+    Guid TransactionId,
+    DateTime TransactionDateUtc,
+    string TransactionType,
+    string ReferenceNumber,
+    decimal DebitAmount,
+    decimal CreditAmount,
+    decimal RunningBalance,
+    string Remarks);
+internal sealed record TenantMlsLoanDetailResponse(
+    TenantMlsLoanAccountRowResponse Loan,
+    IReadOnlyList<TenantMlsAmortizationScheduleRowResponse> Schedule,
+    IReadOnlyList<TenantMlsLoanLedgerRowResponse> Ledger);
+internal sealed record PostTenantMlsLoanPaymentRequest(
+    decimal Amount,
+    DateOnly PaymentDate,
+    string? ReferenceNumber,
+    string? Remarks);
+internal sealed record TenantMlsLoanPaymentPostedResponse(
+    Guid MicroLoanId,
+    decimal AmountApplied,
+    decimal OutstandingBalance,
+    int RemainingInstallments,
+    string LoanStatus);
+internal sealed record TenantMlsCollectionsSummaryResponse(
+    int OverdueInstallments,
+    int DueTodayInstallments,
+    int DueThisWeekInstallments,
+    decimal OverdueBalance,
+    decimal DueThisWeekBalance);
+internal sealed record TenantMlsCollectionRowResponse(
+    Guid MicroLoanId,
+    Guid CustomerId,
+    string CustomerName,
+    string LoanLabel,
+    int InstallmentNumber,
+    DateOnly DueDate,
+    decimal InstallmentAmount,
+    decimal PaidAmount,
+    decimal OutstandingAmount,
+    int DaysPastDue,
+    string CollectionState,
+    string LoanStatus);
+internal sealed record TenantMlsCollectionsWorkspaceResponse(
+    TenantMlsCollectionsSummaryResponse Summary,
+    IReadOnlyList<TenantMlsCollectionRowResponse> Entries);
+internal sealed record TenantMlsCustomerFinanceSummaryResponse(
+    int TotalBorrowers,
+    int ActiveBorrowers,
+    decimal OutstandingPortfolioBalance,
+    decimal TotalCollectedAmount);
+internal sealed record TenantMlsCustomerFinanceRowResponse(
+    Guid CustomerId,
+    string CustomerCode,
+    string CustomerName,
+    int ActiveLoanCount,
+    int SettledLoanCount,
+    decimal OutstandingBalance,
+    decimal TotalCollectedAmount,
+    DateOnly? NextDueDate,
+    DateTime? LastPaymentDateUtc);
+internal sealed record TenantMlsCustomerFinanceWorkspaceResponse(
+    TenantMlsCustomerFinanceSummaryResponse Summary,
+    IReadOnlyList<TenantMlsCustomerFinanceRowResponse> Customers);
+internal sealed record TenantMlsCustomerFinanceDetailResponse(
+    TenantMlsCustomerFinanceRowResponse Customer,
+    IReadOnlyList<TenantMlsLoanAccountRowResponse> Loans,
+    IReadOnlyList<TenantMlsLedgerRowResponse> Ledger);
+internal sealed record TenantMlsAuditSummaryResponse(
+    int TotalEvents,
+    int LoanCreationEvents,
+    int StandaloneLoanEvents,
+    int PaymentEvents);
+internal sealed record TenantMlsAuditRowResponse(
+    Guid EventId,
+    DateTime OccurredAtUtc,
+    string ActionType,
+    string ActorName,
+    string CustomerName,
+    string SubjectLabel,
+    string ReferenceLabel,
+    string Detail);
+internal sealed record TenantMlsAuditWorkspaceResponse(
+    TenantMlsAuditSummaryResponse Summary,
+    IReadOnlyList<TenantMlsAuditRowResponse> Events);
+internal sealed record TenantMlsStandaloneLoanCustomerResponse(
+    Guid CustomerId,
+    string CustomerCode,
+    string CustomerName);
+internal sealed record TenantMlsStandaloneLoanWorkspaceResponse(
+    IReadOnlyList<TenantMlsStandaloneLoanCustomerResponse> Customers);
+internal sealed record TenantMlsStandaloneLoanPreviewResponse(
+    TenantMlsStandaloneLoanCustomerResponse Customer,
+    TenantMlsLoanConversionSummaryResponse Summary,
+    IReadOnlyList<TenantMlsAmortizationScheduleRowResponse> Schedule);
+internal sealed record CreateTenantMlsStandaloneLoanRequest(
+    Guid CustomerId,
+    decimal PrincipalAmount,
+    decimal AnnualInterestRate,
+    int TermMonths,
+    DateOnly LoanStartDate,
+    string? ReferenceNumber,
+    string? Remarks);
+internal sealed record TenantMlsStandaloneLoanCreatedResponse(
+    Guid MicroLoanId,
+    string CustomerName,
+    TenantMlsLoanConversionSummaryResponse Summary);
+internal sealed record TenantMlsLedgerSummaryResponse(
+    int TotalEntries,
+    decimal TotalLoanDisbursed,
+    decimal TotalCollections,
+    decimal CurrentRunningBalance);
+internal sealed record TenantMlsLedgerRowResponse(
+    Guid TransactionId,
+    DateTime TransactionDateUtc,
+    string TransactionType,
+    string ReferenceNumber,
+    string CustomerName,
+    string LoanLabel,
+    decimal DebitAmount,
+    decimal CreditAmount,
+    decimal RunningBalance,
+    string Remarks);
+internal sealed record TenantMlsLedgerWorkspaceResponse(
+    TenantMlsLedgerSummaryResponse Summary,
+    IReadOnlyList<TenantMlsLedgerRowResponse> Entries);

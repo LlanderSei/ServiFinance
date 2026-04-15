@@ -1,7 +1,7 @@
 import type { CurrentSessionUser } from "@/shared/api/contracts";
 
 export type NavItem = {
-  to: string;
+  to?: string;
   label: string;
   icon:
     | "dashboard"
@@ -17,6 +17,7 @@ export type NavItem = {
     | "dispatch"
     | "reports";
   badge?: string;
+  unavailableMessage?: string;
 };
 
 export type NavSection = {
@@ -27,8 +28,10 @@ export type NavSection = {
 
 export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
   const tenantBase = `/t/${user.tenantDomainSlug}`;
+  const mlsBase = "/t/mls";
   const isSuperAdmin = user.roles.includes("SuperAdmin");
   const isTenantAdmin = user.roles.includes("Administrator");
+  const isTenantDesktop = user.surface === "TenantDesktop";
 
   if (isSuperAdmin) {
     return [
@@ -58,6 +61,36 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
     ];
   }
 
+  if (isTenantDesktop) {
+    return [
+      {
+        key: "finance",
+        title: "Micro-Lending",
+        items: [
+          { to: `${mlsBase}/dashboard`, label: "MLS Dashboard", icon: "desktop", badge: "Desk" },
+          { to: `${mlsBase}/customers`, label: "Customer Records", icon: "customers" },
+          { to: `${mlsBase}/loan-conversion`, label: "Loan Conversion", icon: "requests" },
+          { to: `${mlsBase}/standalone-loans`, label: "Standalone Loans", icon: "customers" },
+          { to: `${mlsBase}/loans`, label: "Loan Accounts", icon: "reports" },
+          { to: `${mlsBase}/collections`, label: "Collections", icon: "service" },
+          { to: `${mlsBase}/audit`, label: "Audit Review", icon: "health" },
+          { to: `${mlsBase}/ledger`, label: "Ledger", icon: "dashboard" }
+        ]
+      },
+      {
+        key: "service",
+        title: "Service Management",
+        items: [
+          {
+            label: "SMS Dashboard",
+            icon: "service",
+            unavailableMessage: "SMS modules are available only in the web workspace. Open the tenant web app to use Service Management."
+          }
+        ]
+      }
+    ];
+  }
+
   return [
     {
       key: "service",
@@ -77,7 +110,7 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
       key: "finance",
       title: "Micro-Lending",
       items: [
-        { to: `${tenantBase}/mls/dashboard`, label: "MLS Dashboard", icon: "desktop", badge: "Desk" }
+        { to: `${mlsBase}/dashboard`, label: "MLS Dashboard", icon: "desktop", badge: "Desk" }
       ]
     }
   ];

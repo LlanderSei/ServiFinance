@@ -25,6 +25,7 @@ const TenantsPage = lazyPage(() => import("@/features/superadmin/TenantsPage"), 
 const SubscriptionsPage = lazyPage(() => import("@/features/superadmin/SubscriptionsPage"), "SubscriptionsPage");
 const ModulesPage = lazyPage(() => import("@/features/superadmin/ModulesPage"), "ModulesPage");
 const TenantLandingPage = lazyPage(() => import("@/features/tenant/TenantLandingPage"), "TenantLandingPage");
+const MlsDesktopLoginPage = lazyPage(() => import("@/features/tenant/mls/MlsDesktopLoginPage"), "MlsDesktopLoginPage");
 const SmsDashboardPage = lazyPage(() => import("@/features/tenant/sms/SmsDashboardPage"), "SmsDashboardPage");
 const SmsCustomersPage = lazyPage(() => import("@/features/tenant/sms/SmsCustomersPage"), "SmsCustomersPage");
 const SmsServiceRequestsPage = lazyPage(() => import("@/features/tenant/sms/SmsServiceRequestsPage"), "SmsServiceRequestsPage");
@@ -32,11 +33,19 @@ const SmsDispatchPage = lazyPage(() => import("@/features/tenant/sms/SmsDispatch
 const SmsReportsPage = lazyPage(() => import("@/features/tenant/sms/SmsReportsPage"), "SmsReportsPage");
 const SmsUsersPage = lazyPage(() => import("@/features/tenant/sms/SmsUsersPage"), "SmsUsersPage");
 const MlsDashboardPage = lazyPage(() => import("@/features/tenant/mls/MlsDashboardPage"), "MlsDashboardPage");
+const MlsCustomerFinancePage = lazyPage(() => import("@/features/tenant/mls/MlsCustomerFinancePage"), "MlsCustomerFinancePage");
+const MlsLoanConversionPage = lazyPage(() => import("@/features/tenant/mls/MlsLoanConversionPage"), "MlsLoanConversionPage");
+const MlsStandaloneLoanPage = lazyPage(() => import("@/features/tenant/mls/MlsStandaloneLoanPage"), "MlsStandaloneLoanPage");
+const MlsLoanAccountsPage = lazyPage(() => import("@/features/tenant/mls/MlsLoanAccountsPage"), "MlsLoanAccountsPage");
+const MlsCollectionsPage = lazyPage(() => import("@/features/tenant/mls/MlsCollectionsPage"), "MlsCollectionsPage");
+const MlsAuditPage = lazyPage(() => import("@/features/tenant/mls/MlsAuditPage"), "MlsAuditPage");
+const MlsLedgerPage = lazyPage(() => import("@/features/tenant/mls/MlsLedgerPage"), "MlsLedgerPage");
+const DesktopRequiredPage = lazyPage(() => import("@/features/system/DesktopRequiredPage"), "DesktopRequiredPage");
 const ForbiddenPage = lazyPage(() => import("@/features/system/ForbiddenPage"), "ForbiddenPage");
 const ErrorPage = lazyPage(() => import("@/features/system/ErrorPage"), "ErrorPage");
 const NotFoundPage = lazyPage(() => import("@/features/system/NotFoundPage"), "NotFoundPage");
 
-const routes = [
+const browserRoutes = [
   {
     path: "/",
     element: <AppShell />,
@@ -48,9 +57,12 @@ const routes = [
       { path: "tenants", element: <TenantsPage /> },
       { path: "subscriptions", element: <SubscriptionsPage /> },
       { path: "modules", element: <ModulesPage /> },
+      { path: "desktop-required", element: <DesktopRequiredPage /> },
       { path: "forbidden", element: <ForbiddenPage /> },
       { path: "error", element: <ErrorPage /> },
       { path: "not-found", element: <NotFoundPage /> },
+      { path: "t/mls", element: <Navigate to="/desktop-required" replace /> },
+      { path: "t/mls/*", element: <Navigate to="/desktop-required" replace /> },
       { path: "t/:tenantDomainSlug", element: <TenantRootRedirect /> },
       { path: "t/:tenantDomainSlug/sms", element: <TenantLandingPage system="sms" /> },
       { path: "t/:tenantDomainSlug/sms/dashboard", element: <SmsDashboardPage /> },
@@ -59,8 +71,48 @@ const routes = [
       { path: "t/:tenantDomainSlug/sms/dispatch", element: <SmsDispatchPage /> },
       { path: "t/:tenantDomainSlug/sms/reports", element: <SmsReportsPage /> },
       { path: "t/:tenantDomainSlug/sms/users", element: <SmsUsersPage /> },
-      { path: "t/:tenantDomainSlug/mls", element: <TenantLandingPage system="mls" /> },
-      { path: "t/:tenantDomainSlug/mls/dashboard", element: <MlsDashboardPage /> },
+      { path: "t/:tenantDomainSlug/mls", element: <Navigate to="/desktop-required" replace /> },
+      { path: "t/:tenantDomainSlug/mls/*", element: <Navigate to="/desktop-required" replace /> },
+      { path: "*", element: <NotFoundPage /> }
+    ]
+  }
+];
+
+const desktopRoutes = [
+  {
+    path: "/",
+    element: <AppShell />,
+    children: [
+      { index: true, element: <Navigate to="/t/mls/" replace /> },
+      { path: "register", element: <RegisterPage /> },
+      { path: "dashboard", element: <DashboardPage /> },
+      { path: "system-health", element: <SystemHealthPage /> },
+      { path: "tenants", element: <TenantsPage /> },
+      { path: "subscriptions", element: <SubscriptionsPage /> },
+      { path: "modules", element: <ModulesPage /> },
+      { path: "desktop-required", element: <DesktopRequiredPage /> },
+      { path: "forbidden", element: <ForbiddenPage /> },
+      { path: "error", element: <ErrorPage /> },
+      { path: "not-found", element: <NotFoundPage /> },
+      { path: "t/mls", element: <MlsDesktopLoginPage /> },
+      { path: "t/mls/dashboard", element: <MlsDashboardPage /> },
+      { path: "t/mls/customers", element: <MlsCustomerFinancePage /> },
+      { path: "t/mls/loan-conversion", element: <MlsLoanConversionPage /> },
+      { path: "t/mls/standalone-loans", element: <MlsStandaloneLoanPage /> },
+      { path: "t/mls/loans", element: <MlsLoanAccountsPage /> },
+      { path: "t/mls/collections", element: <MlsCollectionsPage /> },
+      { path: "t/mls/audit", element: <MlsAuditPage /> },
+      { path: "t/mls/ledger", element: <MlsLedgerPage /> },
+      { path: "t/:tenantDomainSlug", element: <TenantRootRedirect /> },
+      { path: "t/:tenantDomainSlug/sms", element: <TenantLandingPage system="sms" /> },
+      { path: "t/:tenantDomainSlug/sms/dashboard", element: <SmsDashboardPage /> },
+      { path: "t/:tenantDomainSlug/sms/customers", element: <SmsCustomersPage /> },
+      { path: "t/:tenantDomainSlug/sms/service-requests", element: <SmsServiceRequestsPage /> },
+      { path: "t/:tenantDomainSlug/sms/dispatch", element: <SmsDispatchPage /> },
+      { path: "t/:tenantDomainSlug/sms/reports", element: <SmsReportsPage /> },
+      { path: "t/:tenantDomainSlug/sms/users", element: <SmsUsersPage /> },
+      { path: "t/:tenantDomainSlug/mls", element: <Navigate to="/t/mls/" replace /> },
+      { path: "t/:tenantDomainSlug/mls/*", element: <LegacyMlsRouteRedirect /> },
       { path: "*", element: <NotFoundPage /> }
     ]
   }
@@ -71,6 +123,12 @@ function TenantRootRedirect() {
   return <Navigate to={`/t/${tenantDomainSlug}/sms/`} replace />;
 }
 
+function LegacyMlsRouteRedirect() {
+  const { "*": legacyPath = "" } = useParams();
+  const normalizedTarget = legacyPath ? `/t/mls/${legacyPath}` : "/t/mls/";
+  return <Navigate to={normalizedTarget} replace />;
+}
+
 export const router = isDesktopShell()
-  ? createHashRouter(routes)
-  : createBrowserRouter(routes);
+  ? createHashRouter(desktopRoutes)
+  : createBrowserRouter(browserRoutes);

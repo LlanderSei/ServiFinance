@@ -15,6 +15,8 @@ public sealed class ServiFinanceDbContext(
       typeof(ServiceRequest),
       typeof(StatusLog),
       typeof(Assignment),
+      typeof(AssignmentEvent),
+      typeof(AssignmentEvidence),
       typeof(Invoice),
       typeof(InvoiceLine),
       typeof(MicroLoan),
@@ -37,6 +39,8 @@ public sealed class ServiFinanceDbContext(
   public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
   public DbSet<StatusLog> StatusLogs => Set<StatusLog>();
   public DbSet<Assignment> Assignments => Set<Assignment>();
+  public DbSet<AssignmentEvent> AssignmentEvents => Set<AssignmentEvent>();
+  public DbSet<AssignmentEvidence> AssignmentEvidenceItems => Set<AssignmentEvidence>();
   public DbSet<Invoice> Invoices => Set<Invoice>();
   public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
   public DbSet<MicroLoan> MicroLoans => Set<MicroLoan>();
@@ -56,6 +60,8 @@ public sealed class ServiFinanceDbContext(
     ConfigureServiceRequests(modelBuilder);
     ConfigureStatusLogs(modelBuilder);
     ConfigureAssignments(modelBuilder);
+    ConfigureAssignmentEvents(modelBuilder);
+    ConfigureAssignmentEvidence(modelBuilder);
     ConfigureInvoices(modelBuilder);
     ConfigureInvoiceLines(modelBuilder);
     ConfigureMicroLoans(modelBuilder);
@@ -126,7 +132,7 @@ public sealed class ServiFinanceDbContext(
     user.Property(entity => entity.Email).HasMaxLength(256);
     user.Property(entity => entity.PasswordHash).HasMaxLength(512);
     user.Property(entity => entity.FullName).HasMaxLength(200);
-    user.HasIndex(entity => new { entity.TenantId, entity.Email }).IsUnique();
+    user.HasIndex(entity => entity.Email).IsUnique();
     user.HasOne(entity => entity.Tenant)
         .WithMany(entity => entity.Users)
         .HasForeignKey(entity => entity.TenantId)
@@ -287,6 +293,50 @@ public sealed class ServiFinanceDbContext(
         .OnDelete(DeleteBehavior.Restrict);
   }
 
+  private void ConfigureAssignmentEvents(ModelBuilder modelBuilder) {
+    var assignmentEvent = modelBuilder.Entity<AssignmentEvent>();
+    assignmentEvent.ToTable("AssignmentEvents");
+    ConfigureTenantOwned(assignmentEvent);
+    assignmentEvent.Property(entity => entity.EventType).HasMaxLength(50);
+    assignmentEvent.Property(entity => entity.AssignmentStatus).HasMaxLength(50);
+    assignmentEvent.Property(entity => entity.Remarks).HasMaxLength(1000);
+    assignmentEvent.HasOne(entity => entity.Assignment)
+        .WithMany(entity => entity.Events)
+        .HasForeignKey(entity => entity.AssignmentId)
+        .OnDelete(DeleteBehavior.Cascade);
+    assignmentEvent.HasOne(entity => entity.PreviousAssignedUser)
+        .WithMany()
+        .HasForeignKey(entity => entity.PreviousAssignedUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+    assignmentEvent.HasOne(entity => entity.AssignedUser)
+        .WithMany()
+        .HasForeignKey(entity => entity.AssignedUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+    assignmentEvent.HasOne(entity => entity.ChangedByUser)
+        .WithMany(entity => entity.AssignmentEvents)
+        .HasForeignKey(entity => entity.ChangedByUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+  }
+
+  private void ConfigureAssignmentEvidence(ModelBuilder modelBuilder) {
+    var assignmentEvidence = modelBuilder.Entity<AssignmentEvidence>();
+    assignmentEvidence.ToTable("AssignmentEvidence");
+    ConfigureTenantOwned(assignmentEvidence);
+    assignmentEvidence.Property(entity => entity.Note).HasMaxLength(2000);
+    assignmentEvidence.Property(entity => entity.OriginalFileName).HasMaxLength(260);
+    assignmentEvidence.Property(entity => entity.StoredFileName).HasMaxLength(260);
+    assignmentEvidence.Property(entity => entity.ContentType).HasMaxLength(120);
+    assignmentEvidence.Property(entity => entity.RelativeUrl).HasMaxLength(500);
+    assignmentEvidence.HasOne(entity => entity.Assignment)
+        .WithMany(entity => entity.EvidenceItems)
+        .HasForeignKey(entity => entity.AssignmentId)
+        .OnDelete(DeleteBehavior.Cascade);
+    assignmentEvidence.HasOne(entity => entity.SubmittedByUser)
+        .WithMany(entity => entity.AssignmentEvidenceItems)
+        .HasForeignKey(entity => entity.SubmittedByUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+  }
+
   private void ConfigureInvoices(ModelBuilder modelBuilder) {
     var invoice = modelBuilder.Entity<Invoice>();
     invoice.ToTable("Invoices");
@@ -333,10 +383,13 @@ public sealed class ServiFinanceDbContext(
     ConfigureMoney(microLoan.Property(entity => entity.MonthlyInstallment));
     ConfigureMoney(microLoan.Property(entity => entity.TotalInterestAmount));
     ConfigureMoney(microLoan.Property(entity => entity.TotalRepayableAmount));
-    microLoan.HasIndex(entity => entity.InvoiceId).IsUnique();
+    microLoan.HasIndex(entity => entity.InvoiceId)
+        .IsUnique()
+        .HasFilter("[InvoiceId] IS NOT NULL");
     microLoan.HasOne(entity => entity.Invoice)
         .WithOne(entity => entity.MicroLoan)
         .HasForeignKey<MicroLoan>(entity => entity.InvoiceId)
+        .IsRequired(false)
         .OnDelete(DeleteBehavior.Restrict);
     microLoan.HasOne(entity => entity.Customer)
         .WithMany(entity => entity.MicroLoans)

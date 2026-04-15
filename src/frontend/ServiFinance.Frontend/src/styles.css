@@ -52,6 +52,38 @@ select {
   min-height: 100vh;
 }
 
+@keyframes mls-hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mls-panel-settle {
+  from {
+    opacity: 0;
+    transform: translateX(22px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.mls-login__hero-content {
+  animation: mls-hero-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.mls-login__panel-shell {
+  animation: mls-panel-settle 720ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

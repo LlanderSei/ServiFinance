@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { TenantOperationalReportsResponse } from "@/shared/api/contracts";
 import { httpGet } from "@/shared/api/http";
@@ -7,7 +7,16 @@ import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { RecordTableStateRow } from "@/shared/records/RecordTable";
 import { RecordContentStack, RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
-import { WorkspaceInlineNote, WorkspaceNotice } from "@/shared/records/WorkspaceControls";
+import {
+  WorkspaceActionButton,
+  WorkspaceFilter,
+  WorkspaceInlineNote,
+  WorkspaceInput,
+  WorkspaceNotice,
+  WorkspaceStatusPill,
+  WorkspaceToggleButton,
+  WorkspaceToggleGroup
+} from "@/shared/records/WorkspaceControls";
 import {
   WorkspaceEmptyState,
   WorkspaceDistributionRow,
@@ -19,21 +28,65 @@ import {
   WorkspaceScrollStack,
   WorkspaceSubtable,
   WorkspaceSubtableShell,
-  WorkspaceTenantCell
+  WorkspaceTenantCell,
+  WorkspaceToolbar
 } from "@/shared/records/WorkspacePanel";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
 
+type ReportRangePreset = "7d" | "30d" | "custom";
+
+const defaultDateTo = formatDateInput(new Date());
+const defaultDateFrom = shiftDate(defaultDateTo, -6);
+
 export function SmsReportsPage() {
   const { tenantDomainSlug = "" } = useParams();
+  const [dateFrom, setDateFrom] = useState(defaultDateFrom);
+  const [dateTo, setDateTo] = useState(defaultDateTo);
+  const preset = useMemo<ReportRangePreset>(() => {
+    if (dateTo === defaultDateTo && dateFrom === defaultDateFrom) {
+      return "7d";
+    }
+
+    if (dateTo === defaultDateTo && dateFrom === shiftDate(defaultDateTo, -29)) {
+      return "30d";
+    }
+
+    return "custom";
+  }, [dateFrom, dateTo]);
+  const reportsQueryString = useMemo(() => {
+    const searchParams = new URLSearchParams();
+    if (dateFrom) {
+      searchParams.set("dateFrom", dateFrom);
+    }
+    if (dateTo) {
+      searchParams.set("dateTo", dateTo);
+    }
+
+    const query = searchParams.toString();
+    return query ? `?${query}` : "";
+  }, [dateFrom, dateTo]);
   const reportsQuery = useQuery({
-    queryKey: ["tenant", tenantDomainSlug, "sms-reports"],
-    queryFn: () => httpGet<TenantOperationalReportsResponse>(`/api/tenants/${tenantDomainSlug}/sms/reports/overview`)
+    queryKey: ["tenant", tenantDomainSlug, "sms-reports", dateFrom, dateTo],
+    queryFn: () => httpGet<TenantOperationalReportsResponse>(`/api/tenants/${tenantDomainSlug}/sms/reports/overview${reportsQueryString}`)
   });
 
   const distributionTotal = useMemo(
     () => (reportsQuery.data?.serviceStatusDistribution ?? []).reduce((total, row) => total + row.count, 0),
     [reportsQuery.data?.serviceStatusDistribution]
   );
+
+  function handlePresetChange(nextPreset: ReportRangePreset) {
+    if (nextPreset === "7d") {
+      setDateTo(defaultDateTo);
+      setDateFrom(defaultDateFrom);
+      return;
+    }
+
+    if (nextPreset === "30d") {
+      setDateTo(defaultDateTo);
+      setDateFrom(shiftDate(defaultDateTo, -29));
+    }
+  }
 
   function handleExportCsv() {
     if (!reportsQuery.data) {
@@ -43,6 +96,10 @@ export function SmsReportsPage() {
     const generatedAt = new Date().toISOString();
     const rows = [
       ["Report", "Metric", "Value"],
+      ["Window", "Date From", formatDateOnly(reportsQuery.data.reportingWindow.dateFromUtc)],
+      ["Window", "Date To", formatDateOnly(reportsQuery.data.reportingWindow.dateToUtc)],
+      ["Window", "Previous Date From", formatDateOnly(reportsQuery.data.reportingWindow.previousDateFromUtc)],
+      ["Window", "Previous Date To", formatDateOnly(reportsQuery.data.reportingWindow.previousDateToUtc)],
       ["Totals", "Customers", String(reportsQuery.data.totals.customers)],
       ["Totals", "Service Requests", String(reportsQuery.data.totals.serviceRequests)],
       ["Totals", "Active Assignments", String(reportsQuery.data.totals.activeAssignments)],
@@ -51,6 +108,20 @@ export function SmsReportsPage() {
       ["Daily Activity", "New Requests Today", String(reportsQuery.data.dailyActivity.newRequestsToday)],
       ["Daily Activity", "Assignments Scheduled Today", String(reportsQuery.data.dailyActivity.assignmentsScheduledToday)],
       ["Daily Activity", "Assignments Completed Today", String(reportsQuery.data.dailyActivity.assignmentsCompletedToday)],
+      ["Window Activity", "New Customers", String(reportsQuery.data.windowedActivity.newCustomers)],
+      ["Window Activity", "New Requests", String(reportsQuery.data.windowedActivity.newRequests)],
+      ["Window Activity", "Assignments Scheduled", String(reportsQuery.data.windowedActivity.assignmentsScheduled)],
+      ["Window Activity", "Assignments Completed", String(reportsQuery.data.windowedActivity.assignmentsCompleted)],
+      ["Window Activity", "Completed Requests", String(reportsQuery.data.windowedActivity.completedRequests)],
+      ["Window Activity", "Invoices Finalized", String(reportsQuery.data.windowedActivity.invoicesFinalized)],
+      ...reportsQuery.data.comparison.map((row) => ["Comparison", `${row.label} / Current`, String(row.currentValue)]),
+      ...reportsQuery.data.comparison.map((row) => ["Comparison", `${row.label} / Previous`, String(row.previousValue)]),
+      ...reportsQuery.data.comparison.map((row) => ["Comparison", `${row.label} / Delta`, String(row.deltaValue)]),
+      ["Turnaround", "Completed Requests", String(reportsQuery.data.turnaround.completedRequests)],
+      ["Turnaround", "Average Intake to Completion Hours", formatMetricHours(reportsQuery.data.turnaround.averageIntakeToCompletionHours)],
+      ["Turnaround", "Average Request to Schedule Hours", formatMetricHours(reportsQuery.data.turnaround.averageRequestToScheduleHours)],
+      ["Turnaround", "Average Scheduled Work Hours", formatMetricHours(reportsQuery.data.turnaround.averageScheduledWorkHours)],
+      ["Turnaround", "Overdue Open Requests", String(reportsQuery.data.turnaround.overdueOpenRequests)],
       ...reportsQuery.data.serviceStatusDistribution.map((row) => ["Service Status Distribution", row.status, String(row.count)]),
       ...reportsQuery.data.technicianWorkload.map((row) => ["Technician Workload", `${row.fullName} / Active`, String(row.activeAssignments)]),
       ...reportsQuery.data.technicianWorkload.map((row) => ["Technician Workload", `${row.fullName} / Scheduled`, String(row.scheduledAssignments)]),
@@ -92,6 +163,9 @@ export function SmsReportsPage() {
     const catalogRows = reportsQuery.data.catalog
       .map((row) => `<tr><td>${escapeHtml(row.title)}</td><td>${escapeHtml(row.scope)}</td><td>${escapeHtml(row.freshness)}</td><td>${escapeHtml(row.owner)}</td></tr>`)
       .join("");
+    const comparisonRows = reportsQuery.data.comparison
+      .map((row) => `<tr><td>${escapeHtml(row.label)}</td><td>${row.currentValue}</td><td>${row.previousValue}</td><td>${formatSignedValue(row.deltaValue)}${row.deltaPercentage === null ? "" : ` (${formatDeltaPercentage(row.deltaPercentage)})`}</td></tr>`)
+      .join("");
 
     printWindow.document.write(`<!doctype html>
 <html lang="en">
@@ -122,7 +196,7 @@ export function SmsReportsPage() {
       <section class="header">
         <p>Tenant SMS Reports</p>
         <h1>${escapeHtml(tenantDomainSlug)} Operational Report Packet</h1>
-        <p>Generated ${escapeHtml(generatedAt)}. This export captures the current tenant service-management operational snapshot.</p>
+        <p>Generated ${escapeHtml(generatedAt)} for ${escapeHtml(formatDateOnly(reportsQuery.data.reportingWindow.dateFromUtc))} to ${escapeHtml(formatDateOnly(reportsQuery.data.reportingWindow.dateToUtc))}. This export captures the current tenant service-management operational snapshot.</p>
       </section>
 
       <section class="grid">
@@ -130,6 +204,43 @@ export function SmsReportsPage() {
         <div class="metric"><p>Service Requests</p><strong>${reportsQuery.data.totals.serviceRequests}</strong></div>
         <div class="metric"><p>Active Assignments</p><strong>${reportsQuery.data.totals.activeAssignments}</strong></div>
         <div class="metric"><p>Completed Assignments</p><strong>${reportsQuery.data.totals.completedAssignments}</strong></div>
+      </section>
+
+      <section class="section">
+        <h2>Selected Window Activity</h2>
+        <table>
+          <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>New Customers</td><td>${reportsQuery.data.windowedActivity.newCustomers}</td></tr>
+            <tr><td>New Requests</td><td>${reportsQuery.data.windowedActivity.newRequests}</td></tr>
+            <tr><td>Assignments Scheduled</td><td>${reportsQuery.data.windowedActivity.assignmentsScheduled}</td></tr>
+            <tr><td>Assignments Completed</td><td>${reportsQuery.data.windowedActivity.assignmentsCompleted}</td></tr>
+            <tr><td>Completed Requests</td><td>${reportsQuery.data.windowedActivity.completedRequests}</td></tr>
+            <tr><td>Invoices Finalized</td><td>${reportsQuery.data.windowedActivity.invoicesFinalized}</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section">
+        <h2>Window Comparison</h2>
+        <table>
+          <thead><tr><th>Metric</th><th>Current</th><th>Previous</th><th>Delta</th></tr></thead>
+          <tbody>${comparisonRows}</tbody>
+        </table>
+      </section>
+
+      <section class="section">
+        <h2>Turnaround Metrics</h2>
+        <table>
+          <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>Completed Requests</td><td>${reportsQuery.data.turnaround.completedRequests}</td></tr>
+            <tr><td>Average Intake to Completion</td><td>${escapeHtml(formatMetricHours(reportsQuery.data.turnaround.averageIntakeToCompletionHours))}</td></tr>
+            <tr><td>Average Request to Schedule</td><td>${escapeHtml(formatMetricHours(reportsQuery.data.turnaround.averageRequestToScheduleHours))}</td></tr>
+            <tr><td>Average Scheduled Work</td><td>${escapeHtml(formatMetricHours(reportsQuery.data.turnaround.averageScheduledWorkHours))}</td></tr>
+            <tr><td>Overdue Open Requests</td><td>${reportsQuery.data.turnaround.overdueOpenRequests}</td></tr>
+          </tbody>
+        </table>
       </section>
 
       <section class="section">
@@ -181,7 +292,7 @@ export function SmsReportsPage() {
       <RecordWorkspace
         breadcrumbs={`${tenantDomainSlug} / SMS / Reports`}
         title="Operational reports"
-        description="Review live operational summaries, workload pressure, and service status distribution from one tenant reporting workspace."
+        description="Review live operational summaries, compare date windows, and track turnaround efficiency from one tenant reporting workspace."
         recordCount={reportsQuery.data?.catalog.length ?? 0}
         singularLabel="report"
       >
@@ -192,6 +303,59 @@ export function SmsReportsPage() {
 
           <RecordScrollRegion>
             <WorkspaceScrollStack>
+              <WorkspacePanel>
+                <WorkspacePanelHeader eyebrow="Reporting window" title="Date range and comparison" />
+                <WorkspaceToolbar className="flex flex-col items-start gap-4 lg:flex-row lg:flex-wrap lg:items-end">
+                  <div className="flex flex-wrap gap-2">
+                    <WorkspaceToggleGroup>
+                      <WorkspaceToggleButton active={preset === "7d"} onClick={() => handlePresetChange("7d")}>
+                        Last 7 days
+                      </WorkspaceToggleButton>
+                      <WorkspaceToggleButton active={preset === "30d"} onClick={() => handlePresetChange("30d")}>
+                        Last 30 days
+                      </WorkspaceToggleButton>
+                      <WorkspaceToggleButton active={preset === "custom"}>
+                        Custom
+                      </WorkspaceToggleButton>
+                    </WorkspaceToggleGroup>
+                  </div>
+
+                  <WorkspaceFilter label="Date from">
+                    <WorkspaceInput
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo}
+                      onChange={(event) => setDateFrom(event.target.value)}
+                    />
+                  </WorkspaceFilter>
+
+                  <WorkspaceFilter label="Date to">
+                    <WorkspaceInput
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom}
+                      max={defaultDateTo}
+                      onChange={(event) => setDateTo(event.target.value)}
+                    />
+                  </WorkspaceFilter>
+
+                  <WorkspaceActionButton
+                    onClick={() => {
+                      setDateFrom(defaultDateFrom);
+                      setDateTo(defaultDateTo);
+                    }}
+                  >
+                    Reset window
+                  </WorkspaceActionButton>
+                </WorkspaceToolbar>
+
+                <WorkspaceInlineNote>
+                  {reportsQuery.data
+                    ? `Current window: ${formatDateOnly(reportsQuery.data.reportingWindow.dateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.dateToUtc)}. Previous window: ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateToUtc)}.`
+                    : "Select a reporting window to compare current operational activity against the immediately preceding period."}
+                </WorkspaceInlineNote>
+              </WorkspacePanel>
+
               <WorkspaceMetricGrid className="2xl:grid-cols-4">
                 <MetricCard
                   label="Customers"
@@ -214,6 +378,123 @@ export function SmsReportsPage() {
                   description="Completed dispatch entries already pushed through the tenant workflow."
                 />
               </WorkspaceMetricGrid>
+
+              <WorkspacePanelGrid>
+                <WorkspacePanel>
+                  <WorkspacePanelHeader eyebrow="Selected window" title="Operating movement" />
+
+                  <WorkspaceMetricGrid className="xl:grid-cols-3">
+                    <MetricCard
+                      label="New customers"
+                      value={reportsQuery.data?.windowedActivity.newCustomers ?? 0}
+                      description="Customer profiles added inside the selected reporting window."
+                    />
+                    <MetricCard
+                      label="New requests"
+                      value={reportsQuery.data?.windowedActivity.newRequests ?? 0}
+                      description="Service intake volume recorded in the selected period."
+                    />
+                    <MetricCard
+                      label="Assignments scheduled"
+                      value={reportsQuery.data?.windowedActivity.assignmentsScheduled ?? 0}
+                      description="Dispatch schedules created in the active reporting window."
+                    />
+                    <MetricCard
+                      label="Assignments completed"
+                      value={reportsQuery.data?.windowedActivity.assignmentsCompleted ?? 0}
+                      description="Assignments whose planned service window ended as completed in the selected period."
+                    />
+                    <MetricCard
+                      label="Completed requests"
+                      value={reportsQuery.data?.windowedActivity.completedRequests ?? 0}
+                      description="Service requests closed inside the active comparison window."
+                    />
+                    <MetricCard
+                      label="Invoices finalized"
+                      value={reportsQuery.data?.windowedActivity.invoicesFinalized ?? 0}
+                      description="Finance-ready service invoices finalized during the selected period."
+                    />
+                  </WorkspaceMetricGrid>
+                </WorkspacePanel>
+
+                <WorkspacePanel>
+                  <WorkspacePanelHeader eyebrow="Turnaround" title="Completion efficiency" />
+
+                  <WorkspaceMetricGrid className="xl:grid-cols-2">
+                    <MetricCard
+                      label="Completed requests"
+                      value={reportsQuery.data?.turnaround.completedRequests ?? 0}
+                      description="Requests completed within the selected reporting window."
+                    />
+                    <MetricCard
+                      label="Overdue open requests"
+                      value={reportsQuery.data?.turnaround.overdueOpenRequests ?? 0}
+                      description="Requests still open after their requested service date."
+                    />
+                    <MetricCard
+                      label="Intake to completion"
+                      value={formatMetricHours(reportsQuery.data?.turnaround.averageIntakeToCompletionHours ?? null)}
+                      description="Average elapsed time from intake creation until completion."
+                    />
+                    <MetricCard
+                      label="Request to schedule"
+                      value={formatMetricHours(reportsQuery.data?.turnaround.averageRequestToScheduleHours ?? null)}
+                      description="Average lead time before work is first scheduled."
+                    />
+                    <MetricCard
+                      label="Scheduled work"
+                      value={formatMetricHours(reportsQuery.data?.turnaround.averageScheduledWorkHours ?? null)}
+                      description="Average planned technician work duration for completed assignments."
+                    />
+                  </WorkspaceMetricGrid>
+                </WorkspacePanel>
+              </WorkspacePanelGrid>
+
+              <WorkspacePanelGrid>
+                <WorkspacePanel>
+                  <WorkspacePanelHeader eyebrow="Window comparison" title="Current versus previous period" />
+
+                  <WorkspaceSubtableShell>
+                    <WorkspaceSubtable>
+                      <thead>
+                        <tr>
+                          <th>Metric</th>
+                          <th>Current</th>
+                          <th>Previous</th>
+                          <th>Delta</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportsQuery.isLoading ? (
+                          <RecordTableStateRow colSpan={4}>Loading comparison metrics...</RecordTableStateRow>
+                        ) : null}
+
+                        {!reportsQuery.isLoading && !reportsQuery.data?.comparison.length ? (
+                          <RecordTableStateRow colSpan={4}>No comparison metrics are available yet.</RecordTableStateRow>
+                        ) : null}
+
+                        {reportsQuery.data?.comparison.map((row) => (
+                          <tr key={row.key}>
+                            <td>{row.label}</td>
+                            <td>{row.currentValue}</td>
+                            <td>{row.previousValue}</td>
+                            <td>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <WorkspaceStatusPill tone={getDeltaTone(row.deltaValue)}>
+                                  {formatSignedValue(row.deltaValue)}
+                                </WorkspaceStatusPill>
+                                <span className="text-sm text-base-content/65">
+                                  {row.deltaPercentage === null ? "No baseline" : formatDeltaPercentage(row.deltaPercentage)}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </WorkspaceSubtable>
+                  </WorkspaceSubtableShell>
+                </WorkspacePanel>
+              </WorkspacePanelGrid>
 
               <WorkspacePanelGrid>
                 <WorkspacePanel>
@@ -341,9 +622,9 @@ export function SmsReportsPage() {
                 <WorkspacePanelHeader eyebrow="Output formats" title="Export-ready layouts" />
                 <WorkspaceNoteList
                   items={[
-                    "Spreadsheet export now writes the live report packet into a tenant-scoped CSV file.",
-                    "Print export now generates a clean report packet for operational review and offline sharing.",
-                    "Next reporting depth should focus on date-window comparison and turnaround metrics, not output formatting."
+                    "Spreadsheet export now includes the active date window, comparison deltas, and turnaround metrics in the report packet.",
+                    "Print export now generates a report packet with selected-window activity, prior-period comparison, and completion efficiency.",
+                    "The next reporting depth should focus on technician productivity and SLA-style breach tracking if the tenant needs more operational control."
                   ]}
                 />
               </WorkspacePanel>
@@ -380,6 +661,48 @@ export function SmsReportsPage() {
       </RecordWorkspace>
     </ProtectedRoute>
   );
+}
+
+function formatDateInput(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function shiftDate(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDateOnly(value: string) {
+  return new Date(value).toLocaleDateString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+}
+
+function formatMetricHours(value: number | null) {
+  return value === null ? "No data" : `${value.toFixed(1)} hrs`;
+}
+
+function formatSignedValue(value: number) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function formatDeltaPercentage(value: number) {
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function getDeltaTone(value: number) {
+  if (value > 0) {
+    return "active";
+  }
+
+  if (value < 0) {
+    return "warning";
+  }
+
+  return "neutral";
 }
 
 function escapeHtml(value: string) {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { CurrentSessionUser } from "@/shared/api/contracts";
 import { useSubscriptionTiers } from "@/shared/api/useSubscriptionTiers";
+import { getAuthenticatedHomeRoute } from "@/shared/auth/routing";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { PublicFooter } from "@/shared/public/PublicFooter";
 import { PublicHeader } from "@/shared/public/PublicHeader";
@@ -17,16 +17,6 @@ import {
   PublicWorkflowList
 } from "@/shared/public/PublicPrimitives";
 import { RootLoginModal } from "@/shared/public/RootLoginModal";
-
-function getAuthenticatedHomeRoute(user: CurrentSessionUser) {
-  if (user.roles.includes("SuperAdmin")) {
-    return "/dashboard";
-  }
-
-  return user.surface === "TenantDesktop"
-    ? `/t/${user.tenantDomainSlug}/mls/dashboard`
-    : `/t/${user.tenantDomainSlug}/sms/dashboard`;
-}
 
 export function RootLandingPage() {
   const [searchParams, setSearchParams] = useSearchParams();

@@ -23,12 +23,14 @@ public sealed class UserAuthenticationService(
     query = request.Surface switch {
         AuthenticationSurface.Root =>
             query.Where(entity => entity.TenantId == ServiFinanceDatabaseDefaults.PlatformTenantId),
-        AuthenticationSurface.TenantWeb or AuthenticationSurface.TenantDesktop
+        AuthenticationSurface.TenantWeb
             when !string.IsNullOrWhiteSpace(normalizedTenantSlug) =>
             query.Where(entity =>
                 entity.TenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
                 entity.Tenant != null &&
                 entity.Tenant.DomainSlug == normalizedTenantSlug),
+        AuthenticationSurface.TenantDesktop =>
+            query.Where(entity => entity.TenantId != ServiFinanceDatabaseDefaults.PlatformTenantId),
         _ => query.Where(_ => false)
     };
 
@@ -87,10 +89,13 @@ public sealed class UserAuthenticationService(
       AuthenticationSurface.Root =>
           tenantId == ServiFinanceDatabaseDefaults.PlatformTenantId &&
           roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase),
-      AuthenticationSurface.TenantWeb or AuthenticationSurface.TenantDesktop =>
+      AuthenticationSurface.TenantWeb =>
           tenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
           !string.IsNullOrWhiteSpace(request.TenantDomainSlug) &&
           string.Equals(tenantDomainSlug, request.TenantDomainSlug, StringComparison.OrdinalIgnoreCase),
+      AuthenticationSurface.TenantDesktop =>
+          tenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
+          !string.IsNullOrWhiteSpace(tenantDomainSlug),
       _ => false
     };
   }

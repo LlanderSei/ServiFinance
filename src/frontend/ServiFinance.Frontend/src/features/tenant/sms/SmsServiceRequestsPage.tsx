@@ -26,11 +26,11 @@ import {
   WorkspaceForm,
   WorkspaceInput,
   WorkspaceModalButton,
-  WorkspaceNotice,
   WorkspaceSelect,
   WorkspaceStatusPill
 } from "@/shared/records/WorkspaceControls";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
+import { useToast } from "@/shared/toast/ToastProvider";
 
 type InvoiceFormState = {
   subtotalAmount: string;
@@ -47,13 +47,12 @@ const currencyFormatter = new Intl.NumberFormat("en-PH", {
 export function SmsServiceRequestsPage() {
   const { tenantDomainSlug = "" } = useParams();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const currentUser = getCurrentSession()?.user ?? null;
   const isAdmin = currentUser?.roles.includes("Administrator") ?? false;
   const [selectedRequest, setSelectedRequest] = useState<TenantServiceRequestRow | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<CreateTenantServiceRequestRequest>({
     customerId: "",
     itemType: "",
@@ -105,12 +104,16 @@ export function SmsServiceRequestsPage() {
         requestedServiceDate: "",
         priority: "Normal"
       });
-      setMessage("Service request created.");
-      setError(null);
+      toast.success({
+        title: "Service request created",
+        message: `Request ${serviceRequest.requestNumber} is now in the tenant intake register.`
+      });
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message);
-      setMessage(null);
+      toast.error({
+        title: "Unable to create service request",
+        message: mutationError.message
+      });
     }
   });
 
@@ -134,12 +137,16 @@ export function SmsServiceRequestsPage() {
         discountAmount: "0",
         remarks: ""
       });
-      setMessage(`Invoice ${response.serviceRequest.invoiceNumber ?? ""} finalized for finance handoff.`);
-      setError(null);
+      toast.success({
+        title: "Invoice finalized",
+        message: `Invoice ${response.serviceRequest.invoiceNumber ?? ""} is now ready for finance handoff.`
+      });
     },
     onError: (mutationError: Error) => {
-      setError(mutationError.message);
-      setMessage(null);
+      toast.error({
+        title: "Unable to finalize invoice",
+        message: mutationError.message
+      });
     }
   });
 
@@ -284,9 +291,6 @@ export function SmsServiceRequestsPage() {
           singularLabel="request"
         >
           <RecordContentStack>
-            {message ? <WorkspaceNotice>{message}</WorkspaceNotice> : null}
-            {error ? <WorkspaceNotice tone="error">{error}</WorkspaceNotice> : null}
-
             <RecordTableShell>
               <RecordTable>
                 <thead>

@@ -111,10 +111,10 @@ namespace ServiFinance.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TenantId", "Email")
+                    b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("Users", (string)null);
                 });
@@ -162,6 +162,122 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("Assignments", (string)null);
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.AssignmentEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AssignedUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AssignmentStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("PreviousAssignedUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("PreviousScheduledEndUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PreviousScheduledStartUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Remarks")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ScheduledEndUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ScheduledStartUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedUserId");
+
+                    b.HasIndex("AssignmentId");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("PreviousAssignedUserId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("AssignmentEvents", (string)null);
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.AssignmentEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("OriginalFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("RelativeUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("StoredFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<Guid>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignmentId");
+
+                    b.HasIndex("SubmittedByUserId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("AssignmentEvidence", (string)null);
                 });
 
             modelBuilder.Entity("ServiFinance.Domain.Customer", b =>
@@ -401,7 +517,7 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("InvoiceId")
+                    b.Property<Guid?>("InvoiceId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("LoanStartDate")
@@ -444,7 +560,8 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("InvoiceId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[InvoiceId] IS NOT NULL");
 
                     b.HasIndex("TenantId");
 
@@ -912,6 +1029,59 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Navigation("ServiceRequest");
                 });
 
+            modelBuilder.Entity("ServiFinance.Domain.AssignmentEvent", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.AppUser", "AssignedUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiFinance.Domain.Assignment", "Assignment")
+                        .WithMany("Events")
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ServiFinance.Domain.AppUser", "ChangedByUser")
+                        .WithMany("AssignmentEvents")
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiFinance.Domain.AppUser", "PreviousAssignedUser")
+                        .WithMany()
+                        .HasForeignKey("PreviousAssignedUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AssignedUser");
+
+                    b.Navigation("Assignment");
+
+                    b.Navigation("ChangedByUser");
+
+                    b.Navigation("PreviousAssignedUser");
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.AssignmentEvidence", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.Assignment", "Assignment")
+                        .WithMany("EvidenceItems")
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ServiFinance.Domain.AppUser", "SubmittedByUser")
+                        .WithMany("AssignmentEvidenceItems")
+                        .HasForeignKey("SubmittedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Assignment");
+
+                    b.Navigation("SubmittedByUser");
+                });
+
             modelBuilder.Entity("ServiFinance.Domain.Customer", b =>
                 {
                     b.HasOne("ServiFinance.Domain.Tenant", "Tenant")
@@ -1009,8 +1179,7 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.HasOne("ServiFinance.Domain.Invoice", "Invoice")
                         .WithOne("MicroLoan")
                         .HasForeignKey("ServiFinance.Domain.MicroLoan", "InvoiceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("CreatedByUser");
 
@@ -1126,6 +1295,10 @@ namespace ServiFinance.Infrastructure.Migrations
                 {
                     b.Navigation("AssignedAssignments");
 
+                    b.Navigation("AssignmentEvents");
+
+                    b.Navigation("AssignmentEvidenceItems");
+
                     b.Navigation("CreatedAssignments");
 
                     b.Navigation("CreatedMicroLoans");
@@ -1139,6 +1312,13 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Navigation("StatusLogs");
 
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.Assignment", b =>
+                {
+                    b.Navigation("Events");
+
+                    b.Navigation("EvidenceItems");
                 });
 
             modelBuilder.Entity("ServiFinance.Domain.Customer", b =>

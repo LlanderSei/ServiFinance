@@ -11,6 +11,35 @@ type ApplySessionOptions = {
   rememberOnWeb?: boolean;
 };
 
+function normalizeSurface(
+  surface: AuthSessionResponse["user"]["surface"] | number,
+): AuthSessionResponse["user"]["surface"] {
+  if (surface === "Root" || surface === "TenantWeb" || surface === "TenantDesktop") {
+    return surface;
+  }
+
+  switch (surface) {
+    case 0:
+      return "Root";
+    case 1:
+      return "TenantWeb";
+    case 2:
+      return "TenantDesktop";
+    default:
+      return "TenantWeb";
+  }
+}
+
+function normalizeSessionResponse(response: AuthSessionResponse): AuthSessionResponse {
+  return {
+    ...response,
+    user: {
+      ...response.user,
+      surface: normalizeSurface(response.user.surface as AuthSessionResponse["user"]["surface"] | number)
+    }
+  };
+}
+
 export function getAccessToken() {
   return accessToken;
 }
@@ -24,16 +53,17 @@ export function getCurrentSession() {
 }
 
 export async function applySession(response: AuthSessionResponse, options: ApplySessionOptions = {}) {
-  accessToken = response.tokens.accessToken;
-  currentSession = response;
+  const normalizedResponse = normalizeSessionResponse(response);
+  accessToken = normalizedResponse.tokens.accessToken;
+  currentSession = normalizedResponse;
 
   if (isDesktopShell()) {
-    await desktopBridge.saveRefreshToken(response.tokens.refreshToken);
+    await desktopBridge.saveRefreshToken(normalizedResponse.tokens.refreshToken);
     return;
   }
 
   if (options.rememberOnWeb) {
-    webSessionStorage.saveRefreshToken(response.tokens.refreshToken);
+    webSessionStorage.saveRefreshToken(normalizedResponse.tokens.refreshToken);
   } else {
     webSessionStorage.clear();
   }
@@ -101,7 +131,7 @@ export async function refreshSession() {
       return null;
     }
 
-    const payload = await response.json() as AuthSessionResponse;
+    const payload = normalizeSessionResponse(await response.json() as AuthSessionResponse);
     await applySession(payload, { rememberOnWeb: !isDesktopShell() && useTokenBody });
     return payload;
   })().finally(() => {

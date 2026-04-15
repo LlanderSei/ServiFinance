@@ -87,7 +87,7 @@ export function AuthenticatedShell({ user, children }: Props) {
   return (
     <div
       data-theme={theme === "dark" ? "servifinance-dark" : "servifinance-light"}
-      className={`grid min-h-dvh grid-cols-1 text-base-content transition-[grid-template-columns] duration-300 ease-out ${shellWidthClass} ${shellThemeClass}`}
+      className={`grid h-dvh min-h-0 grid-cols-1 overflow-hidden text-base-content transition-[grid-template-columns] duration-300 ease-out ${shellWidthClass} ${shellThemeClass}`}
     >
       <AuthSidebar
         user={user}
@@ -105,7 +105,7 @@ export function AuthenticatedShell({ user, children }: Props) {
         }
       />
 
-      <section className="min-w-0 bg-base-100 text-base-content">
+      <section className="min-w-0 min-h-0 overflow-hidden bg-base-100 text-base-content">
         {children}
       </section>
     </div>

@@ -39,8 +39,11 @@ public sealed class UserManagementService(
 
   public async Task<UserListItem> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default) {
     var normalizedEmail = request.Email.Trim();
-    var existingUser = await dbContext.Users.AnyAsync(
-        entity => entity.Email == normalizedEmail,
+    var normalizedEmailUpper = normalizedEmail.ToUpperInvariant();
+    var existingUser = await dbContext.Users
+        .IgnoreQueryFilters()
+        .AnyAsync(
+        entity => entity.Email.ToUpper() == normalizedEmailUpper,
         cancellationToken);
 
     if (existingUser) {
