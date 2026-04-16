@@ -9,7 +9,6 @@ import type {
   TenantServiceRequestRow
 } from "@/shared/api/contracts";
 import { httpGet, httpPostJson } from "@/shared/api/http";
-import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
@@ -281,8 +280,7 @@ export function SmsServiceRequestsPage() {
   }
 
   return (
-    <ProtectedRoute tenantSlug={tenantDomainSlug}>
-      <>
+    <>
         <RecordWorkspace
           breadcrumbs={`${tenantDomainSlug} / SMS / Service Requests`}
           title="Service requests"
@@ -543,8 +541,7 @@ export function SmsServiceRequestsPage() {
           ) : null}
           onClose={() => setSelectedRequest(null)}
         />
-      </>
-    </ProtectedRoute>
+    </>
   );
 }
 

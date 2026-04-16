@@ -21,11 +21,11 @@ export function WorkspaceFabDock({ actions }: WorkspaceFabDockProps) {
 
   return (
     <div
-      className={`pointer-events-none static inline-flex items-center self-stretch justify-end gap-[0.55rem] md:absolute md:right-4 md:bottom-4 md:z-[3] md:self-auto md:justify-start ${isExpanded ? "" : "is-collapsed"}`}
+      className={`authed-workspace__fab pointer-events-none static inline-flex items-center self-stretch justify-end gap-[0.55rem] md:absolute md:right-4 md:bottom-4 md:z-[3] md:self-auto md:justify-start ${isExpanded ? "" : "is-collapsed"}`}
     >
       <button
         type="button"
-        className="btn btn-circle btn-sm pointer-events-auto border-base-300/70 bg-base-100/95 text-base-content shadow-lg transition-all duration-200 hover:-translate-x-px"
+        className="btn btn-circle btn-sm pointer-events-auto border-base-300/70 bg-base-100 text-base-content shadow-lg transition-colors duration-200 hover:bg-base-200"
         aria-label={isExpanded ? "Collapse workspace actions" : "Expand workspace actions"}
         onClick={() => setIsExpanded((current) => !current)}
       >
@@ -35,14 +35,14 @@ export function WorkspaceFabDock({ actions }: WorkspaceFabDockProps) {
       </button>
 
       <div
-        className={`pointer-events-auto inline-flex max-w-full items-center gap-[0.55rem] rounded-full border border-base-300/70 bg-base-100/95 p-2 shadow-xl transition-all duration-200 md:max-w-none ${isExpanded ? "" : "w-0 translate-x-[0.4rem] overflow-hidden border-transparent p-0 opacity-0 shadow-none pointer-events-none"}`}
+        className={`pointer-events-auto inline-flex max-w-full items-center gap-[0.55rem] rounded-full border border-base-300/70 bg-base-100 p-2 shadow-xl transition-[width,opacity,padding] duration-200 md:max-w-none ${isExpanded ? "" : "w-0 overflow-hidden border-transparent p-0 opacity-0 shadow-none pointer-events-none"}`}
         aria-label="Workspace actions"
       >
         {actions.map((action) => (
           <button
             key={action.key}
             type="button"
-            className="btn btn-circle btn-sm pointer-events-auto h-12 w-12 border-base-300/70 bg-base-100 text-base-content shadow-sm transition-all duration-200 hover:-translate-y-px hover:bg-base-200"
+            className="btn btn-circle btn-sm pointer-events-auto h-12 w-12 border-base-300/70 bg-base-100 text-base-content shadow-sm transition-colors duration-200 hover:bg-base-200"
             onClick={action.onClick}
             aria-label={action.label}
             title={action.label}

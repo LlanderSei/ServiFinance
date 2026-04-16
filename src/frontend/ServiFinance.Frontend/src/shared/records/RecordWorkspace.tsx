@@ -37,9 +37,9 @@ export function RecordWorkspace({
   const hasCountBadge = typeof recordCount === "number" && singularLabel;
 
   return (
-    <main className="mx-auto h-full min-h-0 max-w-none overflow-hidden bg-base-100 text-base-content">
+    <main className="authed-workspace mx-auto h-full min-h-0 max-w-none overflow-hidden bg-base-100 text-base-content">
       <section className="grid h-full min-h-0 grid-rows-[auto_1fr] gap-0 bg-transparent">
-        <header className="grid gap-2 border-b border-base-300/70 bg-base-100/80 px-6 pt-5 pb-3">
+        <header className="grid gap-2 border-b border-base-300/70 bg-base-100 px-6 pt-5 pb-3">
           <div className="grid gap-0.5">
             <p className="m-0 text-[0.74rem] font-extrabold uppercase tracking-[0.14em] text-base-content/60">{breadcrumbs}</p>
 
@@ -58,7 +58,7 @@ export function RecordWorkspace({
         </header>
 
         <section className="min-h-0 overflow-hidden p-0">
-          <div className="flex h-full min-h-0 flex-col border border-base-300/65 bg-base-100/94 p-4 shadow-sm">
+          <div className="authed-workspace__surface flex h-full min-h-0 flex-col border border-base-300/65 bg-base-100 p-4 shadow-sm">
             {children}
           </div>
         </section>
@@ -79,7 +79,7 @@ export function RecordScrollRegion({ children, className }: RecordScrollRegionPr
   return (
     <div
       className={joinClasses(
-        "min-h-0 flex-1 overflow-auto overscroll-contain pb-[5.5rem] [scroll-padding-bottom:5.5rem]",
+        "min-h-0 flex-1 overflow-auto overscroll-contain pb-[5.5rem] [scroll-padding-bottom:5.5rem] [contain:layout_paint]",
         className
       )}
     >

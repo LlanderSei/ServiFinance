@@ -1,0 +1,19 @@
+{
+  "sqltools.connections": [
+    {
+      "connectionTimeout": 600,
+      "mssqlOptions": {
+        "appName": "SQLTools",
+        "useUTC": true,
+        "encrypt": true,
+        "trustServerCertificate": true
+      },
+      "ssh": "Disabled",
+      "previewLimit": 50,
+      "server": "localhost",
+      "driver": "MSSQL",
+      "connectString": "Data Source=DESKTOP-48R722R\\SQLEXPRESS;Integrated Security=True;Persist Security Info=False;Pooling=False;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True;Application Name=\"SQL Server Management Studio\";Command Timeout=0",
+      "name": "Local SQL Server"
+    }
+  ]
+}

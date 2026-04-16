@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import type { CurrentSessionUser } from "@/shared/api/contracts";
 import { getAuthenticatedHomeRoute } from "./routing";
 import { getCurrentSession } from "./session";
@@ -7,7 +7,7 @@ import { useRefreshSession } from "./useRefreshSession";
 import { AuthenticatedShell } from "./AuthenticatedShell";
 
 type Props = {
-  children: ReactNode;
+  children?: ReactNode;
   requireRole?: string;
   tenantSlug?: string;
   requireSurface?: CurrentSessionUser["surface"];
@@ -57,5 +57,9 @@ export function ProtectedRoute({
     return <Navigate to={unauthorizedRedirectTo ?? getAuthenticatedHomeRoute(session.user)} replace />;
   }
 
-  return <AuthenticatedShell user={session.user}>{children}</AuthenticatedShell>;
+  return (
+    <AuthenticatedShell user={session.user}>
+      {children ?? <Outlet />}
+    </AuthenticatedShell>
+  );
 }

@@ -123,7 +123,7 @@ function ToastItem({
   return (
     <div
       className={[
-        "pointer-events-auto rounded-box border shadow-2xl backdrop-blur-md",
+        "toast-item pointer-events-auto rounded-box border shadow-xl",
         toneClasses[toast.tone]
       ].join(" ")}
       role="status"

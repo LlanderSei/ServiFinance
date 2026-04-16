@@ -3,7 +3,6 @@ import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CreateUserRequest } from "../types";
 import { httpGet, httpPostJson } from "@/shared/api/http";
-import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
 import {
   RecordTable,
@@ -104,8 +103,7 @@ export function SmsUsersPage() {
   }
 
   return (
-    <ProtectedRoute tenantSlug={tenantDomainSlug} requireRole="Administrator">
-      <>
+    <>
         <RecordWorkspace
           breadcrumbs={`${tenantDomainSlug} / SMS / Staff Accounts`}
           title="Staff accounts"
@@ -253,7 +251,6 @@ export function SmsUsersPage() {
             </WorkspaceFieldGrid>
           </WorkspaceForm>
         </RecordFormModal>
-      </>
-    </ProtectedRoute>
+    </>
   );
 }

@@ -2,6 +2,31 @@
 
 This document breaks the tenant-side Service Management System into phased UI implementation slices so the web surface can be built incrementally on top of the shared authenticated shell.
 
+## IT15 Use-Case Coverage Check
+
+Based on `Use Case IT15 ServiFinance`, the current SMS web implementation is already strong on the internal tenant-operations side:
+
+- tenant login is implemented
+- staff account management is implemented
+- schedule and dispatch flows are implemented
+- operational reporting is implemented
+- technician assigned-task visibility is implemented through the dispatch `My tasks` view
+- service status updates are implemented through dispatch assignment updates
+- job photo and evidence uploads are implemented
+- service invoice finalization is implemented
+
+The remaining gaps are the customer-facing and billing-facing use cases that are still outside the current SMS web scope:
+
+- customer self-service service request submission is not implemented
+- customer real-time status tracking is not implemented
+- customer service-invoice payment in the SMS web is not implemented
+- customer feedback and ratings capture is not implemented
+- tenant-facing domain or subscription payment processing is not implemented
+
+There is also one workflow-tightening gap where the use-case intent is only partially matched:
+
+- invoice finalization currently exists, but it is admin-gated rather than clearly modeled as a dispatcher or service-completion workflow
+
 ## Phase 1: Navigable Tenant SMS Workspace
 
 Goal:
@@ -190,3 +215,105 @@ Current implementation:
 - current-versus-previous comparison now quantifies delta values and percentage changes for the selected reporting window
 - turnaround metrics now show average intake-to-completion time, request-to-schedule lead time, scheduled work duration, and overdue open requests
 - CSV and print exports now include the selected reporting window, comparison results, and turnaround metrics
+
+## Phase 8: Customer Self-Service and Service Tracking
+
+Goal:
+
+- close the largest remaining IT15 gap by exposing a customer-facing tenant portal instead of limiting the web app to tenant staff only.
+
+Must add:
+
+- separate customer-auth surface under tenant-scoped customer routes such as `/t/{slug}/c/*`, not `/t/{slug}/sms/*`
+- customer registration flow for tenant-scoped customer accounts
+- customer login and session flow separate from tenant staff authentication
+- public or customer-authenticated service request submission
+- customer request lookup with status timeline and current assignment progress
+- customer invoice view with payment readiness state
+- customer payment capture or at minimum payment-intent and settlement recording flow for service invoices
+- customer feedback and ratings submission after service completion
+
+Planned outputs:
+
+- customer portal route set such as `/t/{slug}/c/login`, `/t/{slug}/c/register`, `/t/{slug}/c/dashboard`, `/t/{slug}/c/requests`, `/t/{slug}/c/invoices`, and `/t/{slug}/c/feedback`
+- tenant-scoped customer registration form that creates a customer account only for the active tenant domain
+- customer login flow that authenticates into the customer portal without exposing staff navigation or staff APIs
+- customer-facing intake page that can create a service request without tenant-staff intervention
+- request tracking page keyed by secure lookup token, reference number, or customer session
+- customer-visible service timeline built from request and dispatch status history
+- service invoice payment screen or payment handoff flow with settlement status reflected back into the request
+- post-completion feedback form with rating and comments linked to the completed service record
+
+Implementation notes:
+
+- keep customer access separate from tenant staff auth so customer status lookup does not expose tenant workspace data
+- do not place customer login inside `/sms`; `/sms` remains the internal service-management workspace for tenant operators
+- customer identity is tenant-scoped by default, so the same real-world person may hold separate customer accounts under different tenant domains
+- customer registration should create or bind only within the active tenant domain and should not automatically reveal or merge records from other tenants
+- treat `real-time status` as status-timeline freshness first, then add push or short-poll updates only if needed
+- if direct online payments are deferred, the first slice should still support invoice payment status, proof, or cashier-confirmed settlement tracking
+- customer feedback should attach to the service request or finalized invoice so reporting can later include satisfaction metrics
+
+Current implementation:
+
+- not started
+
+## Phase 9: Tenant Subscription and Domain Billing Workspace
+
+Goal:
+
+- implement the tenant-admin billing use case that is still absent from the current SMS web surface.
+
+Must add:
+
+- tenant-facing subscription summary and billing status
+- domain or tenant subscription payment history
+- renewal, proof-of-payment, or billing confirmation workflow depending on the chosen commercial model
+- plan suspension-risk visibility tied to subscription state
+
+Planned outputs:
+
+- billing workspace for tenant administrators and business owners
+- subscription status card with plan, edition, renewal date, and account standing
+- billing ledger or payment-history table for subscription-related payments
+- payment processing flow for subscription renewals or manual billing review
+
+Implementation notes:
+
+- this can live as a tenant billing workspace beside SMS rather than being embedded inside the operational routes
+- align this slice with the existing superadmin subscription catalog so tenant billing uses the same tier metadata
+- if billing remains manual for now, ship review and proof-submission first, then automate payment collection later
+
+Current implementation:
+
+- not started
+
+## Phase 10: Workflow Tightening and Role Hardening
+
+Goal:
+
+- tighten the existing SMS modules so they better match the IT15 use-case actors and are safer to extend.
+
+Must add:
+
+- clearer role separation between tenant admin, dispatcher, and technician actions
+- authorization rules for who can create staff, dispatch jobs, update task status, submit evidence, and finalize invoices
+- cleanup of remaining role-name assumptions and route-level entitlement checks
+- module polish across customers, service requests, dispatch, and reports
+
+Planned outputs:
+
+- action-level permission matrix for SMS workflows
+- invoice-finalization workflow aligned to the intended operator role instead of an admin-only shortcut
+- cleaner module boundaries between internal operations, customer self-service, and tenant billing
+- targeted UX cleanup and validation tightening across already-implemented SMS screens
+
+Implementation notes:
+
+- this phase is primarily hardening and cleanup, not a brand-new business module
+- do this before adding many more user-facing surfaces so role drift does not spread through the API and UI
+- pair this with module-entitlement enforcement so tenant surfaces match subscription and MSME tier rules
+
+Current implementation:
+
+- partially implemented through current admin-only guards and tenant route checks, but not yet modeled as a full SMS permission system

@@ -12,7 +12,6 @@ import type {
   UpdateTenantAssignmentStatusRequest
 } from "@/shared/api/contracts";
 import { httpDelete, httpGet, httpPostFormData, httpPostJson } from "@/shared/api/http";
-import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
@@ -732,8 +731,7 @@ export function SmsDispatchPage() {
   }
 
   return (
-    <ProtectedRoute tenantSlug={tenantDomainSlug}>
-      <>
+    <>
         <RecordWorkspace
           breadcrumbs={`${tenantDomainSlug} / SMS / Dispatch`}
           title="Dispatch and assignments"
@@ -1338,8 +1336,7 @@ export function SmsDispatchPage() {
           ) : null}
           onClose={() => setSelectedAssignment(null)}
         />
-      </>
-    </ProtectedRoute>
+    </>
   );
 }
 

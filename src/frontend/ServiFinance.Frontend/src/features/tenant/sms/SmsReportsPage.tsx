@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { TenantOperationalReportsResponse } from "@/shared/api/contracts";
 import { httpGet } from "@/shared/api/http";
-import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { RecordTableStateRow } from "@/shared/records/RecordTable";
 import { RecordContentStack, RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
@@ -288,14 +287,13 @@ export function SmsReportsPage() {
   }
 
   return (
-    <ProtectedRoute tenantSlug={tenantDomainSlug}>
-      <RecordWorkspace
+    <RecordWorkspace
         breadcrumbs={`${tenantDomainSlug} / SMS / Reports`}
         title="Operational reports"
         description="Review live operational summaries, compare date windows, and track turnaround efficiency from one tenant reporting workspace."
         recordCount={reportsQuery.data?.catalog.length ?? 0}
         singularLabel="report"
-      >
+    >
         <RecordContentStack>
           {reportsQuery.isError ? (
             <WorkspaceNotice tone="error">Unable to load operational reports.</WorkspaceNotice>
@@ -658,8 +656,7 @@ export function SmsReportsPage() {
             ]}
           />
         </RecordContentStack>
-      </RecordWorkspace>
-    </ProtectedRoute>
+    </RecordWorkspace>
   );
 }
 

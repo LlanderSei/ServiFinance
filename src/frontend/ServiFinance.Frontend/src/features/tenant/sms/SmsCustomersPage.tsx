@@ -3,7 +3,6 @@ import { FormEvent, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { CreateTenantCustomerRequest, TenantCustomerRow } from "@/shared/api/contracts";
 import { httpGet, httpPostJson } from "@/shared/api/http";
-import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
 import {
@@ -99,8 +98,7 @@ export function SmsCustomersPage() {
   }
 
   return (
-    <ProtectedRoute tenantSlug={tenantDomainSlug}>
-      <>
+    <>
         <RecordWorkspace
           breadcrumbs={`${tenantDomainSlug} / SMS / Customers`}
           title="Customer records"
@@ -241,7 +239,6 @@ export function SmsCustomersPage() {
           sections={customerDetails}
           onClose={() => setSelectedCustomer(null)}
         />
-      </>
-    </ProtectedRoute>
+    </>
   );
 }

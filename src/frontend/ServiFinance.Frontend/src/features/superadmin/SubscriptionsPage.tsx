@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { SubscriptionTierCard } from "@/shared/api/contracts";
 import { useSubscriptionTiers } from "@/shared/api/useSubscriptionTiers";
-import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import {
   RecordTable,
@@ -82,72 +81,70 @@ export function SubscriptionsPage() {
   }, [selectedTier]);
 
   return (
-    <ProtectedRoute requireRole="SuperAdmin">
-      <>
-        <RecordWorkspace
-          breadcrumbs="SaaS / Subscription Tiers"
-          title="Subscription tiers"
-          description="Track the MSME catalog by segment, edition, delivery surface, and unlocked module count from one normalized record table."
-          recordCount={tiers.length}
-          singularLabel="tier"
-          pluralLabel="tiers"
-        >
-          <RecordTableShell>
-            <RecordTable>
-              <thead>
-                <tr>
-                  <th>Tier</th>
-                  <th>Segment</th>
-                  <th>Edition</th>
-                  <th>Delivery</th>
-                  <th>Price</th>
-                  <th>Web modules</th>
-                  <th>Desktop modules</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!tiers.length ? (
-                  <RecordTableStateRow colSpan={8}>No subscription tiers found.</RecordTableStateRow>
-                ) : null}
+    <>
+      <RecordWorkspace
+        breadcrumbs="SaaS / Subscription Tiers"
+        title="Subscription tiers"
+        description="Track the MSME catalog by segment, edition, delivery surface, and unlocked module count from one normalized record table."
+        recordCount={tiers.length}
+        singularLabel="tier"
+        pluralLabel="tiers"
+      >
+        <RecordTableShell>
+          <RecordTable>
+            <thead>
+              <tr>
+                <th>Tier</th>
+                <th>Segment</th>
+                <th>Edition</th>
+                <th>Delivery</th>
+                <th>Price</th>
+                <th>Web modules</th>
+                <th>Desktop modules</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!tiers.length ? (
+                <RecordTableStateRow colSpan={8}>No subscription tiers found.</RecordTableStateRow>
+              ) : null}
 
-                {tiers.map((tier) => {
-                  const webModules = getModulesByChannel(tier, "Web");
-                  const desktopModules = getModulesByChannel(tier, "Desktop");
-                  const delivery = [tier.includesServiceManagementWeb ? "Web" : null, tier.includesMicroLendingDesktop ? "Desktop" : null]
-                    .filter(Boolean)
-                    .join(" + ");
+              {tiers.map((tier) => {
+                const webModules = getModulesByChannel(tier, "Web");
+                const desktopModules = getModulesByChannel(tier, "Desktop");
+                const delivery = [tier.includesServiceManagementWeb ? "Web" : null, tier.includesMicroLendingDesktop ? "Desktop" : null]
+                  .filter(Boolean)
+                  .join(" + ");
 
-                  return (
-                    <tr key={tier.id}>
-                      <td>{tier.displayName}</td>
-                      <td>{tier.businessSizeSegment}</td>
-                      <td>{tier.subscriptionEdition}</td>
-                      <td>{delivery || "None"}</td>
-                      <td>{tier.priceDisplay}</td>
-                      <td>{webModules.length}</td>
-                      <td>{desktopModules.length}</td>
-                      <td>
-                        <RecordTableActionButton onClick={() => setSelectedTier(tier)}>
-                          View
-                        </RecordTableActionButton>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </RecordTable>
-          </RecordTableShell>
-        </RecordWorkspace>
+                return (
+                  <tr key={tier.id}>
+                    <td>{tier.displayName}</td>
+                    <td>{tier.businessSizeSegment}</td>
+                    <td>{tier.subscriptionEdition}</td>
+                    <td>{delivery || "None"}</td>
+                    <td>{tier.priceDisplay}</td>
+                    <td>{webModules.length}</td>
+                    <td>{desktopModules.length}</td>
+                    <td>
+                      <RecordTableActionButton onClick={() => setSelectedTier(tier)}>
+                        View
+                      </RecordTableActionButton>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </RecordTable>
+        </RecordTableShell>
+      </RecordWorkspace>
 
-        <RecordDetailsModal
-          open={selectedTier !== null}
-          eyebrow="Subscription tier"
-          title={selectedTier?.displayName ?? ""}
-          sections={tierDetails}
-          onClose={() => setSelectedTier(null)}
-        />
-      </>
-    </ProtectedRoute>
+      <RecordDetailsModal
+        open={selectedTier !== null}
+        eyebrow="Subscription tier"
+        title={selectedTier?.displayName ?? ""}
+        sections={tierDetails}
+        onClose={() => setSelectedTier(null)}
+      />
+    </>
   );
 }

@@ -87,7 +87,7 @@ function joinClasses(...values: Array<string | false | null | undefined>) {
 
 export function WorkspaceScrollStack({ children, className }: WorkspaceScrollStackProps) {
   return (
-    <div className={joinClasses("min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pr-1", className)}>
+    <div className={joinClasses("min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pr-1 [contain:layout_paint]", className)}>
       <div className="grid auto-rows-max gap-4">
         {children}
       </div>
@@ -125,7 +125,7 @@ export function WorkspacePanel({ children, className }: WorkspacePanelProps) {
   return (
     <section
       className={joinClasses(
-        "flex min-h-0 flex-col gap-4 rounded-box border border-base-300/65 bg-base-100/88 p-4 shadow-sm backdrop-blur-sm",
+        "authed-workspace__panel flex min-h-0 flex-col gap-4 rounded-box border border-base-300/65 bg-base-100 p-4 shadow-sm [content-visibility:auto] [contain-intrinsic-size:360px]",
         className
       )}
     >
@@ -157,7 +157,7 @@ export function WorkspaceToolbar({ children, className }: WorkspaceToolbarProps)
 
 export function WorkspaceSubtableShell({ children, className }: WorkspaceSubtableShellProps) {
   return (
-    <div className={joinClasses("overflow-x-auto overflow-y-hidden rounded-box border border-base-300/65 bg-base-100/82", className)}>
+    <div className={joinClasses("authed-workspace__subtable-shell overflow-x-auto overflow-y-hidden rounded-box border border-base-300/65 bg-base-100", className)}>
       {children}
     </div>
   );
@@ -167,7 +167,7 @@ export function WorkspaceSubtable({ children, className, ...props }: WorkspaceSu
   return (
     <table
       className={joinClasses(
-        "table table-pin-rows text-sm text-base-content [&_td]:border-base-300/55 [&_th]:border-b [&_th]:border-base-300/70 [&_th]:bg-base-200/72 [&_th]:text-[0.76rem] [&_th]:font-extrabold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-base-content/64 [&_tr:hover_td]:bg-base-content/3",
+        "authed-workspace__subtable table table-pin-rows text-sm text-base-content [&_td]:border-base-300/55 [&_th]:border-b [&_th]:border-base-300/70 [&_th]:bg-base-200 [&_th]:text-[0.76rem] [&_th]:font-extrabold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-base-content/64 [&_tr:hover_td]:bg-base-content/3",
         className
       )}
       {...props}

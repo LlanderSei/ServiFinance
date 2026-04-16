@@ -1,5 +1,4 @@
 import { useParams } from "react-router-dom";
-import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { WorkspaceActionLink } from "@/shared/records/WorkspaceControls";
 import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
@@ -19,12 +18,11 @@ export function SmsDashboardPage() {
   const { tenantDomainSlug = "" } = useParams();
 
   return (
-    <ProtectedRoute tenantSlug={tenantDomainSlug}>
-      <RecordWorkspace
+    <RecordWorkspace
         breadcrumbs={`${tenantDomainSlug} / SMS / Dashboard`}
         title="Service operations workspace"
         description="Run customer intake, request tracking, dispatch planning, reporting, and staff oversight from one tenant-scoped service management surface."
-      >
+    >
         <WorkspaceScrollStack>
           <WorkspaceMetricGrid className="2xl:grid-cols-4">
             <MetricCard
@@ -129,7 +127,6 @@ export function SmsDashboardPage() {
             </WorkspacePanel>
           </WorkspacePanelGrid>
         </WorkspaceScrollStack>
-      </RecordWorkspace>
-    </ProtectedRoute>
+    </RecordWorkspace>
   );
 }
