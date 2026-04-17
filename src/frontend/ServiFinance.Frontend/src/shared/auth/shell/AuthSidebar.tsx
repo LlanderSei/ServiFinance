@@ -51,6 +51,70 @@ export function AuthSidebar({
     ? "max-w-[12rem] opacity-100 translate-x-0"
     : "max-w-0 opacity-0 -translate-x-1 pointer-events-none";
   const contentRevealMotionClass = "overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out";
+  const mainSections = sections.filter((section) => section.title.trim());
+  const footerItems = sections
+    .filter((section) => !section.title.trim())
+    .flatMap((section) => section.items);
+
+  function renderNavItem(item: NavSection["items"][number], key: string, className: string) {
+    if (item.to) {
+      return (
+        <NavLink
+          key={key}
+          to={item.to}
+          title={!isExpanded ? item.label : undefined}
+          className={({ isActive }) =>
+            `authed-nav__item flex items-center gap-3 rounded-box text-base-content/75 no-underline hover:bg-base-content/5 hover:text-base-content ${navMotionClass} ${className}${isActive ? " border border-primary/18 bg-primary/14 font-bold text-base-content" : ""}`
+          }
+        >
+          <span className="authed-nav__item-icon inline-flex shrink-0 items-center justify-center">
+            <SidebarIcon name={item.icon} />
+          </span>
+          {isExpanded ? (
+            <span className={`authed-nav__item-label min-w-0 flex-1 truncate ${contentRevealMotionClass} ${contentRevealClass}`}>
+              {item.label}
+            </span>
+          ) : null}
+          {isExpanded && item.badge ? (
+            <span className="authed-nav__item-badge ml-auto inline-flex items-center rounded-full border border-base-300/65 bg-base-100/92 px-2 py-0.5 text-[0.68rem] font-bold text-base-content/72">
+              {item.badge}
+            </span>
+          ) : null}
+        </NavLink>
+      );
+    }
+
+    return (
+      <button
+        key={key}
+        type="button"
+        title={!isExpanded ? item.label : undefined}
+        className={`authed-nav__item flex items-center gap-3 rounded-box text-base-content/75 hover:bg-base-content/5 hover:text-base-content ${navMotionClass} ${className}`}
+        onClick={() => {
+          if (item.unavailableMessage) {
+            toast.info({
+              title: item.label,
+              message: item.unavailableMessage
+            });
+          }
+        }}
+      >
+        <span className="authed-nav__item-icon inline-flex shrink-0 items-center justify-center">
+          <SidebarIcon name={item.icon} />
+        </span>
+        {isExpanded ? (
+          <span className={`authed-nav__item-label min-w-0 flex-1 truncate ${contentRevealMotionClass} ${contentRevealClass}`}>
+            {item.label}
+          </span>
+        ) : null}
+        {isExpanded && item.badge ? (
+          <span className="authed-nav__item-badge ml-auto inline-flex items-center rounded-full border border-base-300/65 bg-base-100/92 px-2 py-0.5 text-[0.68rem] font-bold text-base-content/72">
+            {item.badge}
+          </span>
+        ) : null}
+      </button>
+    );
+  }
 
   return (
     <aside
@@ -102,7 +166,7 @@ export function AuthSidebar({
       </button>
 
       <nav className="authed-nav flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden">
-        {sections.map((section) => {
+        {mainSections.map((section) => {
           const isSectionCollapsed = Boolean(collapsedSections[section.key]);
 
           return (
@@ -121,63 +185,7 @@ export function AuthSidebar({
               ) : null}
 
               <div className={`authed-nav__items grid gap-[0.3rem]${isExpanded && isSectionCollapsed ? " hidden" : ""}`}>
-                {section.items.map((item) => item.to ? (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    title={!isExpanded ? item.label : undefined}
-                    className={({ isActive }) =>
-                      `authed-nav__item flex items-center gap-3 rounded-box text-base-content/75 no-underline hover:bg-base-content/5 hover:text-base-content ${navMotionClass} ${navItemBaseClass}${isActive ? " border border-primary/18 bg-primary/14 font-bold text-base-content" : ""}`
-                    }
-                  >
-                    <span className="authed-nav__item-icon inline-flex shrink-0 items-center justify-center">
-                      <SidebarIcon name={item.icon} />
-                    </span>
-                    {isExpanded ? (
-                      <span
-                        className={`authed-nav__item-label min-w-0 flex-1 truncate ${contentRevealMotionClass} ${contentRevealClass}`}
-                      >
-                        {item.label}
-                      </span>
-                    ) : null}
-                    {isExpanded && item.badge ? (
-                      <span className="authed-nav__item-badge ml-auto inline-flex items-center rounded-full border border-base-300/65 bg-base-100/92 px-2 py-0.5 text-[0.68rem] font-bold text-base-content/72">
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </NavLink>
-                ) : (
-                  <button
-                    key={`${section.key}:${item.label}`}
-                    type="button"
-                    title={!isExpanded ? item.label : undefined}
-                    className={`authed-nav__item flex items-center gap-3 rounded-box text-base-content/75 hover:bg-base-content/5 hover:text-base-content ${navMotionClass} ${navItemBaseClass}`}
-                    onClick={() => {
-                      if (item.unavailableMessage) {
-                        toast.info({
-                          title: item.label,
-                          message: item.unavailableMessage
-                        });
-                      }
-                    }}
-                  >
-                    <span className="authed-nav__item-icon inline-flex shrink-0 items-center justify-center">
-                      <SidebarIcon name={item.icon} />
-                    </span>
-                    {isExpanded ? (
-                      <span
-                        className={`authed-nav__item-label min-w-0 flex-1 truncate ${contentRevealMotionClass} ${contentRevealClass}`}
-                      >
-                        {item.label}
-                      </span>
-                    ) : null}
-                    {isExpanded && item.badge ? (
-                      <span className="authed-nav__item-badge ml-auto inline-flex items-center rounded-full border border-base-300/65 bg-base-100/92 px-2 py-0.5 text-[0.68rem] font-bold text-base-content/72">
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
+                {section.items.map((item) => renderNavItem(item, item.to ?? `${section.key}:${item.label}`, navItemBaseClass))}
               </div>
             </div>
           );
@@ -185,6 +193,8 @@ export function AuthSidebar({
       </nav>
 
       <div className="authed-sidebar__footer mt-auto grid w-full shrink-0 gap-2 border-t border-base-300/50 pt-3">
+        {footerItems.map((item) => renderNavItem(item, item.to ?? `footer:${item.label}`, footerButtonClass))}
+
         <button
           type="button"
           className={`authed-sidebar__theme btn btn-ghost rounded-box text-base-content ${footerButtonClass}`}

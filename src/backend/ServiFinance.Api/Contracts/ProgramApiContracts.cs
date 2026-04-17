@@ -354,3 +354,40 @@ internal sealed record TenantMlsLedgerRowResponse(
 internal sealed record TenantMlsLedgerWorkspaceResponse(
     TenantMlsLedgerSummaryResponse Summary,
     IReadOnlyList<TenantMlsLedgerRowResponse> Entries);
+internal sealed record TenantMlsReportsWindowResponse(
+    int RangeDays,
+    DateTime DateFromUtc,
+    DateTime DateToUtc);
+internal sealed record TenantMlsReportsSummaryResponse(
+    int ActiveLoans,
+    decimal OutstandingPortfolioBalance,
+    decimal CollectionsInWindow,
+    int PaymentCountInWindow,
+    decimal LoanDisbursedInWindow,
+    decimal OverdueBalance);
+internal sealed record TenantMlsReportsAgingBucketRowResponse(
+    string Label,
+    int LoanCount,
+    int InstallmentCount,
+    decimal OutstandingAmount);
+internal sealed record TenantMlsReportsTrendRowResponse(
+    string PeriodLabel,
+    decimal CollectedAmount,
+    int PaymentCount);
+internal sealed record TenantMlsReportsTransactionMixRowResponse(
+    string TransactionType,
+    int Count,
+    decimal TotalAmount);
+internal sealed record TenantMlsReportsBorrowerRowResponse(
+    Guid CustomerId,
+    string CustomerName,
+    int ActiveLoanCount,
+    decimal OutstandingBalance,
+    DateOnly? NextDueDate);
+internal sealed record TenantMlsReportsWorkspaceResponse(
+    TenantMlsReportsWindowResponse Window,
+    TenantMlsReportsSummaryResponse Summary,
+    IReadOnlyList<TenantMlsReportsAgingBucketRowResponse> AgingBuckets,
+    IReadOnlyList<TenantMlsReportsTrendRowResponse> CollectionTrend,
+    IReadOnlyList<TenantMlsReportsTransactionMixRowResponse> TransactionMix,
+    IReadOnlyList<TenantMlsReportsBorrowerRowResponse> TopBorrowers);

@@ -657,6 +657,57 @@ export type TenantMlsLedgerWorkspaceResponse = {
   entries: TenantMlsLedgerRow[];
 };
 
+export type TenantMlsReportsWindow = {
+  rangeDays: number;
+  dateFromUtc: string;
+  dateToUtc: string;
+};
+
+export type TenantMlsReportsSummary = {
+  activeLoans: number;
+  outstandingPortfolioBalance: number;
+  collectionsInWindow: number;
+  paymentCountInWindow: number;
+  loanDisbursedInWindow: number;
+  overdueBalance: number;
+};
+
+export type TenantMlsReportsAgingBucketRow = {
+  label: string;
+  loanCount: number;
+  installmentCount: number;
+  outstandingAmount: number;
+};
+
+export type TenantMlsReportsTrendRow = {
+  periodLabel: string;
+  collectedAmount: number;
+  paymentCount: number;
+};
+
+export type TenantMlsReportsTransactionMixRow = {
+  transactionType: string;
+  count: number;
+  totalAmount: number;
+};
+
+export type TenantMlsReportsBorrowerRow = {
+  customerId: string;
+  customerName: string;
+  activeLoanCount: number;
+  outstandingBalance: number;
+  nextDueDate: string | null;
+};
+
+export type TenantMlsReportsWorkspaceResponse = {
+  window: TenantMlsReportsWindow;
+  summary: TenantMlsReportsSummary;
+  agingBuckets: TenantMlsReportsAgingBucketRow[];
+  collectionTrend: TenantMlsReportsTrendRow[];
+  transactionMix: TenantMlsReportsTransactionMixRow[];
+  topBorrowers: TenantMlsReportsBorrowerRow[];
+};
+
 export type CurrentSessionUser = {
   userId: string;
   tenantId: string;

@@ -48,6 +48,7 @@ const MlsStandaloneLoanPage = lazyPage(() => import("@/features/tenant/mls/MlsSt
 const MlsLoanAccountsPage = lazyPage(() => import("@/features/tenant/mls/MlsLoanAccountsPage"), "MlsLoanAccountsPage");
 const MlsCollectionsPage = lazyPage(() => import("@/features/tenant/mls/MlsCollectionsPage"), "MlsCollectionsPage");
 const MlsAuditPage = lazyPage(() => import("@/features/tenant/mls/MlsAuditPage"), "MlsAuditPage");
+const MlsReportsPage = lazyPage(() => import("@/features/tenant/mls/MlsReportsPage"), "MlsReportsPage");
 const MlsLedgerPage = lazyPage(() => import("@/features/tenant/mls/MlsLedgerPage"), "MlsLedgerPage");
 const DesktopRequiredPage = lazyPage(() => import("@/features/system/DesktopRequiredPage"), "DesktopRequiredPage");
 const ForbiddenPage = lazyPage(() => import("@/features/system/ForbiddenPage"), "ForbiddenPage");
@@ -154,6 +155,7 @@ const desktopRoutes = [
       { path: "t/mls/loans", element: <MlsLoanAccountsPage /> },
       { path: "t/mls/collections", element: <MlsCollectionsPage /> },
       { path: "t/mls/audit", element: <MlsAuditPage /> },
+      { path: "t/mls/reports", element: <MlsReportsPage /> },
       { path: "t/mls/ledger", element: <MlsLedgerPage /> },
       {
         path: "t/:tenantDomainSlug",

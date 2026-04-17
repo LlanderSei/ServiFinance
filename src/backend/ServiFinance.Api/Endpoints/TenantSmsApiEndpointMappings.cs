@@ -24,6 +24,7 @@ internal static class TenantSmsApiEndpointMappings {
     tenantApi.MapTenantMlsCollectionsEndpoints();
     tenantApi.MapTenantMlsAuditEndpoints();
     tenantApi.MapTenantMlsStandaloneLoanEndpoints();
+    tenantApi.MapTenantMlsReportsEndpoints();
     tenantApi.MapTenantMlsLedgerEndpoints();
 
     return tenantApi;

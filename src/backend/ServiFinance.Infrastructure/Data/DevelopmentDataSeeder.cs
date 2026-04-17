@@ -17,6 +17,7 @@ public sealed class DevelopmentDataSeeder(
     var tierModuleSeeds = GetTierModuleSeeds();
     var customerSeeds = GetDevelopmentCustomerSeeds();
     var serviceRequestSeeds = GetDevelopmentServiceRequestSeeds();
+    var invoiceSeeds = GetDevelopmentInvoiceSeeds();
     var staffUserSeeds = GetDevelopmentStaffUserSeeds();
     var assignmentSeeds = GetDevelopmentAssignmentSeeds();
 
@@ -384,6 +385,35 @@ public sealed class DevelopmentDataSeeder(
       serviceRequest.CreatedAtUtc = seed.CreatedAtUtc;
     }
 
+    var invoicesById = await dbContext.Invoices
+        .IgnoreQueryFilters()
+        .Where(entity => entity.TenantId == options.TenantId)
+        .ToDictionaryAsync(entity => entity.Id, cancellationToken);
+
+    foreach (var seed in invoiceSeeds) {
+      if (!invoicesById.TryGetValue(seed.Id, out var invoice)) {
+        invoice = new Invoice {
+            Id = seed.Id,
+            TenantId = options.TenantId
+        };
+        dbContext.Invoices.Add(invoice);
+        invoicesById[seed.Id] = invoice;
+        logger.LogInformation("Seeded development invoice '{InvoiceNumber}'.", seed.InvoiceNumber);
+      }
+
+      invoice.TenantId = options.TenantId;
+      invoice.CustomerId = seed.CustomerId;
+      invoice.ServiceRequestId = seed.ServiceRequestId;
+      invoice.InvoiceNumber = seed.InvoiceNumber;
+      invoice.InvoiceDateUtc = seed.InvoiceDateUtc;
+      invoice.SubtotalAmount = seed.SubtotalAmount;
+      invoice.InterestableAmount = seed.InterestableAmount;
+      invoice.DiscountAmount = seed.DiscountAmount;
+      invoice.TotalAmount = seed.TotalAmount;
+      invoice.OutstandingAmount = seed.OutstandingAmount;
+      invoice.InvoiceStatus = seed.InvoiceStatus;
+    }
+
     var assignmentsById = await dbContext.Assignments
         .IgnoreQueryFilters()
         .Where(entity => entity.TenantId == options.TenantId)
@@ -630,6 +660,33 @@ public sealed class DevelopmentDataSeeder(
           DateTime.UtcNow.AddDays(-1))
   ];
 
+  private static IReadOnlyList<DevelopmentInvoiceSeed> GetDevelopmentInvoiceSeeds() => [
+      new(
+          Guid.Parse("dddd1111-1111-1111-1111-111111111111"),
+          Guid.Parse("aaaa1111-1111-1111-1111-111111111111"),
+          Guid.Parse("bbbb1111-1111-1111-1111-111111111111"),
+          "INV-0001",
+          DateTime.UtcNow.AddDays(-2),
+          16500m,
+          12000m,
+          500m,
+          16000m,
+          12000m,
+          "Finalized"),
+      new(
+          Guid.Parse("dddd2222-2222-2222-2222-222222222222"),
+          Guid.Parse("aaaa2222-2222-2222-2222-222222222222"),
+          Guid.Parse("bbbb2222-2222-2222-2222-222222222222"),
+          "INV-0002",
+          DateTime.UtcNow.AddDays(-1),
+          9800m,
+          7200m,
+          300m,
+          9500m,
+          7200m,
+          "Finalized")
+  ];
+
   private static IReadOnlyList<DevelopmentStaffUserSeed> GetDevelopmentStaffUserSeeds() => [
       new(
           Guid.Parse("12121212-1212-1212-1212-121212121212"),
@@ -729,4 +786,17 @@ public sealed class DevelopmentDataSeeder(
       DateTime? ScheduledEndUtc,
       string AssignmentStatus,
       DateTime CreatedAtUtc);
+
+  private sealed record DevelopmentInvoiceSeed(
+      Guid Id,
+      Guid CustomerId,
+      Guid ServiceRequestId,
+      string InvoiceNumber,
+      DateTime InvoiceDateUtc,
+      decimal SubtotalAmount,
+      decimal InterestableAmount,
+      decimal DiscountAmount,
+      decimal TotalAmount,
+      decimal OutstandingAmount,
+      string InvoiceStatus);
 }

@@ -12,6 +12,7 @@ export type NavItem = {
     | "users"
     | "service"
     | "desktop"
+    | "web"
     | "customers"
     | "requests"
     | "dispatch"
@@ -73,17 +74,18 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
           { to: `${mlsBase}/standalone-loans`, label: "Standalone Loans", icon: "customers" },
           { to: `${mlsBase}/loans`, label: "Loan Accounts", icon: "reports" },
           { to: `${mlsBase}/collections`, label: "Collections", icon: "service" },
+          { to: `${mlsBase}/reports`, label: "Reports", icon: "reports" },
           { to: `${mlsBase}/audit`, label: "Audit Review", icon: "health" },
           { to: `${mlsBase}/ledger`, label: "Ledger", icon: "dashboard" }
         ]
       },
       {
-        key: "service",
-        title: "Service Management",
+        key: "web-entry",
+        title: "",
         items: [
           {
             label: "SMS Dashboard",
-            icon: "service",
+            icon: "web",
             unavailableMessage: "SMS modules are available only in the web workspace. Open the tenant web app to use Service Management."
           }
         ]
@@ -107,8 +109,8 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
       ]
     },
     {
-      key: "finance",
-      title: "Micro-Lending",
+      key: "desktop-entry",
+      title: "",
       items: [
         { to: `${mlsBase}/dashboard`, label: "MLS Dashboard", icon: "desktop", badge: "Desk" }
       ]
