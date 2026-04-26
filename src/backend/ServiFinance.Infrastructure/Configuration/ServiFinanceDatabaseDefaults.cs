@@ -9,9 +9,10 @@ public static class ServiFinanceDatabaseDefaults {
   public const string DevelopmentAdminEmailEnvironmentVariable = "SERVIFINANCE__DEVELOPMENTADMINEMAIL";
   public const string DevelopmentAdminPasswordConfigurationKey = "ServiFinance:DevelopmentAdminPassword";
   public const string DevelopmentAdminPasswordEnvironmentVariable = "SERVIFINANCE__DEVELOPMENTADMINPASSWORD";
-
-  public const string DefaultConnectionString =
-      "Server=.\\SQLEXPRESS;Database=ServiFinance;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True;";
+  public const string SuperAdminEmailConfigurationKey = "ServiFinance:SuperAdminEmail";
+  public const string SuperAdminEmailEnvironmentVariable = "SERVIFINANCE__SUPERADMINEMAIL";
+  public const string SuperAdminPasswordConfigurationKey = "ServiFinance:SuperAdminPassword";
+  public const string SuperAdminPasswordEnvironmentVariable = "SERVIFINANCE__SUPERADMINPASSWORD";
   public static readonly Guid PlatformTenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
   public static readonly Guid DefaultDevelopmentTenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
   public static readonly Guid MicroStandardSubscriptionTierId = Guid.Parse("99999999-1111-1111-1111-111111111111");
@@ -29,10 +30,6 @@ public static class ServiFinanceDatabaseDefaults {
   public static readonly Guid DefaultDevelopmentAdminUserRoleId = Guid.Parse("44444444-4444-4444-4444-444444444444");
   public const string PlatformTenantCode = "PLATFORM";
   public const string PlatformTenantDomainSlug = "platform";
-  public const string DefaultSuperAdminEmail = "superadmin@local.servifinance";
-  public const string DefaultSuperAdminPassword = "SuperAdmin123!";
-  public const string DefaultDevelopmentAdminEmail = "admin@local.servifinance";
-  public const string DefaultDevelopmentAdminPassword = "Admin123!";
 
   public static string ResolveConnectionString(string? configuredConnectionString) {
     if (!string.IsNullOrWhiteSpace(configuredConnectionString)) {
@@ -40,9 +37,12 @@ public static class ServiFinanceDatabaseDefaults {
     }
 
     var environmentConnectionString = Environment.GetEnvironmentVariable(ConnectionStringEnvironmentVariable);
-    return string.IsNullOrWhiteSpace(environmentConnectionString)
-        ? DefaultConnectionString
-        : environmentConnectionString;
+    if (!string.IsNullOrWhiteSpace(environmentConnectionString)) {
+      return environmentConnectionString;
+    }
+
+    throw new InvalidOperationException(
+        "Missing SQL Server connection string. Set ConnectionStrings__DefaultConnection in .env or host environment variables.");
   }
 
   public static Guid ResolveDevelopmentTenantId(string? configuredTenantId) {
@@ -57,24 +57,47 @@ public static class ServiFinanceDatabaseDefaults {
   }
 
   public static string ResolveDevelopmentAdminEmail(string? configuredEmail) {
-    if (!string.IsNullOrWhiteSpace(configuredEmail)) {
-      return configuredEmail;
-    }
-
-    var environmentEmail = Environment.GetEnvironmentVariable(DevelopmentAdminEmailEnvironmentVariable);
-    return string.IsNullOrWhiteSpace(environmentEmail)
-        ? DefaultDevelopmentAdminEmail
-        : environmentEmail;
+    return ResolveRequiredValue(
+        configuredEmail,
+        DevelopmentAdminEmailEnvironmentVariable,
+        "ServiFinance:DevelopmentAdminEmail");
   }
 
   public static string ResolveDevelopmentAdminPassword(string? configuredPassword) {
-    if (!string.IsNullOrWhiteSpace(configuredPassword)) {
-      return configuredPassword;
+    return ResolveRequiredValue(
+        configuredPassword,
+        DevelopmentAdminPasswordEnvironmentVariable,
+        "ServiFinance:DevelopmentAdminPassword");
+  }
+
+  public static string ResolveSuperAdminEmail(string? configuredEmail) {
+    return ResolveRequiredValue(
+        configuredEmail,
+        SuperAdminEmailEnvironmentVariable,
+        SuperAdminEmailConfigurationKey);
+  }
+
+  public static string ResolveSuperAdminPassword(string? configuredPassword) {
+    return ResolveRequiredValue(
+        configuredPassword,
+        SuperAdminPasswordEnvironmentVariable,
+        SuperAdminPasswordConfigurationKey);
+  }
+
+  private static string ResolveRequiredValue(
+      string? configuredValue,
+      string environmentVariableName,
+      string configurationKey) {
+    if (!string.IsNullOrWhiteSpace(configuredValue)) {
+      return configuredValue;
     }
 
-    var environmentPassword = Environment.GetEnvironmentVariable(DevelopmentAdminPasswordEnvironmentVariable);
-    return string.IsNullOrWhiteSpace(environmentPassword)
-        ? DefaultDevelopmentAdminPassword
-        : environmentPassword;
+    var environmentValue = Environment.GetEnvironmentVariable(environmentVariableName);
+    if (!string.IsNullOrWhiteSpace(environmentValue)) {
+      return environmentValue;
+    }
+
+    throw new InvalidOperationException(
+        $"Missing configuration value '{configurationKey}'. Set it in .env or host environment variables.");
   }
 }

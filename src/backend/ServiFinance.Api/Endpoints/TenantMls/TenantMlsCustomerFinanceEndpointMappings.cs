@@ -19,6 +19,7 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
 
           var customers = await dbContext.Customers
               .AsNoTracking()
+              .AsSplitQuery()
               .Include(entity => entity.MicroLoans)
                 .ThenInclude(entity => entity!.AmortizationSchedules)
               .Include(entity => entity.Transactions)
@@ -51,6 +52,7 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
 
           var customer = await dbContext.Customers
               .AsNoTracking()
+              .AsSplitQuery()
               .Include(entity => entity.MicroLoans)
                 .ThenInclude(entity => entity!.Invoice)
               .Include(entity => entity.MicroLoans)

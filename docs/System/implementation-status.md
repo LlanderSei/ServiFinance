@@ -34,8 +34,9 @@ Last updated: 2026-04-08
   - one `Staff` role
   - one development admin user
   - one admin role assignment
-- Development credentials are configurable in:
-  - `src/backend/ServiFinance.Api/appsettings.Development.json`
+- Development credentials are configurable through:
+  - `.env`
+  - host environment variables
 
 ### Authentication
 
@@ -73,9 +74,9 @@ Last updated: 2026-04-08
   - 2 roles
   - 1 user
   - 1 user-role assignment
-- The default development login is:
-  - Email: `admin@local.servifinance`
-  - Password: `Admin123!`
+- The development login is sourced from:
+  - `ServiFinance__DevelopmentAdminEmail`
+  - `ServiFinance__DevelopmentAdminPassword`
 - The app can start, apply migrations, and seed auth data automatically.
 - The seeded admin account can be used as the first back-office operator account.
 
@@ -131,4 +132,4 @@ Reference:
 
 - The web app currently assumes a development tenant context from configuration.
 - Startup seeding is meant for development bootstrap, not final production provisioning.
-- If the development admin password is changed in configuration, startup seeding will refresh the seeded admin's password hash on the next application start.
+- If the development admin password is changed in `.env` or host configuration, startup seeding will refresh the seeded admin's password hash on the next application start.

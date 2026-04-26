@@ -175,7 +175,8 @@ public sealed class ServiFinanceDbContext(
     refreshSession.HasOne(entity => entity.User)
         .WithMany(entity => entity.RefreshSessions)
         .HasForeignKey(entity => entity.UserId)
-        .OnDelete(DeleteBehavior.Cascade);
+        .IsRequired(false)
+        .OnDelete(DeleteBehavior.SetNull);
   }
 
   private void ConfigureSubscriptionTierModules(ModelBuilder modelBuilder) {

@@ -49,7 +49,6 @@ public sealed class JwtSessionTokenService(
       CancellationToken cancellationToken = default) {
     var tokenHash = Hash(refreshToken);
     var session = await dbContext.RefreshSessions
-        .Include(entity => entity.User)
         .SingleOrDefaultAsync(entity => entity.RefreshTokenHash == tokenHash, cancellationToken);
     if (session is null) {
       return null;
@@ -61,7 +60,13 @@ public sealed class JwtSessionTokenService(
       return null;
     }
 
-    var user = await GetAuthenticatedUserAsync(session.UserId, cancellationToken);
+    if (session.UserId is null) {
+      dbContext.RefreshSessions.Remove(session);
+      await dbContext.SaveChangesAsync(cancellationToken);
+      return null;
+    }
+
+    var user = await GetAuthenticatedUserAsync(session.UserId.Value, cancellationToken);
     if (user is null || !Enum.TryParse<AuthenticationSurface>(session.Surface, true, out var surface)) {
       dbContext.RefreshSessions.Remove(session);
       await dbContext.SaveChangesAsync(cancellationToken);

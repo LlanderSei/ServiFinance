@@ -7,8 +7,10 @@ namespace ServiFinance.Infrastructure.Data;
 
 public sealed class ServiFinanceDbContextFactory : IDesignTimeDbContextFactory<ServiFinanceDbContext> {
   public ServiFinanceDbContext CreateDbContext(string[] args) {
+    DotEnvLoader.LoadFromCurrentDirectory();
+
     var optionsBuilder = new DbContextOptionsBuilder<ServiFinanceDbContext>();
-    optionsBuilder.UseSqlServer(ServiFinanceDatabaseDefaults.DefaultConnectionString);
+    optionsBuilder.UseSqlServer(ServiFinanceDatabaseDefaults.ResolveConnectionString(configuredConnectionString: null));
 
     return new ServiFinanceDbContext(optionsBuilder.Options, new DesignTimeTenantProvider());
   }

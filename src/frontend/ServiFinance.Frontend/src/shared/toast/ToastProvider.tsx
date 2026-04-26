@@ -22,6 +22,7 @@ type ToastRecord = ToastInput & {
   id: string;
   tone: ToastTone;
   durationMs: number;
+  isClosing: boolean;
 };
 
 type ToastContextValue = {
@@ -35,6 +36,7 @@ type ToastContextValue = {
 
 const MAX_TOASTS = 5;
 const DEFAULT_DURATION_MS = 4200;
+const EXIT_DURATION_MS = 220;
 
 const toneClasses: Record<ToastTone, string> = {
   success: "border-emerald-400/45 bg-emerald-950/92 text-emerald-50",
@@ -49,8 +51,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
   const counterRef = useRef(0);
 
-  const dismissToast = useCallback((id: string) => {
+  const removeToast = useCallback((id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.map((toast) => (
+      toast.id === id
+        ? { ...toast, isClosing: true }
+        : toast
+    )));
   }, []);
 
   const showToast = useCallback((input: ToastInput) => {
@@ -60,6 +70,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       id: `toast-${counterRef.current}`,
       tone: input.tone ?? "info",
       durationMs: input.durationMs ?? DEFAULT_DURATION_MS,
+      isClosing: false,
       title: input.title,
       message: input.message
     };
@@ -86,7 +97,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         aria-atomic="false"
       >
         {toasts.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} onClose={dismissToast} />
+          <ToastItem
+            key={toast.id}
+            toast={toast}
+            onDismiss={dismissToast}
+            onRemove={removeToast}
+          />
         ))}
       </div>
     </ToastContext.Provider>
@@ -105,25 +121,58 @@ export function useToast() {
 
 function ToastItem({
   toast,
-  onClose
+  onDismiss,
+  onRemove
 }: {
   toast: ToastRecord;
-  onClose: (id: string) => void;
+  onDismiss: (id: string) => void;
+  onRemove: (id: string) => void;
 }) {
+  const [isEntered, setIsEntered] = useState(false);
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      setIsEntered(true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, []);
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      onClose(toast.id);
+      onDismiss(toast.id);
     }, toast.durationMs);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [onClose, toast.durationMs, toast.id]);
+  }, [onDismiss, toast.durationMs, toast.id]);
+
+  useEffect(() => {
+    if (!toast.isClosing) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      onRemove(toast.id);
+    }, EXIT_DURATION_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [onRemove, toast.id, toast.isClosing]);
 
   return (
     <div
       className={[
-        "toast-item pointer-events-auto rounded-box border shadow-xl",
+        "toast-item pointer-events-auto rounded-box border shadow-xl transition duration-200 ease-out",
+        toast.isClosing
+          ? "translate-x-0 opacity-0"
+          : isEntered
+            ? "translate-x-0 opacity-100"
+            : "translate-x-6 opacity-0",
         toneClasses[toast.tone]
       ].join(" ")}
       role="status"
@@ -140,7 +189,7 @@ function ToastItem({
           type="button"
           className="btn btn-ghost btn-xs btn-circle shrink-0 border-0 text-current hover:bg-white/10"
           aria-label="Close toast"
-          onClick={() => onClose(toast.id)}
+          onClick={() => onDismiss(toast.id)}
         >
           x
         </button>

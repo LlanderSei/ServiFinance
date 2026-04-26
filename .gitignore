@@ -1,4 +1,10 @@
+.publish-check/
+.publish-check-*/
 .vs/
+
+.env
+.env.*
+!.env.example
 
 node_modules/
 **/dist/
@@ -7,9 +13,13 @@ node_modules/
 **/bin/
 **/obj/
 **/artifacts/
+**/wwwroot/
 
 *.user
 *.suo
 *.rsuser
 
 *.log
+
+*.pubxml
+*.publishsettings

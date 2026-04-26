@@ -7,8 +7,14 @@ using ServiFinance.Api.Infrastructure;
 using ServiFinance.Infrastructure.Configuration;
 using ServiFinance.Infrastructure.Extensions;
 
+DotEnvLoader.LoadFromCurrentDirectory();
+
 var builder = WebApplication.CreateBuilder(args);
 var sessionTokenOptions = builder.Configuration.GetSection(SessionTokenOptions.SectionName).Get<SessionTokenOptions>() ?? new SessionTokenOptions();
+if (string.IsNullOrWhiteSpace(sessionTokenOptions.SigningKey)) {
+  throw new InvalidOperationException(
+      "Missing JWT signing key. Set ServiFinance__Auth__SigningKey in .env or host environment variables.");
+}
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();

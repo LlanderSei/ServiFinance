@@ -48,8 +48,10 @@ public static class ServiceCollectionExtensions {
             configuration?[ServiFinanceDatabaseDefaults.DevelopmentTenantIdConfigurationKey]),
         AdminEmail = ServiFinanceDatabaseDefaults.ResolveDevelopmentAdminEmail(
             configuration?[ServiFinanceDatabaseDefaults.DevelopmentAdminEmailConfigurationKey]),
-        SuperAdminEmail = configuration?["ServiFinance:SuperAdminEmail"] ?? ServiFinanceDatabaseDefaults.DefaultSuperAdminEmail,
-        SuperAdminPassword = configuration?["ServiFinance:SuperAdminPassword"] ?? ServiFinanceDatabaseDefaults.DefaultSuperAdminPassword,
+        SuperAdminEmail = ServiFinanceDatabaseDefaults.ResolveSuperAdminEmail(
+            configuration?[ServiFinanceDatabaseDefaults.SuperAdminEmailConfigurationKey]),
+        SuperAdminPassword = ServiFinanceDatabaseDefaults.ResolveSuperAdminPassword(
+            configuration?[ServiFinanceDatabaseDefaults.SuperAdminPasswordConfigurationKey]),
         AdminPassword = ServiFinanceDatabaseDefaults.ResolveDevelopmentAdminPassword(
             configuration?[ServiFinanceDatabaseDefaults.DevelopmentAdminPasswordConfigurationKey])
     });

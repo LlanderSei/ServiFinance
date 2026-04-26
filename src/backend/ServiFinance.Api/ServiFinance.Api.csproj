@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BuildInParallel>false</BuildInParallel>
+    <UserSecretsId>afb26f8d-5a88-4726-b677-707cfbeb9828</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,13 +22,9 @@
     <ProjectReference Include="..\ServiFinance.Infrastructure\ServiFinance.Infrastructure.csproj" />
   </ItemGroup>
 
-  <Target Name="BuildServiFinanceFrontend" BeforeTargets="Build"
-          Condition="'$(DisableServiFinanceFrontendBuild)' != 'true' and Exists('..\..\frontend\ServiFinance.Frontend\package.json')">
-    <Exec Condition="!Exists('..\..\frontend\ServiFinance.Frontend\node_modules')"
-          WorkingDirectory="..\..\frontend\ServiFinance.Frontend"
-          Command="cmd /c npm install" />
-    <Exec WorkingDirectory="..\..\frontend\ServiFinance.Frontend"
-          Command="cmd /c npm run build" />
+  <Target Name="BuildServiFinanceFrontend" BeforeTargets="Build" Condition="'$(DisableServiFinanceFrontendBuild)' != 'true' and Exists('..\..\frontend\ServiFinance.Frontend\package.json')">
+    <Exec Condition="!Exists('..\..\frontend\ServiFinance.Frontend\node_modules')" WorkingDirectory="..\..\frontend\ServiFinance.Frontend" Command="cmd /c npm install" />
+    <Exec WorkingDirectory="..\..\frontend\ServiFinance.Frontend" Command="cmd /c npm run build" />
   </Target>
 
 </Project>

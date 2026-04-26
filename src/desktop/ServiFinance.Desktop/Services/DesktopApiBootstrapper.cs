@@ -26,6 +26,7 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
 
   private Task<string>? _availabilityTask;
   private Process? _ownedProcess;
+  private TaskCompletionSource<bool>? _ownedBackendReadySource;
   private string? _resolvedApiBaseUrl;
   private string? _shadowRuntimeDirectory;
 
@@ -91,6 +92,13 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
   }
 
   private async Task WaitForHealthyAsync(string apiBaseUrl, CancellationToken cancellationToken) {
+    if (_ownedProcess is { HasExited: false } && _ownedBackendReadySource is not null) {
+      await WaitForOwnedBackendReadyAsync(cancellationToken);
+      if (await IsHealthyAsync(apiBaseUrl, cancellationToken)) {
+        return;
+      }
+    }
+
     var startedAt = DateTimeOffset.UtcNow;
 
     while (DateTimeOffset.UtcNow - startedAt < HealthCheckTimeout) {
@@ -114,6 +122,22 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
     }
   }
 
+  private async Task WaitForOwnedBackendReadyAsync(CancellationToken cancellationToken) {
+    var readinessTask = _ownedBackendReadySource?.Task;
+    if (readinessTask is null) {
+      return;
+    }
+
+    var timeoutTask = Task.Delay(HealthCheckTimeout, cancellationToken);
+    var completedTask = await Task.WhenAny(readinessTask, timeoutTask);
+    if (completedTask == timeoutTask) {
+      throw new InvalidOperationException(
+          $"ServiFinance backend did not become reachable within {HealthCheckTimeout.TotalSeconds:N0} seconds.");
+    }
+
+    await readinessTask.WaitAsync(cancellationToken);
+  }
+
   private void TryStartLocalApiHost(string apiBaseUrl) {
     if (_ownedProcess is { HasExited: false }) {
       return;
@@ -133,19 +157,28 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
         StartInfo = processStartInfo,
         EnableRaisingEvents = true
     };
+    _ownedBackendReadySource = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     process.OutputDataReceived += (_, eventArgs) => {
       if (!string.IsNullOrWhiteSpace(eventArgs.Data)) {
+        TrySignalBackendReady(eventArgs.Data, apiBaseUrl);
         Debug.WriteLine($"[ServiFinance.Api] {eventArgs.Data}");
       }
     };
     process.ErrorDataReceived += (_, eventArgs) => {
       if (!string.IsNullOrWhiteSpace(eventArgs.Data)) {
+        TrySignalBackendReady(eventArgs.Data, apiBaseUrl);
         Debug.WriteLine($"[ServiFinance.Api] {eventArgs.Data}");
+      }
+    };
+    process.Exited += (_, _) => {
+      if (_ownedBackendReadySource is { Task.IsCompleted: false } readinessSource) {
+        readinessSource.TrySetException(new InvalidOperationException("Owned ServiFinance backend exited before becoming ready."));
       }
     };
 
     if (!process.Start()) {
+      _ownedBackendReadySource = null;
       return;
     }
 
@@ -153,6 +186,18 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
     process.BeginOutputReadLine();
     process.BeginErrorReadLine();
     _ownedProcess = process;
+  }
+
+  private void TrySignalBackendReady(string outputLine, string apiBaseUrl) {
+    if (_ownedBackendReadySource is not { Task.IsCompleted: false } readinessSource) {
+      return;
+    }
+
+    var normalizedLine = outputLine.Trim();
+    if (normalizedLine.Contains($"Now listening on: {apiBaseUrl}", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(normalizedLine, "Application started. Press Ctrl+C to shut down.", StringComparison.OrdinalIgnoreCase)) {
+      readinessSource.TrySetResult(true);
+    }
   }
 
   private ProcessStartInfo? CreateProcessStartInfo(string webProjectDirectory, string apiBaseUrl) {
@@ -284,6 +329,7 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
       // Best-effort cleanup only.
     } finally {
       _ownedProcess.Dispose();
+      _ownedBackendReadySource = null;
       if (!string.IsNullOrWhiteSpace(_shadowRuntimeDirectory) && Directory.Exists(_shadowRuntimeDirectory)) {
         try {
           Directory.Delete(_shadowRuntimeDirectory, recursive: true);

@@ -9,6 +9,8 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [tailwindcss(), react()],
   build: {
+    outDir: "../../backend/ServiFinance.Api/wwwroot/frontend",
+    emptyOutDir: true,
     rollupOptions: {
       output: {
         entryFileNames: "assets/index.js",

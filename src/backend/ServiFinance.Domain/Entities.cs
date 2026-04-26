@@ -59,7 +59,7 @@ public sealed class PlatformModule : Entity {
 }
 
 public sealed class RefreshSession : Entity {
-  public Guid UserId { get; set; }
+  public Guid? UserId { get; set; }
   public string Surface { get; set; } = string.Empty;
   public bool RememberMe { get; set; }
   public string RefreshTokenHash { get; set; } = string.Empty;

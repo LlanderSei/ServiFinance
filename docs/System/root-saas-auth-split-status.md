@@ -105,12 +105,12 @@ The current route contract is:
 
 ### Accounts Seeded For Development
 
-- SuperAdmin:
-  - Email: `superadmin@local.servifinance`
-  - Password: `SuperAdmin123!`
-- Example tenant administrator:
-  - Email: `admin@local.servifinance`
-  - Password: `Admin123!`
+- SuperAdmin credentials are sourced from:
+  - `ServiFinance__SuperAdminEmail`
+  - `ServiFinance__SuperAdminPassword`
+- Example tenant administrator credentials are sourced from:
+  - `ServiFinance__DevelopmentAdminEmail`
+  - `ServiFinance__DevelopmentAdminPassword`
 
 ## Future Implementation
 

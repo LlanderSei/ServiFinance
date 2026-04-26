@@ -1,12 +1,41 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "E:\\Documents\\Llander\\Yuemnigga\\ServiFinance\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{E21B5C96-DA01-97AB-3664-3377AE2E4ABD}|src\\backend\\ServiFinance.Api\\ServiFinance.Api.csproj|e:\\documents\\llander\\yuemnigga\\servifinance\\src\\backend\\servifinance.api\\servifinance.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{E21B5C96-DA01-97AB-3664-3377AE2E4ABD}|src\\backend\\ServiFinance.Api\\ServiFinance.Api.csproj|solutionrelative:src\\backend\\servifinance.api\\servifinance.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": []
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "ServiFinance.Api",
+              "DocumentMoniker": "E:\\Documents\\Llander\\Yuemnigga\\ServiFinance\\src\\backend\\ServiFinance.Api\\ServiFinance.Api.csproj",
+              "RelativeDocumentMoniker": "src\\backend\\ServiFinance.Api\\ServiFinance.Api.csproj",
+              "ToolTip": "E:\\Documents\\Llander\\Yuemnigga\\ServiFinance\\src\\backend\\ServiFinance.Api\\ServiFinance.Api.csproj",
+              "RelativeToolTip": "src\\backend\\ServiFinance.Api\\ServiFinance.Api.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB4AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-04-26T15:06:01.232Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{74946827-37a0-11d2-a273-00c04f8ef4ff}"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
