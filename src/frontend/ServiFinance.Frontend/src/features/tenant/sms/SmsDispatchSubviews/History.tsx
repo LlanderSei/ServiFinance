@@ -1,98 +1,87 @@
-import { useMemo, useState } from "react";
-import type { TenantDispatchAssignmentRow } from "@/shared/api/contracts";
-import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import { RecordTable, RecordTableActionButton, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
-import { RecordScrollRegion } from "@/shared/records/RecordWorkspace";
-import { WorkspaceModalButton, WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
+import { WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
+import type { TenantDispatchAssignmentRow } from "@/shared/api/contracts";
 
-interface SmsDispatchHistoryProps {
+interface HistoryProps {
   assignments: TenantDispatchAssignmentRow[];
-  onSelectAssignment: (assignment: TenantDispatchAssignmentRow | null) => void;
-  selectedAssignmentId: string | null;
-  activeAssignment?: TenantDispatchAssignmentRow | null;
+  isLoading: boolean;
+  isError: boolean;
+  viewMode: string;
+  onSelectAssignment: (assignment: TenantDispatchAssignmentRow) => void;
+  formatDateTime: (value: string | null) => string;
+  getFinanceTone: (status: string) => "active" | "warning" | "progress" | "neutral";
 }
 
 export function SmsDispatchHistory({
   assignments,
+  isLoading,
+  isError,
+  viewMode,
   onSelectAssignment,
-  selectedAssignmentId,
-  activeAssignment,
-}: SmsDispatchHistoryProps) {
-   const assignmentDetails = useMemo(() => {
-     if (!activeAssignment) return [];
-     return [
-       {
-         title: "Assignment record",
-         items: [
-           { label: "Request number", value: activeAssignment.requestNumber },
-           { label: "Customer", value: activeAssignment.customerName },
-           { label: "Assigned staff", value: activeAssignment.assignedUserName },
-           {
-             label: "Scheduled end",
-             value: activeAssignment.scheduledEndUtc
-               ? new Date(activeAssignment.scheduledEndUtc).toLocaleString()
-               : "—"
-           },
-           { label: "Finance status", value: activeAssignment.financeHandoffStatus },
-         ]
-       }
-     ];
-   }, [activeAssignment]);
-
+  formatDateTime,
+  getFinanceTone
+}: HistoryProps) {
   return (
-    <>
-      <RecordScrollRegion>
-        <RecordTableShell>
-          <RecordTable>
-            <thead>
-              <tr>
-                <th>Request No.</th>
-                <th>Customer</th>
-                <th>Assigned Staff</th>
-                <th>Scheduled End</th>
-                <th>Finance</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assignments.length === 0 ? (
-                <RecordTableStateRow colSpan={6}>No completed assignments found.</RecordTableStateRow>
-              ) : null}
-               {assignments.map((assignment) => (
-                 <tr key={assignment.id}>
-                   <td>{assignment.requestNumber}</td>
-                   <td>{assignment.customerName}</td>
-                   <td>{assignment.assignedUserName}</td>
-                   <td>
-                     {assignment.scheduledEndUtc
-                       ? new Date(assignment.scheduledEndUtc).toLocaleString()
-                       : "—"}
-                   </td>
-                   <td>{assignment.financeHandoffStatus}</td>
-                   <td>
-                     <RecordTableActionButton onClick={() => onSelectAssignment(assignment)}>
-                       View
-                     </RecordTableActionButton>
-                   </td>
-                 </tr>
-               ))}
-            </tbody>
-          </RecordTable>
-        </RecordTableShell>
-      </RecordScrollRegion>
-
-      <RecordDetailsModal
-        open={selectedAssignmentId !== null}
-        eyebrow="Assignment record"
-        title={activeAssignment?.requestNumber ?? ""}
-        sections={assignmentDetails}
-        actions={
-          <>
-            <WorkspaceModalButton onClick={() => onSelectAssignment(null)}>Close</WorkspaceModalButton>
-          </>
-        }
-        onClose={() => onSelectAssignment(null)}
-      />
-    </>
+    <RecordTableShell>
+      <RecordTable>
+        <thead>
+          <tr>
+            <th>Request No.</th>
+            <th>Customer</th>
+            <th>Assigned Staff</th>
+            <th>Scheduled Start</th>
+            <th>Scheduled End</th>
+            <th>Assignment Status</th>
+            <th>Service Status</th>
+            <th>Finance</th>
+            <th>Conflicts</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {isLoading ? (
+            <RecordTableStateRow colSpan={10}>Loading dispatch assignments...</RecordTableStateRow>
+          ) : null}
+          {isError ? (
+            <RecordTableStateRow colSpan={10} tone="error">
+              Unable to load dispatch assignments.
+            </RecordTableStateRow>
+          ) : null}
+          {!isLoading && !isError && !assignments.length ? (
+            <RecordTableStateRow colSpan={10}>
+              {viewMode === "all" ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+            </RecordTableStateRow>
+          ) : null}
+          {assignments.map((assignment) => (
+            <tr key={assignment.id}>
+              <td>{assignment.requestNumber}</td>
+              <td>{assignment.customerName}</td>
+              <td>{assignment.assignedUserName}</td>
+              <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
+              <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
+              <td>
+                <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
+              </td>
+              <td>{assignment.serviceStatus}</td>
+              <td>
+                <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
+                  {assignment.financeHandoffStatus}
+                </WorkspaceStatusPill>
+              </td>
+              <td>
+                <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
+                  {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
+                </WorkspaceStatusPill>
+              </td>
+              <td>
+                <RecordTableActionButton onClick={() => onSelectAssignment(assignment)}>
+                  View
+                </RecordTableActionButton>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </RecordTable>
+    </RecordTableShell>
   );
 }

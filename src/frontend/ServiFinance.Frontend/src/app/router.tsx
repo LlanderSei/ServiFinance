@@ -39,7 +39,7 @@ const MlsDesktopLoginPage = lazyPage(() => import("@/features/tenant/mls/MlsDesk
 const SmsDashboardPage = lazyPage(() => import("@/features/tenant/sms/SmsDashboardPage"), "SmsDashboardPage");
 const SmsCustomersPage = lazyPage(() => import("@/features/tenant/sms/SmsCustomersPage"), "SmsCustomersPage");
 const SmsServiceRequestsPage = lazyPage(() => import("@/features/tenant/sms/SmsServiceRequestsPage"), "SmsServiceRequestsPage");
-const SmsDispatchPage = lazyPage(() => import("@/features/tenant/sms/SmsDispatchPage"), "SmsDispatchPage");
+const SmsDispatchPage = lazyPage(() => import("@/features/tenant/sms/SmsDispatchTabs"), "SmsDispatchPage");
 const SmsReportsPage = lazyPage(() => import("@/features/tenant/sms/SmsReportsPage"), "SmsReportsPage");
 const SmsUsersPage = lazyPage(() => import("@/features/tenant/sms/SmsUsersPage"), "SmsUsersPage");
 const MlsDashboardPage = lazyPage(() => import("@/features/tenant/mls/MlsDashboardPage"), "MlsDashboardPage");

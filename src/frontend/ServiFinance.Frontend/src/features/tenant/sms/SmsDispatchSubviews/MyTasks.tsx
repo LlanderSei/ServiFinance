@@ -1,71 +1,87 @@
-import { useMemo } from "react";
-import type { TenantDispatchAssignmentRow } from "@/shared/api/contracts";
-import { getCurrentSession } from "@/shared/auth/session";
 import { RecordTable, RecordTableActionButton, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
-import { RecordScrollRegion } from "@/shared/records/RecordWorkspace";
 import { WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
+import type { TenantDispatchAssignmentRow } from "@/shared/api/contracts";
 
-interface SmsDispatchMyTasksProps {
+interface MyTasksProps {
   assignments: TenantDispatchAssignmentRow[];
+  isLoading: boolean;
+  isError: boolean;
+  viewMode: string;
+  onSelectAssignment: (assignment: TenantDispatchAssignmentRow) => void;
+  formatDateTime: (value: string | null) => string;
+  getFinanceTone: (status: string) => "active" | "warning" | "progress" | "neutral";
 }
 
-export function SmsDispatchMyTasks({ assignments }: SmsDispatchMyTasksProps) {
-  const currentUser = getCurrentSession()?.user;
-  const currentUserId = currentUser?.userId ?? null;
-
-  const myTasks = useMemo(() => {
-    if (!currentUserId) return [];
-    return assignments.filter((a) => a.assignedUserId === currentUserId);
-  }, [assignments, currentUserId]);
-
+export function SmsDispatchMyTasks({
+  assignments,
+  isLoading,
+  isError,
+  viewMode,
+  onSelectAssignment,
+  formatDateTime,
+  getFinanceTone
+}: MyTasksProps) {
   return (
-    <RecordScrollRegion>
-      <RecordTableShell>
-        <RecordTable>
-          <thead>
-            <tr>
-              <th>Request No.</th>
-              <th>Customer</th>
-              <th>Scheduled Start</th>
-              <th>Scheduled End</th>
-              <th>Status</th>
-              <th>Service</th>
-              <th>Finance</th>
-              <th>Action</th>
+    <RecordTableShell>
+      <RecordTable>
+        <thead>
+          <tr>
+            <th>Request No.</th>
+            <th>Customer</th>
+            <th>Assigned Staff</th>
+            <th>Scheduled Start</th>
+            <th>Scheduled End</th>
+            <th>Assignment Status</th>
+            <th>Service Status</th>
+            <th>Finance</th>
+            <th>Conflicts</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {isLoading ? (
+            <RecordTableStateRow colSpan={10}>Loading dispatch assignments...</RecordTableStateRow>
+          ) : null}
+          {isError ? (
+            <RecordTableStateRow colSpan={10} tone="error">
+              Unable to load dispatch assignments.
+            </RecordTableStateRow>
+          ) : null}
+          {!isLoading && !isError && !assignments.length ? (
+            <RecordTableStateRow colSpan={10}>
+              {viewMode === "all" ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+            </RecordTableStateRow>
+          ) : null}
+          {assignments.map((assignment) => (
+            <tr key={assignment.id}>
+              <td>{assignment.requestNumber}</td>
+              <td>{assignment.customerName}</td>
+              <td>{assignment.assignedUserName}</td>
+              <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
+              <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
+              <td>
+                <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
+              </td>
+              <td>{assignment.serviceStatus}</td>
+              <td>
+                <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
+                  {assignment.financeHandoffStatus}
+                </WorkspaceStatusPill>
+              </td>
+              <td>
+                <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
+                  {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
+                </WorkspaceStatusPill>
+              </td>
+              <td>
+                <RecordTableActionButton onClick={() => onSelectAssignment(assignment)}>
+                  View
+                </RecordTableActionButton>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {myTasks.length === 0 ? (
-              <RecordTableStateRow colSpan={8}>No tasks assigned to you yet.</RecordTableStateRow>
-            ) : null}
-            {myTasks.map((assignment) => (
-              <tr key={assignment.id}>
-                <td>{assignment.requestNumber}</td>
-                <td>{assignment.customerName}</td>
-                <td>
-                  {assignment.scheduledStartUtc
-                    ? new Date(assignment.scheduledStartUtc).toLocaleString()
-                    : "—"}
-                </td>
-                <td>
-                  {assignment.scheduledEndUtc
-                    ? new Date(assignment.scheduledEndUtc).toLocaleString()
-                    : "—"}
-                </td>
-                <td>
-                  <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
-                </td>
-                <td>{assignment.serviceStatus}</td>
-                <td>{assignment.financeHandoffStatus}</td>
-                <td>
-                  <RecordTableActionButton>{/* TODO: open details */}View</RecordTableActionButton>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </RecordTable>
-      </RecordTableShell>
-    </RecordScrollRegion>
+          ))}
+        </tbody>
+      </RecordTable>
+    </RecordTableShell>
   );
 }
-
