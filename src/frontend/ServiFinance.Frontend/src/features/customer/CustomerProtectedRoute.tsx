@@ -10,8 +10,8 @@ export function CustomerProtectedRoute() {
     return <Navigate to={`/t/${tenantDomainSlug}/c/login`} replace />;
   }
 
-  if (session.tenantDomainSlug.toLowerCase() !== tenantDomainSlug.toLowerCase()) {
-    return <Navigate to={getCustomerHomeRoute(session)} replace />;
+  if (session.user.tenantDomainSlug.toLowerCase() !== tenantDomainSlug.toLowerCase()) {
+    return <Navigate to={getCustomerHomeRoute(session.user)} replace />;
   }
 
   return <Outlet />;

@@ -2,6 +2,50 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "build-web",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/backend/ServiFinance.Api/ServiFinance.Api.csproj",
+        "-c",
+        "Release",
+        "-m:1"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "publish-web-monsterasp",
+      "type": "process",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/publish-monsterasp.ps1"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "publish-web-folder",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "publish",
+        "${workspaceFolder}/src/backend/ServiFinance.Api/ServiFinance.Api.csproj",
+        "-c",
+        "Release",
+        "-m:1",
+        "-o",
+        "${workspaceFolder}/artifacts/publish/web"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
       "label": "build-desktop",
       "type": "process",
       "command": "dotnet",

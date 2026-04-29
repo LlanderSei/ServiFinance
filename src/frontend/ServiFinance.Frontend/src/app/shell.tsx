@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 import { Outlet } from "react-router-dom";
+import { TenantBrandingProvider } from "@/shared/tenant/TenantBrandingProvider";
 
 export function AppShell() {
   return (
+    <TenantBrandingProvider>
     <div className="app-shell">
       <Suspense fallback={(
         <main className="grid min-h-screen place-content-center gap-2 px-6 text-center">
@@ -13,5 +15,6 @@ export function AppShell() {
         <Outlet />
       </Suspense>
     </div>
+    </TenantBrandingProvider>
   );
 }

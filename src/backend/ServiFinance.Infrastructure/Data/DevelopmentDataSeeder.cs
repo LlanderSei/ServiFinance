@@ -10,6 +10,7 @@ namespace ServiFinance.Infrastructure.Data;
 public sealed class DevelopmentDataSeeder(
     ServiFinanceDbContext dbContext,
     IPasswordHasher<AppUser> passwordHasher,
+    IPasswordHasher<Customer> customerPasswordHasher,
     ILogger<DevelopmentDataSeeder> logger) {
   public async Task SeedAsync(DevelopmentSeedOptions options, CancellationToken cancellationToken = default) {
     var tierSeeds = GetSubscriptionTierSeeds();
@@ -352,6 +353,10 @@ public sealed class DevelopmentDataSeeder(
       customer.FullName = seed.FullName;
       customer.MobileNumber = seed.MobileNumber;
       customer.Email = seed.Email;
+      
+      var firstName = seed.FullName.Split(' ')[0];
+      customer.PasswordHash = customerPasswordHasher.HashPassword(customer, firstName);
+      
       customer.Address = seed.Address;
       customer.CreatedAtUtc = seed.CreatedAtUtc;
     }

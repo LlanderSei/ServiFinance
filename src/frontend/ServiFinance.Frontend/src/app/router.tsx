@@ -7,6 +7,7 @@ import { CustomerLayout } from "@/features/customer/CustomerLayout";
 import { CustomerProtectedRoute } from "@/features/customer/CustomerProtectedRoute";
 import { isDesktopShell } from "@/platform/runtime";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { TenantDomainGuard } from "@/shared/tenant/TenantDomainGuard";
 
 function lazyPage<TModule extends Record<string, unknown>, TKey extends keyof TModule & string>(
   loader: () => Promise<TModule>,
@@ -78,9 +79,10 @@ const browserRoutes = [
       { path: "not-found", element: <NotFoundPage /> },
       { path: "t/mls", element: <Navigate to="/desktop-required" replace /> },
       { path: "t/mls/*", element: <Navigate to="/desktop-required" replace /> },
-      {
-        path: "t/:tenantDomainSlug",
-        children: [
+       {
+         path: "t/:tenantDomainSlug",
+         element: <TenantDomainGuard />,
+         children: [
           { index: true, element: <TenantRootRedirect /> },
           { path: "sms", element: <TenantLandingPage system="sms" /> },
           {
@@ -159,6 +161,7 @@ const desktopRoutes = [
       { path: "t/mls/ledger", element: <MlsLedgerPage /> },
       {
         path: "t/:tenantDomainSlug",
+        element: <TenantDomainGuard />,
         children: [
           { index: true, element: <TenantRootRedirect /> },
           { path: "sms", element: <TenantLandingPage system="sms" /> },

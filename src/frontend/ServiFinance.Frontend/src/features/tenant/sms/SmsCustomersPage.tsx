@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import type { CreateTenantCustomerRequest, TenantCustomerRow } from "@/shared/api/contracts";
-import { httpGet, httpPostJson } from "@/shared/api/http";
+import type { CreateTenantCustomerRequest, TenantCustomerRow, UpdateTenantCustomerRequest } from "@/shared/api/contracts";
+import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
 import {
@@ -28,7 +28,15 @@ export function SmsCustomersPage() {
   const toast = useToast();
   const [selectedCustomer, setSelectedCustomer] = useState<TenantCustomerRow | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<TenantCustomerRow | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [form, setForm] = useState<CreateTenantCustomerRequest>({
+    fullName: "",
+    mobileNumber: "",
+    email: "",
+    address: ""
+  });
+  const [editForm, setEditForm] = useState<UpdateTenantCustomerRequest>({
     fullName: "",
     mobileNumber: "",
     email: "",
@@ -66,6 +74,30 @@ export function SmsCustomersPage() {
     }
   });
 
+  const updateCustomerMutation = useMutation({
+    mutationFn: ({ customerId, payload }: { customerId: string; payload: UpdateTenantCustomerRequest }) =>
+      httpPutJson<TenantCustomerRow, UpdateTenantCustomerRequest>(
+        `/api/tenants/${tenantDomainSlug}/sms/customers/${customerId}`,
+        payload
+      ),
+    onSuccess: (customer) => {
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-customers"] });
+      setSelectedCustomer((current) => current?.id === customer.id ? customer : current);
+      setEditingCustomer(customer);
+      setIsEditModalOpen(false);
+      toast.success({
+        title: "Customer record updated",
+        message: "The customer profile changes were saved successfully."
+      });
+    },
+    onError: (mutationError: Error) => {
+      toast.error({
+        title: "Unable to update customer record",
+        message: mutationError.message
+      });
+    }
+  });
+
   const customerDetails = useMemo(() => {
     if (!selectedCustomer) {
       return [];
@@ -95,6 +127,29 @@ export function SmsCustomersPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     createCustomerMutation.mutate(form);
+  }
+
+  function openEditModal(customer: TenantCustomerRow) {
+    setEditingCustomer(customer);
+    setEditForm({
+      fullName: customer.fullName,
+      mobileNumber: customer.mobileNumber,
+      email: customer.email,
+      address: customer.address
+    });
+    setIsEditModalOpen(true);
+  }
+
+  function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingCustomer) {
+      return;
+    }
+
+    updateCustomerMutation.mutate({
+      customerId: editingCustomer.id,
+      payload: editForm
+    });
   }
 
   return (
@@ -143,9 +198,12 @@ export function SmsCustomersPage() {
                       <td>{customer.email || "-"}</td>
                       <td>{customer.address || "-"}</td>
                       <td>{customer.serviceRequestCount}</td>
-                      <td>
+                      <td className="flex flex-wrap gap-2">
                         <RecordTableActionButton onClick={() => setSelectedCustomer(customer)}>
                           View
+                        </RecordTableActionButton>
+                        <RecordTableActionButton onClick={() => openEditModal(customer)}>
+                          Update
                         </RecordTableActionButton>
                       </td>
                     </tr>
@@ -226,6 +284,63 @@ export function SmsCustomersPage() {
                 <WorkspaceInput
                   value={form.address}
                   onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
+                />
+              </WorkspaceField>
+            </WorkspaceFieldGrid>
+          </WorkspaceForm>
+        </RecordFormModal>
+
+        <RecordFormModal
+          open={isEditModalOpen}
+          eyebrow="Customer profile"
+          title="Update customer record"
+          description="Edit the stored customer identity and contact details used by service intake, dispatch, and billing workflows."
+          actions={
+            <>
+              <WorkspaceModalButton onClick={() => setIsEditModalOpen(false)}>
+                Cancel
+              </WorkspaceModalButton>
+              <WorkspaceModalButton
+                type="submit"
+                form="tenant-customer-edit-form"
+                tone="primary"
+                disabled={updateCustomerMutation.isPending || editingCustomer === null}
+              >
+                {updateCustomerMutation.isPending ? "Saving..." : "Save changes"}
+              </WorkspaceModalButton>
+            </>
+          }
+          onClose={() => setIsEditModalOpen(false)}
+        >
+          <WorkspaceForm id="tenant-customer-edit-form" onSubmit={handleEditSubmit}>
+            <WorkspaceFieldGrid>
+              <WorkspaceField label="Full name">
+                <WorkspaceInput
+                  value={editForm.fullName}
+                  onChange={(event) => setEditForm((current) => ({ ...current, fullName: event.target.value }))}
+                  required
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Mobile number">
+                <WorkspaceInput
+                  value={editForm.mobileNumber}
+                  onChange={(event) => setEditForm((current) => ({ ...current, mobileNumber: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Email">
+                <WorkspaceInput
+                  type="email"
+                  value={editForm.email}
+                  onChange={(event) => setEditForm((current) => ({ ...current, email: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Address">
+                <WorkspaceInput
+                  value={editForm.address}
+                  onChange={(event) => setEditForm((current) => ({ ...current, address: event.target.value }))}
                 />
               </WorkspaceField>
             </WorkspaceFieldGrid>

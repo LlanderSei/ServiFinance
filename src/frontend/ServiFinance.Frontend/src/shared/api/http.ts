@@ -2,7 +2,7 @@ import { resolveApiUrl } from "@/platform/runtime";
 import { isDesktopShell } from "@/platform/runtime";
 import { ensureAccessToken, getAccessToken } from "@/shared/auth/session";
 
-async function createRequestInit(method: "GET" | "POST" | "DELETE", path: string, body?: unknown): Promise<RequestInit> {
+async function createRequestInit(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<RequestInit> {
   const headers: Record<string, string> = {};
   const shouldAttachToken = path.startsWith("/api/") && !path.startsWith("/api/auth/");
 
@@ -56,6 +56,31 @@ export async function httpGet<T>(path: string): Promise<T> {
 
 export async function httpPostJson<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
   const response = await fetch(await resolveApiUrl(path), await createRequestInit("POST", path, body));
+
+  if (!response.ok) {
+    try {
+      const payload = await response.json() as { error?: string };
+      if (payload.error) {
+        throw new Error(payload.error);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        throw error;
+      }
+    }
+
+    throw new Error(`Request failed: ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as TResponse;
+  }
+
+  return response.json() as Promise<TResponse>;
+}
+
+export async function httpPutJson<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
+  const response = await fetch(await resolveApiUrl(path), await createRequestInit("PUT", path, body));
 
   if (!response.ok) {
     try {

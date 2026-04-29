@@ -1,3 +1,9 @@
+import { httpPostJson, httpDelete } from "@/shared/api/http";
+import { AuthSessionResponse } from "@/shared/api/contracts";
+import { applySession, clearSession } from "@/shared/auth/session";
+
+export { getCurrentSession as getCurrentCustomerSession } from "@/shared/auth/session";
+
 export type CustomerAccountRecord = {
   id: string;
   tenantDomainSlug: string;
@@ -5,19 +11,10 @@ export type CustomerAccountRecord = {
   email: string;
   mobileNumber: string;
   address: string;
-  password: string;
   createdAtUtc: string;
 };
 
-export type CustomerSession = {
-  accountId: string;
-  tenantDomainSlug: string;
-  fullName: string;
-  email: string;
-  mobileNumber: string;
-  address: string;
-  signedInAtUtc: string;
-};
+export type CustomerSession = AuthSessionResponse["user"];
 
 export type RegisterCustomerAccountRequest = {
   tenantDomainSlug: string;
@@ -34,70 +31,7 @@ export type LoginCustomerAccountRequest = {
   password: string;
 };
 
-const CUSTOMER_ACCOUNTS_KEY = "sf:customer:accounts";
-const CUSTOMER_SESSION_KEY = "sf:customer:session";
-
-function canUseStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-}
-
-function readCustomerAccounts(): CustomerAccountRecord[] {
-  if (!canUseStorage()) {
-    return [];
-  }
-
-  const raw = window.localStorage.getItem(CUSTOMER_ACCOUNTS_KEY);
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as CustomerAccountRecord[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeCustomerAccounts(accounts: CustomerAccountRecord[]) {
-  if (!canUseStorage()) {
-    return;
-  }
-
-  window.localStorage.setItem(CUSTOMER_ACCOUNTS_KEY, JSON.stringify(accounts));
-}
-
-export function getCurrentCustomerSession() {
-  if (!canUseStorage()) {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem(CUSTOMER_SESSION_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw) as CustomerSession;
-  } catch {
-    return null;
-  }
-}
-
-export function setCurrentCustomerSession(session: CustomerSession | null) {
-  if (!canUseStorage()) {
-    return;
-  }
-
-  if (!session) {
-    window.localStorage.removeItem(CUSTOMER_SESSION_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(session));
-}
-
-export function registerCustomerAccount(request: RegisterCustomerAccountRequest) {
+export async function registerCustomerAccount(request: RegisterCustomerAccountRequest) {
   const tenantDomainSlug = request.tenantDomainSlug.trim().toLowerCase();
   const fullName = request.fullName.trim();
   const email = request.email.trim().toLowerCase();
@@ -109,72 +43,46 @@ export function registerCustomerAccount(request: RegisterCustomerAccountRequest)
     throw new Error("Complete the registration form before continuing.");
   }
 
-  const accounts = readCustomerAccounts();
-  const existing = accounts.find((account) =>
-    account.tenantDomainSlug === tenantDomainSlug &&
-    account.email === email
-  );
-
-  if (existing) {
-    throw new Error("A customer account with this email already exists for this tenant domain.");
-  }
-
-  const account: CustomerAccountRecord = {
-    id: crypto.randomUUID(),
+  const response = await httpPostJson<AuthSessionResponse, any>("/api/auth/customer/register", {
     tenantDomainSlug,
     fullName,
     email,
     mobileNumber,
     address,
     password,
-    createdAtUtc: new Date().toISOString()
-  };
+    useCookieSession: true
+  });
 
-  writeCustomerAccounts([...accounts, account]);
-
-  const session: CustomerSession = {
-    accountId: account.id,
-    tenantDomainSlug: account.tenantDomainSlug,
-    fullName: account.fullName,
-    email: account.email,
-    mobileNumber: account.mobileNumber,
-    address: account.address,
-    signedInAtUtc: new Date().toISOString()
-  };
-
-  setCurrentCustomerSession(session);
-  return session;
+  await applySession(response, { rememberOnWeb: true });
+  return response.user;
 }
 
-export function loginCustomerAccount(request: LoginCustomerAccountRequest) {
+export async function loginCustomerAccount(request: LoginCustomerAccountRequest) {
   const tenantDomainSlug = request.tenantDomainSlug.trim().toLowerCase();
   const email = request.email.trim().toLowerCase();
   const password = request.password;
 
-  const account = readCustomerAccounts().find((entry) =>
-    entry.tenantDomainSlug === tenantDomainSlug &&
-    entry.email === email &&
-    entry.password === password
-  );
-
-  if (!account) {
-    throw new Error("The customer credentials do not match this tenant domain.");
+  if (!email || !password) {
+    throw new Error("Provide your email and password.");
   }
 
-  const session: CustomerSession = {
-    accountId: account.id,
-    tenantDomainSlug: account.tenantDomainSlug,
-    fullName: account.fullName,
-    email: account.email,
-    mobileNumber: account.mobileNumber,
-    address: account.address,
-    signedInAtUtc: new Date().toISOString()
-  };
+  const response = await httpPostJson<AuthSessionResponse, any>("/api/auth/customer/login", {
+    tenantDomainSlug,
+    email,
+    password,
+    useCookieSession: true
+  });
 
-  setCurrentCustomerSession(session);
-  return session;
+  await applySession(response, { rememberOnWeb: true });
+  return response.user;
 }
 
-export function logoutCustomerAccount() {
-  setCurrentCustomerSession(null);
+export async function logoutCustomerAccount() {
+  try {
+    await httpPostJson("/api/auth/logout", {});
+  } catch (err) {
+    // ignore
+  } finally {
+    await clearSession();
+  }
 }

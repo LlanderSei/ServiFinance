@@ -14,8 +14,12 @@ type ApplySessionOptions = {
 function normalizeSurface(
   surface: AuthSessionResponse["user"]["surface"] | number,
 ): AuthSessionResponse["user"]["surface"] {
-  if (surface === "Root" || surface === "TenantWeb" || surface === "TenantDesktop") {
-    return surface;
+  if (typeof surface === "string") {
+    const validSurfaces: AuthSessionResponse["user"]["surface"][] = ["Root", "TenantWeb", "TenantDesktop", "CustomerWeb"];
+    if (validSurfaces.includes(surface as any)) {
+      return surface as AuthSessionResponse["user"]["surface"];
+    }
+    return "Root";
   }
 
   switch (surface) {
@@ -25,8 +29,10 @@ function normalizeSurface(
       return "TenantWeb";
     case 2:
       return "TenantDesktop";
+    case 3:
+      return "CustomerWeb";
     default:
-      return "TenantWeb";
+      return "Root";
   }
 }
 

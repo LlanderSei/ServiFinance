@@ -26,11 +26,11 @@ export function CustomerRegisterPage() {
   });
   const [error, setError] = useState<string | null>(null);
 
-  if (currentSession?.tenantDomainSlug.toLowerCase() === tenantDomainSlug.toLowerCase()) {
-    return <Navigate to={getCustomerHomeRoute(currentSession)} replace />;
+  if (currentSession && currentSession.user.tenantDomainSlug.toLowerCase() === tenantDomainSlug.toLowerCase()) {
+    return <Navigate to={getCustomerHomeRoute(currentSession.user)} replace />;
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (form.password !== form.confirmPassword) {
@@ -39,7 +39,7 @@ export function CustomerRegisterPage() {
     }
 
     try {
-      const session = registerCustomerAccount({
+      const session = await registerCustomerAccount({
         tenantDomainSlug,
         fullName: form.fullName,
         email: form.email,

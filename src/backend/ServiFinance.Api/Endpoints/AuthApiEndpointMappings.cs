@@ -57,6 +57,50 @@ internal static class AuthApiEndpointMappings {
 
           return Results.Ok(new AuthSessionResponse(tokens, ToCurrentSessionUser(user, surface)));
         });
+
+    authApi.MapPost("/customer/login", [AllowAnonymous] async Task<IResult> (
+        HttpContext httpContext,
+        [FromBody] CustomerApiLoginRequest request,
+        ICustomerAuthenticationService authenticationService,
+        ISessionTokenService sessionTokenService) => {
+          var tenantSlug = NormalizeTenantSlug(request.TenantDomainSlug);
+          var user = await authenticationService.AuthenticateAsync(
+              request.Email, request.Password, tenantSlug, httpContext.RequestAborted);
+          if (user is null) {
+            return Results.Unauthorized();
+          }
+
+          var surface = AuthenticationSurface.CustomerWeb;
+          var tokens = await sessionTokenService.CreateSessionAsync(user, surface, cancellationToken: httpContext.RequestAborted);
+          if (request.UseCookieSession) {
+            await SignInUserAsync(httpContext, user);
+            WriteRefreshTokenCookie(httpContext, tokens.RefreshToken);
+          }
+
+          return Results.Ok(new AuthSessionResponse(tokens, ToCurrentSessionUser(user, surface)));
+        });
+
+    authApi.MapPost("/customer/register", [AllowAnonymous] async Task<IResult> (
+        HttpContext httpContext,
+        [FromBody] CustomerRegisterRequest request,
+        ICustomerAuthenticationService authenticationService,
+        ISessionTokenService sessionTokenService) => {
+          try {
+            var user = await authenticationService.RegisterAsync(request, httpContext.RequestAborted);
+            
+            var surface = AuthenticationSurface.CustomerWeb;
+            var tokens = await sessionTokenService.CreateSessionAsync(user, surface, cancellationToken: httpContext.RequestAborted);
+            if (request.UseCookieSession) {
+              await SignInUserAsync(httpContext, user);
+              WriteRefreshTokenCookie(httpContext, tokens.RefreshToken);
+            }
+
+            return Results.Ok(new AuthSessionResponse(tokens, ToCurrentSessionUser(user, surface)));
+          } catch (InvalidOperationException ex) {
+            return Results.BadRequest(new { error = ex.Message });
+          }
+        });
+
     authApi.MapGet("/refresh", [AllowAnonymous] async Task<IResult> (
         HttpContext httpContext,
         ISessionTokenService sessionTokenService) =>

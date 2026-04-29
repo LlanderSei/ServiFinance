@@ -11,6 +11,18 @@
   ],
   "configurations": [
     {
+      "name": "Publish Web (MonsterASP)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/scripts/publish-monsterasp.ps1\""
+    },
+    {
+      "name": "Publish Web (Folder)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "dotnet publish \"${workspaceFolder}/src/backend/ServiFinance.Api/ServiFinance.Api.csproj\" -c Release -m:1 -o \"${workspaceFolder}/artifacts/publish/web\""
+    },
+    {
       "name": "Web",
       "type": "dotnet",
       "request": "launch",

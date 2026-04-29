@@ -140,6 +140,8 @@ export type CreateTenantCustomerRequest = {
   address: string;
 };
 
+export type UpdateTenantCustomerRequest = CreateTenantCustomerRequest;
+
 export type TenantServiceRequestRow = {
   id: string;
   customerId: string;
@@ -715,7 +717,7 @@ export type CurrentSessionUser = {
   email: string;
   fullName: string;
   roles: string[];
-  surface: "Root" | "TenantWeb" | "TenantDesktop";
+  surface: "Root" | "TenantWeb" | "TenantDesktop" | "CustomerWeb";
 };
 
 export type AuthSessionTokens = {

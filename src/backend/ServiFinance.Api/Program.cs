@@ -71,5 +71,6 @@ api.MapPlatformApiEndpoints();
 api.MapAuthApiEndpoints(sessionTokenOptions);
 api.MapSuperadminApiEndpoints();
 api.MapTenantSmsApiEndpoints();
+api.MapCustomerPortalApiEndpoints();
 
 app.Run();

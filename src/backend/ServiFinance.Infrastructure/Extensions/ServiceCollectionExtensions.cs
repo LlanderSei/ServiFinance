@@ -36,13 +36,15 @@ public static class ServiceCollectionExtensions {
 
     services.AddScoped<ITenantProvider, ConfigurationTenantProvider>();
     services.AddScoped<IUserAuthenticationService, UserAuthenticationService>();
+    services.AddScoped<ICustomerAuthenticationService, CustomerAuthenticationService>();
     services.AddScoped<IUserManagementService, UserManagementService>();
     services.AddScoped<ISubscriptionTierCatalogService, SubscriptionTierCatalogService>();
+    services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
+    services.AddScoped<IPasswordHasher<Customer>, PasswordHasher<Customer>>();
     services.AddSingleton(TimeProvider.System);
     services.Configure<SessionTokenOptions>(configuration?.GetSection(SessionTokenOptions.SectionName) ?? new ConfigurationBuilder().Build().GetSection(SessionTokenOptions.SectionName));
     services.AddScoped<ISessionTokenService, JwtSessionTokenService>();
     services.AddScoped<DevelopmentDataSeeder>();
-    services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
     services.AddSingleton(new DevelopmentSeedOptions {
         TenantId = ServiFinanceDatabaseDefaults.ResolveDevelopmentTenantId(
             configuration?[ServiFinanceDatabaseDefaults.DevelopmentTenantIdConfigurationKey]),

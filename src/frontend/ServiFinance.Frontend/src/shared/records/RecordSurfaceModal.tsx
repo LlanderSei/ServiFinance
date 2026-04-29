@@ -95,7 +95,7 @@ export function RecordSurfaceModal({
         </div>
 
         {actions ? (
-          <footer className="flex flex-col justify-end gap-3 border-t border-base-300/70 px-5 pt-4 pb-5 md:flex-row">
+          <footer className="flex flex-wrap justify-end gap-3 border-t border-base-300/70 px-5 pt-4 pb-5">
             {actions}
           </footer>
         ) : null}

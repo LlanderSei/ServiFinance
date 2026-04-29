@@ -59,9 +59,9 @@ internal static class FrontendAppEndpointMappings {
 
   static string? ResolveDistRoot(IWebHostEnvironment environment) {
     var candidateRoots = new[] {
-        Path.Combine(environment.ContentRootPath, "frontend"),
+        environment.WebRootPath is null ? null : Path.Combine(environment.WebRootPath, "frontend"),
         Path.Combine(environment.ContentRootPath, "wwwroot", "frontend"),
-        environment.WebRootPath is null ? null : Path.Combine(environment.WebRootPath, "frontend")
+        Path.Combine(environment.ContentRootPath, "frontend")
     };
 
     foreach (var candidateRoot in candidateRoots) {

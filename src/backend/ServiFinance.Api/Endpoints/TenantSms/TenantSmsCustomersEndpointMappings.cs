@@ -74,6 +74,46 @@ internal static class TenantSmsCustomersEndpointMappings {
             ServiceRequestCount = 0
           });
         });
+    tenantApi.MapPut("/sms/customers/{customerId:guid}", async Task<IResult> (
+        HttpContext httpContext,
+        string tenantDomainSlug,
+        Guid customerId,
+        [FromBody] CreateCustomerRecordRequest request,
+        ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        CancellationToken cancellationToken) => {
+          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+            return Results.Forbid();
+          }
+
+          if (string.IsNullOrWhiteSpace(request.FullName)) {
+            return Results.BadRequest(new { error = "Customer full name is required." });
+          }
+
+          var customer = await dbContext.Customers
+          .Include(entity => entity.ServiceRequests)
+          .SingleOrDefaultAsync(entity => entity.Id == customerId, cancellationToken);
+          if (customer is null) {
+            return Results.NotFound();
+          }
+
+          customer.FullName = request.FullName.Trim();
+          customer.MobileNumber = request.MobileNumber.Trim();
+          customer.Email = request.Email.Trim();
+          customer.Address = request.Address.Trim();
+
+          await dbContext.SaveChangesAsync(cancellationToken);
+
+          return Results.Ok(new {
+            customer.Id,
+            customer.CustomerCode,
+            customer.FullName,
+            customer.MobileNumber,
+            customer.Email,
+            customer.Address,
+            customer.CreatedAtUtc,
+            ServiceRequestCount = customer.ServiceRequests.Count
+          });
+        });
 
     return tenantApi;
   }

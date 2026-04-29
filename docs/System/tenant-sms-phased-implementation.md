@@ -216,32 +216,28 @@ Current implementation:
 - turnaround metrics now show average intake-to-completion time, request-to-schedule lead time, scheduled work duration, and overdue open requests
 - CSV and print exports now include the selected reporting window, comparison results, and turnaround metrics
 
-## Phase 8: Customer Self-Service and Service Tracking
+## Phase 8: Customer Self-Service & Service Tracking
+**Status:** Implemented
 
-Goal:
+### Goal
+Provide a secure, tenant-scoped, public-facing portal where end-customers can create their identity, submit service requests, track service progress, and view invoices without entering the tenant operator’s back-office.
 
-- close the largest remaining IT15 gap by exposing a customer-facing tenant portal instead of limiting the web app to tenant staff only.
+### Implementation Requirements
+- **Customer Auth Surface:** Separate customer authentication endpoints, establishing `CustomerWeb` authentication surface scoped strictly to the tenant domain (`/t/{slug}/c/*`).
+- **Registration & Login:** Enable real API-backed registration and login mapping to the backend `Customer` entity (now enhanced with `PasswordHash`).
+- **Dashboard & Navigation:** Present a responsive overview, sidebar/drawer navigation, and active session details.
+- **Service Request Tracking:** Provide customer-owned request list fetching, displaying status timelines and progress (e.g. `GET /api/customer-portal/requests`).
+- **Request Submission:** Enable self-service intake where customers create `ServiceRequest` records directly (`POST /api/customer-portal/requests`).
+- **Invoice Readiness:** Expose finalized or pending invoices linked to the customer account (`GET /api/customer-portal/invoices`), preparing for future settlement workflows.
+- **Feedback & Ratings:** Support post-completion survey capturing customer ratings and feedback text attached directly to completed `ServiceRequest` records.
 
-Must add:
-
-- separate customer-auth surface under tenant-scoped customer routes such as `/t/{slug}/c/*`, not `/t/{slug}/sms/*`
-- customer registration flow for tenant-scoped customer accounts
-- customer login and session flow separate from tenant staff authentication
-- public or customer-authenticated service request submission
-- customer request lookup with status timeline and current assignment progress
-- customer invoice view with payment readiness state
-- customer payment capture or at minimum payment-intent and settlement recording flow for service invoices
-- customer feedback and ratings submission after service completion
-
-Planned outputs:
-
+### Planned Outputs
 - customer portal route set such as `/t/{slug}/c/login`, `/t/{slug}/c/register`, `/t/{slug}/c/dashboard`, `/t/{slug}/c/requests`, `/t/{slug}/c/invoices`, and `/t/{slug}/c/feedback`
 - tenant-scoped customer registration form that creates a customer account only for the active tenant domain
 - customer login flow that authenticates into the customer portal without exposing staff navigation or staff APIs
 - customer-facing intake page that can create a service request without tenant-staff intervention
 - request tracking page keyed by secure lookup token, reference number, or customer session
 - customer-visible service timeline built from request and dispatch status history
-- service invoice payment screen or payment handoff flow with settlement status reflected back into the request
 - post-completion feedback form with rating and comments linked to the completed service record
 
 Implementation notes:

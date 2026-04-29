@@ -23,6 +23,14 @@ public sealed class Tenant : Entity {
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
   public bool IsActive { get; set; } = true;
 
+  // Tenant Branding Configuration
+  public string? DisplayName { get; set; }
+  public string? LogoUrl { get; set; }
+  public string? PrimaryColor { get; set; }
+  public string? SecondaryColor { get; set; }
+  public string? HeaderBackgroundColor { get; set; }
+  public string? PageBackgroundColor { get; set; }
+
   public ICollection<AppUser> Users { get; set; } = [];
   public ICollection<Role> Roles { get; set; } = [];
   public ICollection<Customer> Customers { get; set; } = [];
@@ -60,6 +68,7 @@ public sealed class PlatformModule : Entity {
 
 public sealed class RefreshSession : Entity {
   public Guid? UserId { get; set; }
+  public Guid? CustomerId { get; set; }
   public string Surface { get; set; } = string.Empty;
   public bool RememberMe { get; set; }
   public string RefreshTokenHash { get; set; } = string.Empty;
@@ -68,6 +77,7 @@ public sealed class RefreshSession : Entity {
   public DateTime LastRotatedAtUtc { get; set; } = DateTime.UtcNow;
 
   public AppUser? User { get; set; }
+  public Customer? Customer { get; set; }
 }
 
 public sealed class SubscriptionTierModule : Entity {
@@ -122,6 +132,7 @@ public sealed class Customer : TenantEntity {
   public string FullName { get; set; } = string.Empty;
   public string MobileNumber { get; set; } = string.Empty;
   public string Email { get; set; } = string.Empty;
+  public string PasswordHash { get; set; } = string.Empty;
   public string Address { get; set; } = string.Empty;
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
@@ -141,6 +152,8 @@ public sealed class ServiceRequest : TenantEntity {
   public DateTime? RequestedServiceDate { get; set; }
   public string Priority { get; set; } = string.Empty;
   public string CurrentStatus { get; set; } = string.Empty;
+  public int? Rating { get; set; }
+  public string? FeedbackComments { get; set; }
   public Guid CreatedByUserId { get; set; }
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 

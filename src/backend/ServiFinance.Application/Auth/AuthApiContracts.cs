@@ -17,6 +17,21 @@ public sealed record TenantApiLoginRequest(
 
 public sealed record RefreshSessionRequest(string RefreshToken);
 
+public sealed record CustomerApiLoginRequest(
+    string TenantDomainSlug,
+    string Email,
+    string Password,
+    bool UseCookieSession = true);
+
+public sealed record CustomerRegisterRequest(
+    string TenantDomainSlug,
+    string FullName,
+    string Email,
+    string MobileNumber,
+    string Address,
+    string Password,
+    bool UseCookieSession = true);
+
 public sealed record AuthSessionTokens(
     string AccessToken,
     string RefreshToken,

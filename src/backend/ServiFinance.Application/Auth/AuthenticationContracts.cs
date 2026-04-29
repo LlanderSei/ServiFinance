@@ -3,7 +3,8 @@ namespace ServiFinance.Application.Auth;
 public enum AuthenticationSurface {
   Root,
   TenantWeb,
-  TenantDesktop
+  TenantDesktop,
+  CustomerWeb
 }
 
 public sealed record AuthenticationRequest(

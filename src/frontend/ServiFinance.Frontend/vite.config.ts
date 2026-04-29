@@ -13,15 +13,15 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        entryFileNames: "assets/index.js",
-        chunkFileNames: "assets/[name].js",
+        entryFileNames: "assets/[name]-[hash].js",
+        chunkFileNames: "assets/[name]-[hash].js",
         manualChunks: {
           "react-vendor": ["react", "react-dom", "react-router-dom"],
           "query-vendor": ["@tanstack/react-query"]
         },
         assetFileNames: (assetInfo) => assetInfo.name?.endsWith(".css")
-          ? "assets/index.css"
-          : "assets/[name][extname]"
+          ? "assets/[name]-[hash][extname]"
+          : "assets/[name]-[hash][extname]"
       }
     }
   },

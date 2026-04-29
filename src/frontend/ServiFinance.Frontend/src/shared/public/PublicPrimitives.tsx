@@ -63,7 +63,10 @@ function getButtonClasses(tone: "primary" | "ghost", size: "default" | "small") 
 export function PublicShell({ children }: PublicShellProps) {
   return (
     <div
-      className="relative min-h-screen overflow-clip bg-[radial-gradient(circle_at_14%_18%,rgba(120,196,255,0.35),transparent_26%),radial-gradient(circle_at_78%_20%,rgba(213,201,255,0.42),transparent_24%),radial-gradient(circle_at_64%_62%,rgba(194,239,233,0.44),transparent_24%),linear-gradient(135deg,#f9fbff_0%,#eef3fb_45%,#f7f8fc_100%)]"
+      className="relative min-h-screen overflow-clip"
+      style={{
+        background: "var(--tenant-page-bg, radial-gradient(circle at 14% 18%, rgba(120,196,255,0.35), transparent 26%), radial-gradient(circle at 78% 20%, rgba(213,201,255,0.42), transparent 24%), radial-gradient(circle at 64% 62%, rgba(194,239,233,0.44), transparent 24%), linear-gradient(135deg, #f9fbff 0%, #eef3fb 45%, #f7f8fc 100%)"
+      }}
     >
       <div className="pointer-events-none absolute right-[5vw] top-20 -z-0 h-[36rem] w-[36rem] rounded-full bg-[radial-gradient(circle,rgba(189,212,255,0.2)_0%,transparent_68%)] opacity-75" />
       {children}

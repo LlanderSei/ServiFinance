@@ -11,8 +11,8 @@ export default defineConfig({
         emptyOutDir: true,
         rollupOptions: {
             output: {
-                entryFileNames: "assets/index.js",
-                chunkFileNames: "assets/[name].js",
+                entryFileNames: "assets/[name]-[hash].js",
+                chunkFileNames: "assets/[name]-[hash].js",
                 manualChunks: {
                     "react-vendor": ["react", "react-dom", "react-router-dom"],
                     "query-vendor": ["@tanstack/react-query"]
@@ -20,8 +20,8 @@ export default defineConfig({
                 assetFileNames: function (assetInfo) {
                     var _a;
                     return ((_a = assetInfo.name) === null || _a === void 0 ? void 0 : _a.endsWith(".css"))
-                        ? "assets/index.css"
-                        : "assets/[name][extname]";
+                        ? "assets/[name]-[hash][extname]"
+                        : "assets/[name]-[hash][extname]";
                 }
             }
         }

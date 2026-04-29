@@ -1,13 +1,12 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+import { useTenantDomainValidation } from "@/shared/tenant/useTenantDomainValidation";
 import { PublicFooter } from "@/shared/public/PublicFooter";
 import { PublicHeader } from "@/shared/public/PublicHeader";
 import {
   PublicActionRow,
   PublicButton,
-  PublicCard,
   PublicContainer,
-  PublicSectionHeading,
   PublicShell
 } from "@/shared/public/PublicPrimitives";
 import { TenantLoginModal } from "@/shared/public/TenantLoginModal";
@@ -18,18 +17,12 @@ type Props = {
 
 export function TenantLandingPage({ system }: Props) {
   const { tenantDomainSlug } = useParams();
+  const { branding } = useTenantDomainValidation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [manualOpen, setManualOpen] = useState(false);
+
   const loginOpen = manualOpen || searchParams.get("showLogin") === "true";
   const error = searchParams.get("error");
-  const systemName = system === "sms" ? "Service Management System" : "Micro-Lending System";
-  const systemLead = useMemo(
-    () =>
-      system === "sms"
-        ? "Public tenant-facing web surface for intake, scheduling, dispatching, and operator coordination."
-        : "Public tenant-facing desktop companion surface for collections, amortization, and lending execution.",
-    [system]
-  );
 
   const openLogin = () => setManualOpen(true);
   const closeLogin = () => {
@@ -41,43 +34,55 @@ export function TenantLandingPage({ system }: Props) {
     setSearchParams(next, { replace: true });
   };
 
+  // Resolve display values — use tenant branding when set, otherwise show placeholder cues
+  const displayName = branding.displayName ?? null;
+  const systemLabel = system === "sms" ? "Service Management" : "Micro-Lending";
+
   return (
     <PublicShell>
-      <PublicHeader onLoginRequested={openLogin} />
+      <PublicHeader
+        onLoginRequested={openLogin}
+        tenantDisplayName={displayName}
+        tenantLogoUrl={branding.logoUrl}
+      />
 
-      <main className="py-10">
-        <PublicContainer>
-          <PublicSectionHeading
-            eyebrow={`${tenantDomainSlug} / ${system.toUpperCase()}`}
-            title={systemName}
-            description={systemLead}
-          />
+      <main>
+        <PublicContainer className="flex min-h-[calc(100svh-8rem)] flex-col items-start justify-center py-16">
+          {/* Eyebrow label */}
+          <p className="text-[0.75rem] font-bold uppercase tracking-[0.22em] text-slate-400">
+            {tenantDomainSlug} &middot; {systemLabel}
+          </p>
 
-          <div className="mt-7 grid gap-5 md:grid-cols-3">
-            <PublicCard>
-              <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Tenant identity</p>
-              <strong className="mt-2 block text-lg text-slate-950">{tenantDomainSlug}</strong>
-              <p className="mt-2 text-slate-600">This route remains tenant-scoped and will never authenticate accounts from other domains.</p>
-            </PublicCard>
-            <PublicCard>
-              <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Delivery</p>
-              <strong className="mt-2 block text-lg text-slate-950">{system === "sms" ? "Web workspace" : "Desktop workspace"}</strong>
-              <p className="mt-2 text-slate-600">{system === "sms" ? "Browser-based workflow execution for service operations." : "Desktop-oriented workflow execution for financial and lending actions."}</p>
-            </PublicCard>
-            <PublicCard>
-              <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Access</p>
-              <strong className="mt-2 block text-lg text-slate-950">Tenant-only sign in</strong>
-              <p className="mt-2 text-slate-600">The same tenant account can cross SMS and MLS when the plan allows it, but never into another tenant slug.</p>
-            </PublicCard>
-          </div>
+          {/* Main title — tenant-configurable, shows placeholder when unset */}
+          {displayName ? (
+            <h1 className="mt-3 text-[clamp(2.4rem,5vw,4.2rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-slate-900">
+              {displayName}
+            </h1>
+          ) : (
+            <h1 className="mt-3 text-[clamp(2.4rem,5vw,4.2rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-slate-300 select-none">
+              Your Business Name
+            </h1>
+          )}
 
-          <PublicActionRow>
-            <PublicButton tone="primary" onClick={openLogin}>Login</PublicButton>
+          {/* Hero subtitle — intentionally left as a placeholder slot */}
+          <p className="mt-4 max-w-[38rem] text-[1.05rem] leading-[1.75] text-slate-400 italic">
+            Business tagline or welcome message — configurable by the tenant owner.
+          </p>
+
+          <PublicActionRow className="mt-8">
+            <PublicButton
+              tone="primary"
+              onClick={openLogin}
+              style={{ background: "var(--tenant-primary-color, undefined)" }}
+            >
+              Login
+            </PublicButton>
           </PublicActionRow>
         </PublicContainer>
       </main>
 
       <PublicFooter />
+
       <TenantLoginModal
         open={loginOpen}
         tenantDomainSlug={tenantDomainSlug ?? ""}

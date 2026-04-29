@@ -28,8 +28,10 @@ public sealed class JwtSessionTokenService(
         : Math.Max(_options.RefreshTokenDays, 1);
 
     var refreshToken = GenerateRefreshToken();
+    var isCustomerSurface = surface == AuthenticationSurface.CustomerWeb;
     var session = new RefreshSession {
-        UserId = user.UserId,
+        UserId = isCustomerSurface ? null : user.UserId,
+        CustomerId = isCustomerSurface ? user.UserId : null,
         Surface = surface.ToString(),
         RememberMe = rememberMe,
         RefreshTokenHash = Hash(refreshToken),
@@ -60,13 +62,17 @@ public sealed class JwtSessionTokenService(
       return null;
     }
 
-    if (session.UserId is null) {
+    AuthenticatedUser? user = null;
+    if (session.UserId.HasValue) {
+      user = await GetAuthenticatedUserAsync(session.UserId.Value, cancellationToken);
+    } else if (session.CustomerId.HasValue) {
+      user = await GetAuthenticatedCustomerAsync(session.CustomerId.Value, cancellationToken);
+    } else {
       dbContext.RefreshSessions.Remove(session);
       await dbContext.SaveChangesAsync(cancellationToken);
       return null;
     }
 
-    var user = await GetAuthenticatedUserAsync(session.UserId.Value, cancellationToken);
     if (user is null || !Enum.TryParse<AuthenticationSurface>(session.Surface, true, out var surface)) {
       dbContext.RefreshSessions.Remove(session);
       await dbContext.SaveChangesAsync(cancellationToken);
@@ -193,6 +199,27 @@ public sealed class JwtSessionTokenService(
     return Convert.ToHexString(bytes);
   }
 
+  private async Task<AuthenticatedUser?> GetAuthenticatedCustomerAsync(Guid customerId, CancellationToken cancellationToken) {
+    var customer = await dbContext.Customers
+        .IgnoreQueryFilters()
+        .AsNoTracking()
+        .Include(c => c.Tenant)
+        .Where(c => c.Id == customerId && c.Tenant != null && c.Tenant.IsActive)
+        .FirstOrDefaultAsync(cancellationToken);
+
+    if (customer is null || customer.Tenant is null) {
+      return null;
+    }
+
+    return new AuthenticatedUser(
+        customer.Id,
+        customer.TenantId,
+        customer.Tenant.DomainSlug,
+        customer.Email,
+        customer.FullName,
+        new[] { "Customer" });
+  }
+
   private async Task<AuthenticatedUser?> GetAuthenticatedUserAsync(Guid userId, CancellationToken cancellationToken) {
     var user = await dbContext.Users
         .IgnoreQueryFilters()
@@ -231,6 +258,8 @@ public sealed class JwtSessionTokenService(
       AuthenticationSurface.TenantWeb or AuthenticationSurface.TenantDesktop =>
           user.TenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
           !string.IsNullOrWhiteSpace(user.TenantDomainSlug),
+      AuthenticationSurface.CustomerWeb =>
+          user.Roles.Contains("Customer", StringComparer.OrdinalIgnoreCase),
       _ => false
     };
   }

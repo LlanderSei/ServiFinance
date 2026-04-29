@@ -5,8 +5,8 @@ import { getCurrentCustomerSession } from "./customerAuth";
 export function CustomerLayout() {
   const { tenantDomainSlug = "" } = useParams();
   const currentSession = getCurrentCustomerSession();
-  const session = currentSession?.tenantDomainSlug.toLowerCase() === tenantDomainSlug.toLowerCase()
-    ? currentSession
+  const session = currentSession?.user.tenantDomainSlug.toLowerCase() === tenantDomainSlug.toLowerCase()
+    ? currentSession.user
     : null;
 
   return (
