@@ -37,8 +37,8 @@ export function CustomerShell({ session, children }: Props) {
     };
   }, [isDrawerOpen]);
 
-  function handleLogout() {
-    logoutCustomerAccount();
+  async function handleLogout() {
+    await logoutCustomerAccount();
     navigate(`/t/${tenantDomainSlug}/c/login`, { replace: true });
   }
 

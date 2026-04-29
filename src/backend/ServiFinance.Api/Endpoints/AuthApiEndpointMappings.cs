@@ -64,6 +64,9 @@ internal static class AuthApiEndpointMappings {
         ICustomerAuthenticationService authenticationService,
         ISessionTokenService sessionTokenService) => {
           var tenantSlug = NormalizeTenantSlug(request.TenantDomainSlug);
+          if (string.IsNullOrWhiteSpace(tenantSlug)) {
+            return Results.BadRequest(new { error = "Invalid tenant domain slug" });
+          }
           var user = await authenticationService.AuthenticateAsync(
               request.Email, request.Password, tenantSlug, httpContext.RequestAborted);
           if (user is null) {
@@ -87,7 +90,7 @@ internal static class AuthApiEndpointMappings {
         ISessionTokenService sessionTokenService) => {
           try {
             var user = await authenticationService.RegisterAsync(request, httpContext.RequestAborted);
-            
+
             var surface = AuthenticationSurface.CustomerWeb;
             var tokens = await sessionTokenService.CreateSessionAsync(user, surface, cancellationToken: httpContext.RequestAborted);
             if (request.UseCookieSession) {
@@ -96,7 +99,8 @@ internal static class AuthApiEndpointMappings {
             }
 
             return Results.Ok(new AuthSessionResponse(tokens, ToCurrentSessionUser(user, surface)));
-          } catch (InvalidOperationException ex) {
+          }
+          catch (InvalidOperationException ex) {
             return Results.BadRequest(new { error = ex.Message });
           }
         });

@@ -8,6 +8,8 @@ type RecordWorkspaceProps = {
   recordCount?: number;
   singularLabel?: string;
   pluralLabel?: string;
+  headerRight?: ReactNode;
+  headerBottom?: ReactNode;
   children: ReactNode;
 };
 
@@ -32,6 +34,8 @@ export function RecordWorkspace({
   recordCount,
   singularLabel,
   pluralLabel,
+  headerRight,
+  headerBottom,
   children
 }: RecordWorkspaceProps) {
   const hasCountBadge = typeof recordCount === "number" && singularLabel;
@@ -39,7 +43,8 @@ export function RecordWorkspace({
   return (
     <main className="authed-workspace mx-auto h-full min-h-0 max-w-none overflow-hidden bg-base-100 text-base-content">
       <section className="grid h-full min-h-0 grid-rows-[auto_1fr] gap-0 bg-transparent">
-        <header className="grid gap-2 border-b border-base-300/70 bg-base-100 px-6 pt-5 pb-3">
+        <header className="flex flex-col border-b border-base-300/70 bg-base-100 px-6 pt-5">
+          {/* Upper row: breadcrumbs + title row + count badge + description */}
           <div className="grid gap-0.5">
             <p className="m-0 text-[0.74rem] font-extrabold uppercase tracking-[0.14em] text-base-content/60">{breadcrumbs}</p>
 
@@ -53,8 +58,20 @@ export function RecordWorkspace({
               ) : null}
             </div>
 
-            <p className="m-0 text-[0.94rem] text-base-content/70">{description}</p>
+            <p className="m-0 text-[0.94rem] text-base-content/70 pb-2">{description}</p>
           </div>
+
+          {/* Lower row: tabs + extra controls */}
+          {headerBottom && (            
+            headerBottom
+          )}
+
+          {/* Optional right-aligned content (upper row right side) */}
+          {headerRight && (
+            <div className="shrink-0">
+              {headerRight}
+            </div>
+          )}
         </header>
 
         <section className="min-h-0 overflow-hidden p-0">

@@ -26,30 +26,21 @@ import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWork
 import {
   WorkspaceField,
   WorkspaceFieldGrid,
-  WorkspaceFilter,
   WorkspaceFileInput,
   WorkspaceForm,
   WorkspaceActionButton,
-  WorkspaceInlineNote,
   WorkspaceInput,
   WorkspaceModalButton,
   WorkspaceSelect,
-  WorkspaceStatusPill,
-  WorkspaceToggleGroup,
-  WorkspaceToggleButton
+  WorkspaceStatusPill
 } from "@/shared/records/WorkspaceControls";
-import {
-  WorkspaceMetricGrid,
-  WorkspaceNoteList,
-  WorkspacePanel,
-  WorkspaceToolbar,
-  WorkspacePanelHeader
-} from "@/shared/records/WorkspacePanel";
+import { WorkspaceMetricGrid } from "@/shared/records/WorkspacePanel";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
 import { useToast } from "@/shared/toast/ToastProvider";
+import { SmsDispatchTabs } from "./SmsDispatchTabs";
+import { useDispatchPage } from "./useDispatchPage";
+import { SmsDispatchTimeline } from "./SmsDispatchSubviews/Timeline";
 
-type DispatchViewMode = "workspace" | "mine";
-type DispatchLayoutMode = "register" | "timeline";
 type ScheduleFormState = {
   serviceRequestId: string;
   assignedUserId: string;
@@ -78,19 +69,19 @@ const assignmentStatuses = ["Scheduled", "In Progress", "On Hold", "Completed"] 
 const priorityOptions = ["Low", "Normal", "High", "Urgent"] as const;
 
 export function SmsDispatchPage() {
-  const { tenantDomainSlug = "" } = useParams();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const currentUser = getCurrentSession()?.user ?? null;
-  const isAdmin = currentUser?.roles.includes("Administrator") ?? false;
-  const [selectedAssignment, setSelectedAssignment] = useState<TenantDispatchAssignmentRow | null>(null);
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
-  const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
-  const [isEvidenceEditModalOpen, setIsEvidenceEditModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<DispatchViewMode>(isAdmin ? "workspace" : "mine");
-  const [layoutMode, setLayoutMode] = useState<DispatchLayoutMode>("register");
-  const [editingEvidence, setEditingEvidence] = useState<TenantDispatchAssignmentEvidenceRow | null>(null);
+   const { tenantDomainSlug = "" } = useParams();
+   const queryClient = useQueryClient();
+   const toast = useToast();
+   const currentUser = getCurrentSession()?.user ?? null;
+   const isAdmin = currentUser?.roles.includes("Administrator") ?? false;
+   const [selectedAssignment, setSelectedAssignment] = useState<TenantDispatchAssignmentRow | null>(null);
+   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+   const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
+   const [isEvidenceEditModalOpen, setIsEvidenceEditModalOpen] = useState(false);
+   const [activeTab, setActiveTab] = useState("overview");
+   const { viewMode, setViewMode } = useDispatchPage();
+   const [editingEvidence, setEditingEvidence] = useState<TenantDispatchAssignmentEvidenceRow | null>(null);
   const [filters, setFilters] = useState<DispatchFilterState>({
     assignedUserId: "",
     assignmentStatus: "",
@@ -583,37 +574,6 @@ export function SmsDispatchPage() {
     };
   }, [currentUser?.userId, dispatchQuery.data]);
 
-  const timelineGroups = useMemo(() => {
-    const sortedAssignments = [...visibleAssignments].sort((left, right) => {
-      const leftTicks = left.scheduledStartUtc ? new Date(left.scheduledStartUtc).getTime() : Number.MAX_SAFE_INTEGER;
-      const rightTicks = right.scheduledStartUtc ? new Date(right.scheduledStartUtc).getTime() : Number.MAX_SAFE_INTEGER;
-      return leftTicks - rightTicks || left.assignedUserName.localeCompare(right.assignedUserName);
-    });
-
-    const groups = new Map<string, { label: string; assignments: TenantDispatchAssignmentRow[] }>();
-    for (const assignment of sortedAssignments) {
-      const key = assignment.scheduledStartUtc
-        ? new Date(assignment.scheduledStartUtc).toISOString().slice(0, 10)
-        : "unscheduled";
-      const label = assignment.scheduledStartUtc
-        ? new Date(assignment.scheduledStartUtc).toLocaleDateString("en-PH", {
-          month: "long",
-          day: "numeric",
-          year: "numeric"
-        })
-        : "Unscheduled assignments";
-
-      const existing = groups.get(key);
-      if (existing) {
-        existing.assignments.push(assignment);
-      } else {
-        groups.set(key, { label, assignments: [assignment] });
-      }
-    }
-
-    return Array.from(groups.values());
-  }, [visibleAssignments]);
-
   function handleScheduleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     createAssignmentMutation.mutate({
@@ -730,313 +690,430 @@ export function SmsDispatchPage() {
     return isAdmin || evidence.submittedByUserId === currentUser?.userId;
   }
 
-  return (
-    <>
-        <RecordWorkspace
-          breadcrumbs={`${tenantDomainSlug} / SMS / Dispatch`}
-          title="Dispatch and assignments"
-          description="Coordinate scheduled work, technician ownership, finance handoff state, and service execution from one tenant dispatch register."
-          recordCount={visibleAssignments.length}
-          singularLabel="assignment"
-        >
-          <RecordContentStack>
-            <WorkspaceMetricGrid className="2xl:grid-cols-3">
-              <MetricCard
-                label="Scheduled"
-                value={summary.scheduled}
-                description="Assignments queued with a planned technician or staff owner."
-              />
-              <MetricCard
-                label="In progress"
-                value={summary.inProgress}
-                description="Jobs currently being worked from the tenant dispatch workflow."
-              />
-              <MetricCard
-                label="My tasks"
-                value={summary.mine}
-                description="Assignments currently owned by the signed-in operator."
-              />
-            </WorkspaceMetricGrid>
+   function renderTabContent() {
+     switch (activeTab) {
+       case "overview":
+         return (
+           <>
+             <WorkspaceMetricGrid className="2xl:grid-cols-3">
+               <MetricCard
+                 label="Scheduled"
+                 value={summary.scheduled}
+                 description="Assignments queued with a planned technician or staff owner."
+               />
+               <MetricCard
+                 label="In progress"
+                 value={summary.inProgress}
+                 description="Jobs currently being worked from the tenant dispatch workflow."
+               />
+               <MetricCard
+                 label="My tasks"
+                 value={summary.mine}
+                 description="Assignments currently owned by the signed-in operator."
+               />
+             </WorkspaceMetricGrid>
+             <RecordTableShell>
+               <RecordTable>
+                 <thead>
+                   <tr>
+                     <th>Request No.</th>
+                     <th>Customer</th>
+                     <th>Assigned Staff</th>
+                     <th>Scheduled Start</th>
+                     <th>Scheduled End</th>
+                     <th>Assignment Status</th>
+                     <th>Service Status</th>
+                     <th>Finance</th>
+                     <th>Conflicts</th>
+                     <th>Action</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {dispatchQuery.isLoading ? (
+                     <RecordTableStateRow colSpan={10}>Loading dispatch assignments...</RecordTableStateRow>
+                   ) : null}
+                   {dispatchQuery.isError ? (
+                     <RecordTableStateRow colSpan={10} tone="error">
+                       Unable to load dispatch assignments.
+                     </RecordTableStateRow>
+                   ) : null}
+                   {!dispatchQuery.isLoading && !dispatchQuery.isError && !visibleAssignments.length ? (
+                     <RecordTableStateRow colSpan={10}>
+                       {viewMode === "all" ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+                     </RecordTableStateRow>
+                   ) : null}
+                   {visibleAssignments.map((assignment) => (
+                     <tr key={assignment.id}>
+                       <td>{assignment.requestNumber}</td>
+                       <td>{assignment.customerName}</td>
+                       <td>{assignment.assignedUserName}</td>
+                       <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
+                       <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
+                       <td>
+                         <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
+                       </td>
+                       <td>{assignment.serviceStatus}</td>
+                       <td>
+                         <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
+                           {assignment.financeHandoffStatus}
+                         </WorkspaceStatusPill>
+                       </td>
+                       <td>
+                         <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
+                           {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
+                         </WorkspaceStatusPill>
+                       </td>
+                       <td>
+                         <RecordTableActionButton onClick={() => setSelectedAssignment(assignment)}>
+                           View
+                         </RecordTableActionButton>
+                       </td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </RecordTable>
+             </RecordTableShell>
+           </>
+         );
 
-            <WorkspacePanel>
-              <WorkspacePanelHeader
-                eyebrow="Dispatch view"
-                title="Assignment register"
-                actions={(
-                  <WorkspaceToolbar>
-                    {isAdmin ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <WorkspaceToggleGroup>
-                          <WorkspaceToggleButton active={viewMode === "workspace"} onClick={() => setViewMode("workspace")}>
-                            Workspace
-                          </WorkspaceToggleButton>
-                          <WorkspaceToggleButton active={viewMode === "mine"} onClick={() => setViewMode("mine")}>
-                            My tasks
-                          </WorkspaceToggleButton>
-                        </WorkspaceToggleGroup>
+       case "pending":
+         return (
+           <RecordTableShell>
+             <RecordTable>
+               <thead>
+                 <tr>
+                   <th>Request No.</th>
+                   <th>Customer</th>
+                   <th>Assigned Staff</th>
+                   <th>Scheduled Start</th>
+                   <th>Scheduled End</th>
+                   <th>Assignment Status</th>
+                   <th>Service Status</th>
+                   <th>Finance</th>
+                   <th>Conflicts</th>
+                   <th>Action</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {dispatchQuery.isLoading ? (
+                   <RecordTableStateRow colSpan={10}>Loading dispatch assignments...</RecordTableStateRow>
+                 ) : null}
+                 {dispatchQuery.isError ? (
+                   <RecordTableStateRow colSpan={10} tone="error">
+                     Unable to load dispatch assignments.
+                   </RecordTableStateRow>
+                 ) : null}
+                 {!dispatchQuery.isLoading && !dispatchQuery.isError && !visibleAssignments.length ? (
+                   <RecordTableStateRow colSpan={10}>
+                     {viewMode === "all" ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+                   </RecordTableStateRow>
+                 ) : null}
+                 {visibleAssignments.map((assignment) => (
+                   <tr key={assignment.id}>
+                     <td>{assignment.requestNumber}</td>
+                     <td>{assignment.customerName}</td>
+                     <td>{assignment.assignedUserName}</td>
+                     <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
+                     <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
+                     <td>
+                       <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
+                     </td>
+                     <td>{assignment.serviceStatus}</td>
+                     <td>
+                       <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
+                         {assignment.financeHandoffStatus}
+                       </WorkspaceStatusPill>
+                     </td>
+                     <td>
+                       <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
+                         {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
+                       </WorkspaceStatusPill>
+                     </td>
+                     <td>
+                       <RecordTableActionButton onClick={() => setSelectedAssignment(assignment)}>
+                         View
+                       </RecordTableActionButton>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </RecordTable>
+           </RecordTableShell>
+         );
 
-                        <WorkspaceToggleGroup>
-                          <WorkspaceToggleButton active={layoutMode === "register"} onClick={() => setLayoutMode("register")}>
-                            Register
-                          </WorkspaceToggleButton>
-                          <WorkspaceToggleButton active={layoutMode === "timeline"} onClick={() => setLayoutMode("timeline")}>
-                            Timeline
-                          </WorkspaceToggleButton>
-                        </WorkspaceToggleGroup>
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <WorkspaceInlineNote>Showing assignments currently owned by your account.</WorkspaceInlineNote>
-                        <WorkspaceToggleGroup>
-                          <WorkspaceToggleButton active={layoutMode === "register"} onClick={() => setLayoutMode("register")}>
-                            Register
-                          </WorkspaceToggleButton>
-                          <WorkspaceToggleButton active={layoutMode === "timeline"} onClick={() => setLayoutMode("timeline")}>
-                            Timeline
-                          </WorkspaceToggleButton>
-                        </WorkspaceToggleGroup>
-                      </div>
-                    )}
-                  </WorkspaceToolbar>
-                )}
-              />
-            </WorkspacePanel>
+       case "assignments":
+         return (
+           <RecordTableShell>
+             <RecordTable>
+               <thead>
+                 <tr>
+                   <th>Request No.</th>
+                   <th>Customer</th>
+                   <th>Assigned Staff</th>
+                   <th>Scheduled Start</th>
+                   <th>Scheduled End</th>
+                   <th>Assignment Status</th>
+                   <th>Service Status</th>
+                   <th>Finance</th>
+                   <th>Conflicts</th>
+                   <th>Action</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {dispatchQuery.isLoading ? (
+                   <RecordTableStateRow colSpan={10}>Loading dispatch assignments...</RecordTableStateRow>
+                 ) : null}
+                 {dispatchQuery.isError ? (
+                   <RecordTableStateRow colSpan={10} tone="error">
+                     Unable to load dispatch assignments.
+                   </RecordTableStateRow>
+                 ) : null}
+                 {!dispatchQuery.isLoading && !dispatchQuery.isError && !visibleAssignments.length ? (
+                   <RecordTableStateRow colSpan={10}>
+                     {viewMode === "all" ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+                   </RecordTableStateRow>
+                 ) : null}
+                 {visibleAssignments.map((assignment) => (
+                   <tr key={assignment.id}>
+                     <td>{assignment.requestNumber}</td>
+                     <td>{assignment.customerName}</td>
+                     <td>{assignment.assignedUserName}</td>
+                     <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
+                     <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
+                     <td>
+                       <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
+                     </td>
+                     <td>{assignment.serviceStatus}</td>
+                     <td>
+                       <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
+                         {assignment.financeHandoffStatus}
+                       </WorkspaceStatusPill>
+                     </td>
+                     <td>
+                       <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
+                         {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
+                       </WorkspaceStatusPill>
+                     </td>
+                     <td>
+                       <RecordTableActionButton onClick={() => setSelectedAssignment(assignment)}>
+                         View
+                       </RecordTableActionButton>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </RecordTable>
+           </RecordTableShell>
+         );
 
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Filters" title="Schedule intelligence" />
-              <WorkspaceToolbar>
-                {isAdmin ? (
-                  <WorkspaceFilter label="Assigned staff">
-                    <WorkspaceSelect
-                      value={filters.assignedUserId}
-                      onChange={(event) => setFilters((current) => ({ ...current, assignedUserId: event.target.value }))}
-                    >
-                      <option value="">All staff</option>
-                      {dispatchMetaQuery.data?.assignableUsers.map((user) => (
-                        <option key={user.id} value={user.id}>{user.fullName}</option>
-                      ))}
-                    </WorkspaceSelect>
-                  </WorkspaceFilter>
-                ) : null}
+       case "mytasks":
+         return (
+           <RecordTableShell>
+             <RecordTable>
+               <thead>
+                 <tr>
+                   <th>Request No.</th>
+                   <th>Customer</th>
+                   <th>Assigned Staff</th>
+                   <th>Scheduled Start</th>
+                   <th>Scheduled End</th>
+                   <th>Assignment Status</th>
+                   <th>Service Status</th>
+                   <th>Finance</th>
+                   <th>Conflicts</th>
+                   <th>Action</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {dispatchQuery.isLoading ? (
+                   <RecordTableStateRow colSpan={10}>Loading dispatch assignments...</RecordTableStateRow>
+                 ) : null}
+                 {dispatchQuery.isError ? (
+                   <RecordTableStateRow colSpan={10} tone="error">
+                     Unable to load dispatch assignments.
+                   </RecordTableStateRow>
+                 ) : null}
+                 {!dispatchQuery.isLoading && !dispatchQuery.isError && !visibleAssignments.length ? (
+                   <RecordTableStateRow colSpan={10}>
+                     {viewMode === "all" ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+                   </RecordTableStateRow>
+                 ) : null}
+                 {visibleAssignments.map((assignment) => (
+                   <tr key={assignment.id}>
+                     <td>{assignment.requestNumber}</td>
+                     <td>{assignment.customerName}</td>
+                     <td>{assignment.assignedUserName}</td>
+                     <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
+                     <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
+                     <td>
+                       <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
+                     </td>
+                     <td>{assignment.serviceStatus}</td>
+                     <td>
+                       <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
+                         {assignment.financeHandoffStatus}
+                       </WorkspaceStatusPill>
+                     </td>
+                     <td>
+                       <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
+                         {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
+                       </WorkspaceStatusPill>
+                     </td>
+                     <td>
+                       <RecordTableActionButton onClick={() => setSelectedAssignment(assignment)}>
+                         View
+                       </RecordTableActionButton>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </RecordTable>
+           </RecordTableShell>
+         );
 
-                <WorkspaceFilter label="Assignment status">
-                  <WorkspaceSelect
-                    value={filters.assignmentStatus}
-                    onChange={(event) => setFilters((current) => ({ ...current, assignmentStatus: event.target.value }))}
-                  >
-                    <option value="">All statuses</option>
-                    {assignmentStatuses.map((status) => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </WorkspaceSelect>
-                </WorkspaceFilter>
+       case "timeline":
+         return (
+           <SmsDispatchTimeline
+             assignments={dispatchQuery.data ?? []}
+             currentUserId={currentUser?.userId ?? null}
+             viewMode={viewMode}
+             setViewMode={setViewMode}
+           />
+         );
 
-                <WorkspaceFilter label="Priority">
-                  <WorkspaceSelect
-                    value={filters.priority}
-                    onChange={(event) => setFilters((current) => ({ ...current, priority: event.target.value }))}
-                  >
-                    <option value="">All priorities</option>
-                    {priorityOptions.map((status) => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </WorkspaceSelect>
-                </WorkspaceFilter>
+       case "history":
+         return (
+           <RecordTableShell>
+             <RecordTable>
+               <thead>
+                 <tr>
+                   <th>Request No.</th>
+                   <th>Customer</th>
+                   <th>Assigned Staff</th>
+                   <th>Scheduled Start</th>
+                   <th>Scheduled End</th>
+                   <th>Assignment Status</th>
+                   <th>Service Status</th>
+                   <th>Finance</th>
+                   <th>Conflicts</th>
+                   <th>Action</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {dispatchQuery.isLoading ? (
+                   <RecordTableStateRow colSpan={10}>Loading dispatch assignments...</RecordTableStateRow>
+                 ) : null}
+                 {dispatchQuery.isError ? (
+                   <RecordTableStateRow colSpan={10} tone="error">
+                     Unable to load dispatch assignments.
+                   </RecordTableStateRow>
+                 ) : null}
+                 {!dispatchQuery.isLoading && !dispatchQuery.isError && !visibleAssignments.length ? (
+                   <RecordTableStateRow colSpan={10}>
+                     {viewMode === "all" ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+                   </RecordTableStateRow>
+                 ) : null}
+                 {visibleAssignments.map((assignment) => (
+                   <tr key={assignment.id}>
+                     <td>{assignment.requestNumber}</td>
+                     <td>{assignment.customerName}</td>
+                     <td>{assignment.assignedUserName}</td>
+                     <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
+                     <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
+                     <td>
+                       <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
+                     </td>
+                     <td>{assignment.serviceStatus}</td>
+                       <td>
+                         <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
+                           {assignment.financeHandoffStatus}
+                         </WorkspaceStatusPill>
+                       </td>
+                     <td>
+                       <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
+                         {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
+                       </WorkspaceStatusPill>
+                     </td>
+                     <td>
+                       <RecordTableActionButton onClick={() => setSelectedAssignment(assignment)}>
+                         View
+                       </RecordTableActionButton>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </RecordTable>
+           </RecordTableShell>
+         );
 
-                <WorkspaceFilter label="Date from">
-                  <WorkspaceInput
-                    type="date"
-                    value={filters.dateFrom}
-                    onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))}
-                  />
-                </WorkspaceFilter>
+       default:
+         return null;
+     }
+   }
 
-                <WorkspaceFilter label="Date to">
-                  <WorkspaceInput
-                    type="date"
-                    value={filters.dateTo}
-                    onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))}
-                  />
-                </WorkspaceFilter>
-              </WorkspaceToolbar>
-            </WorkspacePanel>
+   return (
+     <>
+         <RecordWorkspace
+           breadcrumbs={`${tenantDomainSlug} / SMS / Dispatch`}
+           title="Dispatch and assignments"
+           description="Coordinate scheduled work, technician ownership, finance handoff state, and service execution from one tenant dispatch register."
+           recordCount={visibleAssignments.length}
+           singularLabel="assignment"
+           headerBottom={
+             <div className="flex items-center justify-between gap-4">
+               <SmsDispatchTabs activeTab={activeTab} setActiveTab={setActiveTab} isAdmin={isAdmin} />
+               <div className="flex gap-1 rounded-xl border border-base-300/70 bg-base-100 p-1">
+                 <button
+                   type="button"
+                   className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                     viewMode === "all" ? "bg-primary text-primary-content" : "text-base-content/70 hover:bg-base-200"
+                   }`}
+                   onClick={() => setViewMode("all")}
+                 >
+                   Overview (All)
+                 </button>
+                 <button
+                   type="button"
+                   className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                     viewMode === "mine" ? "bg-primary text-primary-content" : "text-base-content/70 hover:bg-base-200"
+                   }`}
+                   onClick={() => setViewMode("mine")}
+                 >
+                   My Timeline
+                 </button>
+               </div>
+             </div>
+           }
+         >
+           <RecordContentStack>
+             {renderTabContent()}
+             <WorkspaceFabDock
+               actions={[
+                 {
+                   key: "refresh-dispatch",
+                   label: "Refresh dispatch workspace",
+                   icon: "refresh",
+                   onClick: () => {
+                     void dispatchQuery.refetch();
+                     if (isAdmin) {
+                       void dispatchMetaQuery.refetch();
+                     }
+                   }
+                 },
+                 ...(isAdmin ? [{
+                   key: "schedule-dispatch",
+                   label: "Schedule assignment",
+                   icon: "calendar" as const,
+                   onClick: () => setIsScheduleModalOpen(true),
+                   disabled: dispatchMetaQuery.isLoading ||
+                     !dispatchMetaQuery.data?.assignableUsers.length ||
+                     !dispatchMetaQuery.data?.serviceRequests.length
+                 }] : [])
+               ]}
+             />
+           </RecordContentStack>
+         </RecordWorkspace>
 
-            {layoutMode === "register" ? (
-              <RecordTableShell>
-                <RecordTable>
-                  <thead>
-                    <tr>
-                      <th>Request No.</th>
-                      <th>Customer</th>
-                      <th>Assigned Staff</th>
-                      <th>Scheduled Start</th>
-                      <th>Scheduled End</th>
-                      <th>Assignment Status</th>
-                      <th>Service Status</th>
-                      <th>Finance</th>
-                      <th>Conflicts</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dispatchQuery.isLoading ? (
-                      <RecordTableStateRow colSpan={10}>Loading dispatch assignments...</RecordTableStateRow>
-                    ) : null}
-
-                    {dispatchQuery.isError ? (
-                      <RecordTableStateRow colSpan={10} tone="error">
-                        Unable to load dispatch assignments.
-                      </RecordTableStateRow>
-                    ) : null}
-
-                    {!dispatchQuery.isLoading && !dispatchQuery.isError && !visibleAssignments.length ? (
-                      <RecordTableStateRow colSpan={10}>
-                        {isAdmin ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
-                      </RecordTableStateRow>
-                    ) : null}
-
-                    {visibleAssignments.map((assignment) => (
-                      <tr key={assignment.id}>
-                        <td>{assignment.requestNumber}</td>
-                        <td>{assignment.customerName}</td>
-                        <td>{assignment.assignedUserName}</td>
-                        <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
-                        <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
-                        <td>
-                          <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
-                        </td>
-                        <td>{assignment.serviceStatus}</td>
-                        <td>
-                          <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
-                            {assignment.financeHandoffStatus}
-                          </WorkspaceStatusPill>
-                        </td>
-                        <td>
-                          <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
-                            {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
-                          </WorkspaceStatusPill>
-                        </td>
-                        <td>
-                          <RecordTableActionButton onClick={() => setSelectedAssignment(assignment)}>
-                            View
-                          </RecordTableActionButton>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </RecordTable>
-              </RecordTableShell>
-            ) : (
-              <WorkspacePanel>
-                <WorkspacePanelHeader
-                  eyebrow="Technician planning"
-                  title="Timeline view"
-                />
-                <WorkspaceInlineNote>
-                  Review scheduled work grouped by service day so dispatchers can spot collisions and handoff timing faster.
-                </WorkspaceInlineNote>
-
-                {dispatchQuery.isLoading ? (
-                  <WorkspaceInlineNote>Loading dispatch timeline...</WorkspaceInlineNote>
-                ) : null}
-
-                {dispatchQuery.isError ? (
-                  <WorkspaceInlineNote>Unable to load dispatch timeline.</WorkspaceInlineNote>
-                ) : null}
-
-                {!dispatchQuery.isLoading && !dispatchQuery.isError && !timelineGroups.length ? (
-                  <WorkspaceInlineNote>No assignments are available for the current filters.</WorkspaceInlineNote>
-                ) : null}
-
-                <div className="grid gap-4">
-                  {timelineGroups.map((group) => (
-                    <div key={group.label} className="grid gap-3 rounded-box border border-base-300/70 bg-base-200/20 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold text-base-content">{group.label}</p>
-                          <p className="text-sm text-base-content/60">
-                            {group.assignments.length} assignment{group.assignments.length === 1 ? "" : "s"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-3 xl:grid-cols-2">
-                        {group.assignments.map((assignment) => (
-                          <button
-                            key={assignment.id}
-                            type="button"
-                            className="grid gap-3 rounded-box border border-base-300/70 bg-base-100/70 p-4 text-left shadow-none transition hover:border-primary/30 hover:bg-base-100"
-                            onClick={() => setSelectedAssignment(assignment)}
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="grid gap-1">
-                                <strong className="text-base-content">{assignment.requestNumber}</strong>
-                                <span className="text-sm text-base-content/70">{assignment.customerName}</span>
-                              </div>
-                              <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
-                            </div>
-
-                            <div className="grid gap-1 text-sm text-base-content/75">
-                              <span>{assignment.assignedUserName}</span>
-                              <span>
-                                {formatDateTime(assignment.scheduledStartUtc)} to {formatDateTime(assignment.scheduledEndUtc)}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
-                                {assignment.financeHandoffStatus}
-                              </WorkspaceStatusPill>
-                              <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
-                                {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
-                              </WorkspaceStatusPill>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </WorkspacePanel>
-            )}
-
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Execution notes" title="Phase 6 rollout" />
-              <WorkspaceNoteList
-                items={[
-                  "Assignment details now include schedule overlap visibility so admins can catch conflicts without leaving the register.",
-                  "Dispatch history is now separated into assignment events and service audit trail instead of relying on service status changes alone.",
-                  "Timeline mode now gives planners a day-grouped view, while hard overlaps on scheduled and in-progress work are blocked at save time."
-                ]}
-              />
-            </WorkspacePanel>
-
-            <WorkspaceFabDock
-              actions={[
-                {
-                  key: "refresh-dispatch",
-                  label: "Refresh dispatch workspace",
-                  icon: "refresh",
-                  onClick: () => {
-                    void dispatchQuery.refetch();
-                    if (isAdmin) {
-                      void dispatchMetaQuery.refetch();
-                    }
-                  }
-                },
-                ...(isAdmin ? [{
-                  key: "schedule-dispatch",
-                  label: "Schedule assignment",
-                  icon: "calendar" as const,
-                  onClick: () => setIsScheduleModalOpen(true),
-                  disabled: dispatchMetaQuery.isLoading ||
-                    !dispatchMetaQuery.data?.assignableUsers.length ||
-                    !dispatchMetaQuery.data?.serviceRequests.length
-                }] : [])
-              ]}
-            />
-          </RecordContentStack>
-        </RecordWorkspace>
 
         <RecordFormModal
           open={isScheduleModalOpen}

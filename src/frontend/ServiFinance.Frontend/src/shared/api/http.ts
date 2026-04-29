@@ -58,14 +58,19 @@ export async function httpPostJson<TResponse, TBody>(path: string, body: TBody):
   const response = await fetch(await resolveApiUrl(path), await createRequestInit("POST", path, body));
 
   if (!response.ok) {
-    try {
-      const payload = await response.json() as { error?: string };
-      if (payload.error) {
-        throw new Error(payload.error);
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message) {
-        throw error;
+    const contentType = response.headers.get("content-type");
+    const isJson = contentType && contentType.includes("application/json");
+
+    if (isJson) {
+      try {
+        const payload = await response.json() as { error?: string };
+        if (payload.error) {
+          throw new Error(payload.error);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message) {
+          throw error;
+        }
       }
     }
 
@@ -83,14 +88,19 @@ export async function httpPutJson<TResponse, TBody>(path: string, body: TBody): 
   const response = await fetch(await resolveApiUrl(path), await createRequestInit("PUT", path, body));
 
   if (!response.ok) {
-    try {
-      const payload = await response.json() as { error?: string };
-      if (payload.error) {
-        throw new Error(payload.error);
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message) {
-        throw error;
+    const contentType = response.headers.get("content-type");
+    const isJson = contentType && contentType.includes("application/json");
+
+    if (isJson) {
+      try {
+        const payload = await response.json() as { error?: string };
+        if (payload.error) {
+          throw new Error(payload.error);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message) {
+          throw error;
+        }
       }
     }
 
@@ -108,14 +118,19 @@ export async function httpPostFormData<TResponse>(path: string, body: FormData):
   const response = await fetch(await resolveApiUrl(path), await createFormDataRequestInit(path, body));
 
   if (!response.ok) {
-    try {
-      const payload = await response.json() as { error?: string };
-      if (payload.error) {
-        throw new Error(payload.error);
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message) {
-        throw error;
+    const contentType = response.headers.get("content-type");
+    const isJson = contentType && contentType.includes("application/json");
+
+    if (isJson) {
+      try {
+        const payload = await response.json() as { error?: string };
+        if (payload.error) {
+          throw new Error(payload.error);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message) {
+          throw error;
+        }
       }
     }
 
@@ -133,14 +148,19 @@ export async function httpDelete(path: string): Promise<void> {
   const response = await fetch(await resolveApiUrl(path), await createRequestInit("DELETE", path));
 
   if (!response.ok) {
-    try {
-      const payload = await response.json() as { error?: string };
-      if (payload.error) {
-        throw new Error(payload.error);
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message) {
-        throw error;
+    const contentType = response.headers.get("content-type");
+    const isJson = contentType && contentType.includes("application/json");
+
+    if (isJson) {
+      try {
+        const payload = await response.json() as { error?: string };
+        if (payload.error) {
+          throw new Error(payload.error);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message) {
+          throw error;
+        }
       }
     }
 

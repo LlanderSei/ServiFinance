@@ -299,335 +299,362 @@ export function SmsReportsPage() {
             <WorkspaceNotice tone="error">Unable to load operational reports.</WorkspaceNotice>
           ) : null}
 
-          <RecordScrollRegion>
-            <WorkspaceScrollStack>
-              <WorkspacePanel>
-                <WorkspacePanelHeader eyebrow="Reporting window" title="Date range and comparison" />
-                <WorkspaceToolbar className="flex flex-col items-start gap-4 lg:flex-row lg:flex-wrap lg:items-end">
-                  <div className="flex flex-wrap gap-2">
-                    <WorkspaceToggleGroup>
-                      <WorkspaceToggleButton active={preset === "7d"} onClick={() => handlePresetChange("7d")}>
-                        Last 7 days
-                      </WorkspaceToggleButton>
-                      <WorkspaceToggleButton active={preset === "30d"} onClick={() => handlePresetChange("30d")}>
-                        Last 30 days
-                      </WorkspaceToggleButton>
-                      <WorkspaceToggleButton active={preset === "custom"}>
-                        Custom
-                      </WorkspaceToggleButton>
-                    </WorkspaceToggleGroup>
+          <div className="grid min-h-0 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+            {/* Left sidebar: KPI cards stacked */}
+            <aside className="flex flex-col gap-4 overflow-y-auto rounded-xl bg-base-200/30 p-4">
+              <div className="grid gap-3">
+                <div className="rounded-xl border border-base-300/70 bg-base-100/80 px-4 py-3">
+                  <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-base-content/60">Customers</p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-base-content">{reportsQuery.data?.totals.customers ?? 0}</p>
+                </div>
+                <div className="rounded-xl border border-base-300/70 bg-base-100/80 px-4 py-3">
+                  <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-base-content/60">Service requests</p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-base-content">{reportsQuery.data?.totals.serviceRequests ?? 0}</p>
+                </div>
+                <div className="rounded-xl border border-base-300/70 bg-base-100/80 px-4 py-3">
+                  <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-base-content/60">Active assignments</p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-base-content">{reportsQuery.data?.totals.activeAssignments ?? 0}</p>
+                </div>
+                <div className="rounded-xl border border-base-300/70 bg-base-100/80 px-4 py-3">
+                  <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-base-content/60">Completed assignments</p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-base-content">{reportsQuery.data?.totals.completedAssignments ?? 0}</p>
+                </div>
+              </div>
+            </aside>
+
+            {/* Right: upper controls + lower scrollable content */}
+            <main className="flex min-h-0 flex-col gap-4">
+              {/* Upper: Reporting window controls */}
+              <div className="rounded-xl bg-base-200/30 p-4">
+                <div className="flex flex-wrap items-end gap-4">
+                  {/* Preset buttons */}
+                  <div className="flex gap-1 rounded-xl border border-base-300/70 bg-base-100 p-1">
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${preset === "7d" ? "bg-primary text-primary-content" : "text-base-content/70 hover:bg-base-200"}`}
+                      onClick={() => handlePresetChange("7d")}
+                    >
+                      Last 7 days
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${preset === "30d" ? "bg-primary text-primary-content" : "text-base-content/70 hover:bg-base-200"}`}
+                      onClick={() => handlePresetChange("30d")}
+                    >
+                      Last 30 days
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${preset === "custom" ? "bg-primary text-primary-content" : "text-base-content/70 hover:bg-base-200"}`}
+                      onClick={() => handlePresetChange("custom")}
+                    >
+                      Custom
+                    </button>
                   </div>
 
-                  <WorkspaceFilter label="Date from">
-                    <WorkspaceInput
+                  {/* Date inputs */}
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-base-content/70">Date from</label>
+                    <input
                       type="date"
+                      className="input input-bordered w-36 rounded-xl border-base-300/70 bg-base-100 text-base-content"
                       value={dateFrom}
                       max={dateTo}
                       onChange={(event) => setDateFrom(event.target.value)}
                     />
-                  </WorkspaceFilter>
+                  </div>
 
-                  <WorkspaceFilter label="Date to">
-                    <WorkspaceInput
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-base-content/70">Date to</label>
+                    <input
                       type="date"
+                      className="input input-bordered w-36 rounded-xl border-base-300/70 bg-base-100 text-base-content"
                       value={dateTo}
                       min={dateFrom}
                       max={defaultDateTo}
                       onChange={(event) => setDateTo(event.target.value)}
                     />
-                  </WorkspaceFilter>
+                  </div>
 
-                  <WorkspaceActionButton
-                    onClick={() => {
-                      setDateFrom(defaultDateFrom);
-                      setDateTo(defaultDateTo);
-                    }}
-                  >
-                    Reset window
-                  </WorkspaceActionButton>
-                </WorkspaceToolbar>
+                  {/* Reset button */}
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      className="btn btn-ghost h-10 rounded-xl"
+                      onClick={() => {
+                        setDateFrom(defaultDateFrom);
+                        setDateTo(defaultDateTo);
+                      }}
+                    >
+                      Reset window
+                    </button>
+                  </div>
+                </div>
 
-                <WorkspaceInlineNote>
+                {/* Current window info */}
+                <div className="mt-3 text-sm leading-6 text-base-content/70">
                   {reportsQuery.data
                     ? `Current window: ${formatDateOnly(reportsQuery.data.reportingWindow.dateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.dateToUtc)}. Previous window: ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateToUtc)}.`
                     : "Select a reporting window to compare current operational activity against the immediately preceding period."}
-                </WorkspaceInlineNote>
-              </WorkspacePanel>
+                </div>
+              </div>
 
-              <WorkspaceMetricGrid className="2xl:grid-cols-4">
-                <MetricCard
-                  label="Customers"
-                  value={reportsQuery.data?.totals.customers ?? 0}
-                  description="Total tenant customer profiles currently active in the service register."
-                />
-                <MetricCard
-                  label="Service requests"
-                  value={reportsQuery.data?.totals.serviceRequests ?? 0}
-                  description="Total intake volume recorded across the tenant service workflow."
-                />
-                <MetricCard
-                  label="Active assignments"
-                  value={reportsQuery.data?.totals.activeAssignments ?? 0}
-                  description="Assignments currently scheduled, active, or temporarily on hold."
-                />
-                <MetricCard
-                  label="Completed assignments"
-                  value={reportsQuery.data?.totals.completedAssignments ?? 0}
-                  description="Completed dispatch entries already pushed through the tenant workflow."
-                />
-              </WorkspaceMetricGrid>
+              {/* Lower: scrollable content panels */}
+              <RecordScrollRegion>
+                <WorkspaceScrollStack>
+                  <WorkspacePanelGrid>
+                    <WorkspacePanel>
+                      <WorkspacePanelHeader eyebrow="Selected window" title="Operating movement" />
 
-              <WorkspacePanelGrid>
-                <WorkspacePanel>
-                  <WorkspacePanelHeader eyebrow="Selected window" title="Operating movement" />
+                      <WorkspaceMetricGrid className="xl:grid-cols-3">
+                        <MetricCard
+                          label="New customers"
+                          value={reportsQuery.data?.windowedActivity.newCustomers ?? 0}
+                          description="Customer profiles added inside the selected reporting window."
+                        />
+                        <MetricCard
+                          label="New requests"
+                          value={reportsQuery.data?.windowedActivity.newRequests ?? 0}
+                          description="Service intake volume recorded in the selected period."
+                        />
+                        <MetricCard
+                          label="Assignments scheduled"
+                          value={reportsQuery.data?.windowedActivity.assignmentsScheduled ?? 0}
+                          description="Dispatch schedules created in the active reporting window."
+                        />
+                        <MetricCard
+                          label="Assignments completed"
+                          value={reportsQuery.data?.windowedActivity.assignmentsCompleted ?? 0}
+                          description="Assignments whose planned service window ended as completed in the selected period."
+                        />
+                        <MetricCard
+                          label="Completed requests"
+                          value={reportsQuery.data?.windowedActivity.completedRequests ?? 0}
+                          description="Service requests closed inside the active comparison window."
+                        />
+                        <MetricCard
+                          label="Invoices finalized"
+                          value={reportsQuery.data?.windowedActivity.invoicesFinalized ?? 0}
+                          description="Finance-ready service invoices finalized during the selected period."
+                        />
+                      </WorkspaceMetricGrid>
+                    </WorkspacePanel>
 
-                  <WorkspaceMetricGrid className="xl:grid-cols-3">
-                    <MetricCard
-                      label="New customers"
-                      value={reportsQuery.data?.windowedActivity.newCustomers ?? 0}
-                      description="Customer profiles added inside the selected reporting window."
-                    />
-                    <MetricCard
-                      label="New requests"
-                      value={reportsQuery.data?.windowedActivity.newRequests ?? 0}
-                      description="Service intake volume recorded in the selected period."
-                    />
-                    <MetricCard
-                      label="Assignments scheduled"
-                      value={reportsQuery.data?.windowedActivity.assignmentsScheduled ?? 0}
-                      description="Dispatch schedules created in the active reporting window."
-                    />
-                    <MetricCard
-                      label="Assignments completed"
-                      value={reportsQuery.data?.windowedActivity.assignmentsCompleted ?? 0}
-                      description="Assignments whose planned service window ended as completed in the selected period."
-                    />
-                    <MetricCard
-                      label="Completed requests"
-                      value={reportsQuery.data?.windowedActivity.completedRequests ?? 0}
-                      description="Service requests closed inside the active comparison window."
-                    />
-                    <MetricCard
-                      label="Invoices finalized"
-                      value={reportsQuery.data?.windowedActivity.invoicesFinalized ?? 0}
-                      description="Finance-ready service invoices finalized during the selected period."
-                    />
-                  </WorkspaceMetricGrid>
-                </WorkspacePanel>
+                    <WorkspacePanel>
+                      <WorkspacePanelHeader eyebrow="Turnaround" title="Completion efficiency" />
 
-                <WorkspacePanel>
-                  <WorkspacePanelHeader eyebrow="Turnaround" title="Completion efficiency" />
+                      <WorkspaceMetricGrid className="xl:grid-cols-2">
+                        <MetricCard
+                          label="Completed requests"
+                          value={reportsQuery.data?.turnaround.completedRequests ?? 0}
+                          description="Requests completed within the selected reporting window."
+                        />
+                        <MetricCard
+                          label="Overdue open requests"
+                          value={reportsQuery.data?.turnaround.overdueOpenRequests ?? 0}
+                          description="Requests still open after their requested service date."
+                        />
+                        <MetricCard
+                          label="Intake to completion"
+                          value={formatMetricHours(reportsQuery.data?.turnaround.averageIntakeToCompletionHours ?? null)}
+                          description="Average elapsed time from intake creation until completion."
+                        />
+                        <MetricCard
+                          label="Request to schedule"
+                          value={formatMetricHours(reportsQuery.data?.turnaround.averageRequestToScheduleHours ?? null)}
+                          description="Average lead time before work is first scheduled."
+                        />
+                        <MetricCard
+                          label="Scheduled work"
+                          value={formatMetricHours(reportsQuery.data?.turnaround.averageScheduledWorkHours ?? null)}
+                          description="Average planned technician work duration for completed assignments."
+                        />
+                      </WorkspaceMetricGrid>
+                    </WorkspacePanel>
+                  </WorkspacePanelGrid>
 
-                  <WorkspaceMetricGrid className="xl:grid-cols-2">
-                    <MetricCard
-                      label="Completed requests"
-                      value={reportsQuery.data?.turnaround.completedRequests ?? 0}
-                      description="Requests completed within the selected reporting window."
-                    />
-                    <MetricCard
-                      label="Overdue open requests"
-                      value={reportsQuery.data?.turnaround.overdueOpenRequests ?? 0}
-                      description="Requests still open after their requested service date."
-                    />
-                    <MetricCard
-                      label="Intake to completion"
-                      value={formatMetricHours(reportsQuery.data?.turnaround.averageIntakeToCompletionHours ?? null)}
-                      description="Average elapsed time from intake creation until completion."
-                    />
-                    <MetricCard
-                      label="Request to schedule"
-                      value={formatMetricHours(reportsQuery.data?.turnaround.averageRequestToScheduleHours ?? null)}
-                      description="Average lead time before work is first scheduled."
-                    />
-                    <MetricCard
-                      label="Scheduled work"
-                      value={formatMetricHours(reportsQuery.data?.turnaround.averageScheduledWorkHours ?? null)}
-                      description="Average planned technician work duration for completed assignments."
-                    />
-                  </WorkspaceMetricGrid>
-                </WorkspacePanel>
-              </WorkspacePanelGrid>
+                  <WorkspacePanelGrid>
+                    <WorkspacePanel>
+                      <WorkspacePanelHeader eyebrow="Window comparison" title="Current versus previous period" />
 
-              <WorkspacePanelGrid>
-                <WorkspacePanel>
-                  <WorkspacePanelHeader eyebrow="Window comparison" title="Current versus previous period" />
+                      <WorkspaceSubtableShell>
+                        <WorkspaceSubtable>
+                          <thead>
+                            <tr>
+                              <th>Metric</th>
+                              <th>Current</th>
+                              <th>Previous</th>
+                              <th>Delta</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reportsQuery.isLoading ? (
+                              <RecordTableStateRow colSpan={4}>Loading comparison metrics...</RecordTableStateRow>
+                            ) : null}
 
-                  <WorkspaceSubtableShell>
-                    <WorkspaceSubtable>
-                      <thead>
-                        <tr>
-                          <th>Metric</th>
-                          <th>Current</th>
-                          <th>Previous</th>
-                          <th>Delta</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                            {!reportsQuery.isLoading && !reportsQuery.data?.comparison.length ? (
+                              <RecordTableStateRow colSpan={4}>No comparison metrics are available yet.</RecordTableStateRow>
+                            ) : null}
+
+                            {reportsQuery.data?.comparison.map((row) => (
+                              <tr key={row.key}>
+                                <td>{row.label}</td>
+                                <td>{row.currentValue}</td>
+                                <td>{row.previousValue}</td>
+                                <td>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <WorkspaceStatusPill tone={getDeltaTone(row.deltaValue)}>
+                                      {formatSignedValue(row.deltaValue)}
+                                    </WorkspaceStatusPill>
+                                    <span className="text-sm text-base-content/65">
+                                      {row.deltaPercentage === null ? "No baseline" : formatDeltaPercentage(row.deltaPercentage)}
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </WorkspaceSubtable>
+                      </WorkspaceSubtableShell>
+                    </WorkspacePanel>
+                  </WorkspacePanelGrid>
+
+                  <WorkspacePanelGrid>
+                    <WorkspacePanel>
+                      <WorkspacePanelHeader eyebrow="Daily activity" title="Today&apos;s operating movement" />
+
+                      <dl className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
+                          <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">New customers</dt>
+                          <dd className="mt-1 text-base-content">{reportsQuery.data?.dailyActivity.newCustomersToday ?? 0}</dd>
+                        </div>
+                        <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
+                          <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">New requests</dt>
+                          <dd className="mt-1 text-base-content">{reportsQuery.data?.dailyActivity.newRequestsToday ?? 0}</dd>
+                        </div>
+                        <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
+                          <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">Assignments scheduled</dt>
+                          <dd className="mt-1 text-base-content">{reportsQuery.data?.dailyActivity.assignmentsScheduledToday ?? 0}</dd>
+                        </div>
+                        <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
+                          <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">Assignments completed</dt>
+                          <dd className="mt-1 text-base-content">{reportsQuery.data?.dailyActivity.assignmentsCompletedToday ?? 0}</dd>
+                        </div>
+                      </dl>
+                    </WorkspacePanel>
+
+                    <WorkspacePanel>
+                      <WorkspacePanelHeader eyebrow="Service distribution" title="Status mix" />
+
+                      <div className="grid gap-4">
                         {reportsQuery.isLoading ? (
-                          <RecordTableStateRow colSpan={4}>Loading comparison metrics...</RecordTableStateRow>
+                          <WorkspaceEmptyState>
+                            <WorkspaceInlineNote>Loading status distribution...</WorkspaceInlineNote>
+                          </WorkspaceEmptyState>
                         ) : null}
 
-                        {!reportsQuery.isLoading && !reportsQuery.data?.comparison.length ? (
-                          <RecordTableStateRow colSpan={4}>No comparison metrics are available yet.</RecordTableStateRow>
+                        {!reportsQuery.isLoading && !reportsQuery.data?.serviceStatusDistribution.length ? (
+                          <WorkspaceEmptyState>
+                            <WorkspaceInlineNote>No service status data available yet.</WorkspaceInlineNote>
+                          </WorkspaceEmptyState>
                         ) : null}
 
-                        {reportsQuery.data?.comparison.map((row) => (
-                          <tr key={row.key}>
-                            <td>{row.label}</td>
-                            <td>{row.currentValue}</td>
-                            <td>{row.previousValue}</td>
-                            <td>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <WorkspaceStatusPill tone={getDeltaTone(row.deltaValue)}>
-                                  {formatSignedValue(row.deltaValue)}
-                                </WorkspaceStatusPill>
-                                <span className="text-sm text-base-content/65">
-                                  {row.deltaPercentage === null ? "No baseline" : formatDeltaPercentage(row.deltaPercentage)}
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
+                        {reportsQuery.data?.serviceStatusDistribution.map((row) => (
+                          <WorkspaceDistributionRow
+                            key={row.status}
+                            label={row.status}
+                            value={row.count}
+                            percentage={distributionTotal ? (row.count / distributionTotal) * 100 : 0}
+                          />
                         ))}
-                      </tbody>
-                    </WorkspaceSubtable>
-                  </WorkspaceSubtableShell>
-                </WorkspacePanel>
-              </WorkspacePanelGrid>
+                      </div>
+                    </WorkspacePanel>
+                  </WorkspacePanelGrid>
 
-              <WorkspacePanelGrid>
-                <WorkspacePanel>
-                  <WorkspacePanelHeader eyebrow="Daily activity" title="Today&apos;s operating movement" />
+                  <WorkspacePanelGrid>
+                    <WorkspacePanel>
+                      <WorkspacePanelHeader eyebrow="Workload" title="Technician assignment pressure" />
 
-                  <dl className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
-                      <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">New customers</dt>
-                      <dd className="mt-1 text-base-content">{reportsQuery.data?.dailyActivity.newCustomersToday ?? 0}</dd>
-                    </div>
-                    <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
-                      <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">New requests</dt>
-                      <dd className="mt-1 text-base-content">{reportsQuery.data?.dailyActivity.newRequestsToday ?? 0}</dd>
-                    </div>
-                    <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
-                      <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">Assignments scheduled</dt>
-                      <dd className="mt-1 text-base-content">{reportsQuery.data?.dailyActivity.assignmentsScheduledToday ?? 0}</dd>
-                    </div>
-                    <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
-                      <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">Assignments completed</dt>
-                      <dd className="mt-1 text-base-content">{reportsQuery.data?.dailyActivity.assignmentsCompletedToday ?? 0}</dd>
-                    </div>
-                  </dl>
-                </WorkspacePanel>
+                      <WorkspaceSubtableShell>
+                        <WorkspaceSubtable>
+                          <thead>
+                            <tr>
+                              <th>Staff member</th>
+                              <th>Active</th>
+                              <th>Scheduled</th>
+                              <th>Completed</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reportsQuery.isLoading ? (
+                              <RecordTableStateRow colSpan={4}>Loading workload...</RecordTableStateRow>
+                            ) : null}
 
-                <WorkspacePanel>
-                  <WorkspacePanelHeader eyebrow="Service distribution" title="Status mix" />
+                            {!reportsQuery.isLoading && !reportsQuery.data?.technicianWorkload.length ? (
+                              <RecordTableStateRow colSpan={4}>No technician workload is available yet.</RecordTableStateRow>
+                            ) : null}
 
-                  <div className="grid gap-4">
-                    {reportsQuery.isLoading ? (
-                      <WorkspaceEmptyState>
-                        <WorkspaceInlineNote>Loading status distribution...</WorkspaceInlineNote>
-                      </WorkspaceEmptyState>
-                    ) : null}
+                            {reportsQuery.data?.technicianWorkload.map((row) => (
+                              <tr key={row.userId}>
+                                <td>{row.fullName}</td>
+                                <td>{row.activeAssignments}</td>
+                                <td>{row.scheduledAssignments}</td>
+                                <td>{row.completedAssignments}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </WorkspaceSubtable>
+                      </WorkspaceSubtableShell>
+                    </WorkspacePanel>
 
-                    {!reportsQuery.isLoading && !reportsQuery.data?.serviceStatusDistribution.length ? (
-                      <WorkspaceEmptyState>
-                        <WorkspaceInlineNote>No service status data available yet.</WorkspaceInlineNote>
-                      </WorkspaceEmptyState>
-                    ) : null}
+                    <WorkspacePanel>
+                      <WorkspacePanelHeader eyebrow="Catalog" title="Operational report set" />
 
-                    {reportsQuery.data?.serviceStatusDistribution.map((row) => (
-                      <WorkspaceDistributionRow
-                        key={row.status}
-                        label={row.status}
-                        value={row.count}
-                        percentage={distributionTotal ? (row.count / distributionTotal) * 100 : 0}
-                      />
-                    ))}
-                  </div>
-                </WorkspacePanel>
-              </WorkspacePanelGrid>
+                      <WorkspaceSubtableShell>
+                        <WorkspaceSubtable>
+                          <thead>
+                            <tr>
+                              <th>Report</th>
+                              <th>Scope</th>
+                              <th>Freshness</th>
+                              <th>Owner</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reportsQuery.isLoading ? (
+                              <RecordTableStateRow colSpan={4}>Loading report catalog...</RecordTableStateRow>
+                            ) : null}
 
-              <WorkspacePanelGrid>
-                <WorkspacePanel>
-                  <WorkspacePanelHeader eyebrow="Workload" title="Technician assignment pressure" />
+                            {reportsQuery.data?.catalog.map((row) => (
+                              <tr key={row.key}>
+                                <td>
+                                  <WorkspaceTenantCell title={row.title} subtitle={row.description} />
+                                </td>
+                                <td>{row.scope}</td>
+                                <td>{row.freshness}</td>
+                                <td>{row.owner}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </WorkspaceSubtable>
+                      </WorkspaceSubtableShell>
+                    </WorkspacePanel>
+                  </WorkspacePanelGrid>
 
-                  <WorkspaceSubtableShell>
-                    <WorkspaceSubtable>
-                      <thead>
-                        <tr>
-                          <th>Staff member</th>
-                          <th>Active</th>
-                          <th>Scheduled</th>
-                          <th>Completed</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reportsQuery.isLoading ? (
-                          <RecordTableStateRow colSpan={4}>Loading workload...</RecordTableStateRow>
-                        ) : null}
-
-                        {!reportsQuery.isLoading && !reportsQuery.data?.technicianWorkload.length ? (
-                          <RecordTableStateRow colSpan={4}>No technician workload is available yet.</RecordTableStateRow>
-                        ) : null}
-
-                        {reportsQuery.data?.technicianWorkload.map((row) => (
-                          <tr key={row.userId}>
-                            <td>{row.fullName}</td>
-                            <td>{row.activeAssignments}</td>
-                            <td>{row.scheduledAssignments}</td>
-                            <td>{row.completedAssignments}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </WorkspaceSubtable>
-                  </WorkspaceSubtableShell>
-                </WorkspacePanel>
-
-                <WorkspacePanel>
-                  <WorkspacePanelHeader eyebrow="Catalog" title="Operational report set" />
-
-                  <WorkspaceSubtableShell>
-                    <WorkspaceSubtable>
-                      <thead>
-                        <tr>
-                          <th>Report</th>
-                          <th>Scope</th>
-                          <th>Freshness</th>
-                          <th>Owner</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reportsQuery.isLoading ? (
-                          <RecordTableStateRow colSpan={4}>Loading report catalog...</RecordTableStateRow>
-                        ) : null}
-
-                        {reportsQuery.data?.catalog.map((row) => (
-                          <tr key={row.key}>
-                            <td>
-                              <WorkspaceTenantCell title={row.title} subtitle={row.description} />
-                            </td>
-                            <td>{row.scope}</td>
-                            <td>{row.freshness}</td>
-                            <td>{row.owner}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </WorkspaceSubtable>
-                  </WorkspaceSubtableShell>
-                </WorkspacePanel>
-              </WorkspacePanelGrid>
-
-              <WorkspacePanel>
-                <WorkspacePanelHeader eyebrow="Output formats" title="Export-ready layouts" />
-                <WorkspaceNoteList
-                  items={[
-                    "Spreadsheet export now includes the active date window, comparison deltas, and turnaround metrics in the report packet.",
-                    "Print export now generates a report packet with selected-window activity, prior-period comparison, and completion efficiency.",
-                    "The next reporting depth should focus on technician productivity and SLA-style breach tracking if the tenant needs more operational control."
-                  ]}
-                />
-              </WorkspacePanel>
-            </WorkspaceScrollStack>
-          </RecordScrollRegion>
+                  <WorkspacePanel>
+                    <WorkspacePanelHeader eyebrow="Output formats" title="Export-ready layouts" />
+                    <WorkspaceNoteList
+                      items={[
+                        "Spreadsheet export now includes the active date window, comparison deltas, and turnaround metrics in the report packet.",
+                        "Print export now generates a report packet with selected-window activity, prior-period comparison, and completion efficiency.",
+                        "The next reporting depth should focus on technician productivity and SLA-style breach tracking if the tenant needs more operational control."
+                      ]}
+                    />
+                  </WorkspacePanel>
+                </WorkspaceScrollStack>
+              </RecordScrollRegion>
+            </main>
+          </div>
 
           <WorkspaceFabDock
             actions={[
