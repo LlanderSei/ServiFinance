@@ -4,6 +4,32 @@ using Microsoft.AspNetCore.Http;
 
 internal sealed record RootLoginRequest(string Email, string Password, bool RememberMe, string? ReturnUrl);
 internal sealed record TenantLoginRequest(string Email, string Password, string? TenantDomainSlug, string TargetSystem, string? ReturnUrl);
+internal sealed record CreatePlatformTenantCheckoutRequest(
+    string BusinessName,
+    string DomainSlug,
+    string OwnerFullName,
+    string OwnerEmail,
+    string OwnerPassword,
+    Guid SubscriptionTierId);
+internal sealed record CreatePlatformTenantCheckoutResponse(
+    Guid RegistrationId,
+    string CheckoutSessionId,
+    string CheckoutUrl);
+internal sealed record PlatformTenantRegistrationStatusResponse(
+    Guid RegistrationId,
+    string Status,
+    string BusinessName,
+    string DomainSlug,
+    string OwnerEmail,
+    string SubscriptionPlan,
+    string SubscriptionEdition,
+    string? BillingProvider,
+    string? StripeSubscriptionStatus,
+    string? FailureReason,
+    Guid? TenantId,
+    string? TenantLoginUrl,
+    DateTime CreatedAtUtc,
+    DateTime? ProvisionedAtUtc);
 internal sealed record ToggleUserStateRequest(bool IsActive);
 internal sealed record ToggleTenantStateRequest(bool IsActive);
 internal sealed record CreateCustomerRecordRequest(string FullName, string MobileNumber, string Email, string Address);
@@ -34,6 +60,13 @@ internal sealed record UpdateTenantAssignmentEvidenceRequest(string Note);
 internal sealed class SubmitTenantAssignmentEvidenceRequest {
   public string? Note { get; init; }
   public List<IFormFile> Files { get; init; } = [];
+}
+internal sealed class SubmitTenantBillingProofRequest {
+  public decimal AmountSubmitted { get; init; }
+  public string PaymentMethod { get; init; } = string.Empty;
+  public string? ReferenceNumber { get; init; }
+  public string? Note { get; init; }
+  public IFormFile? ProofFile { get; init; }
 }
 internal sealed record FinalizeTenantServiceInvoiceRequest(
     decimal SubtotalAmount,
@@ -130,6 +163,56 @@ internal sealed record TenantDispatchAssignmentDetailResponse(
     IReadOnlyList<TenantDispatchAssignmentEventRowResponse> Events,
     IReadOnlyList<TenantDispatchAssignmentEvidenceRowResponse> Evidence,
     IReadOnlyList<TenantDispatchConflictRowResponse> Conflicts);
+internal sealed record TenantBillingModuleAccessRowResponse(
+    string ModuleCode,
+    string ModuleName,
+    string Channel,
+    string AccessLevel);
+internal sealed record TenantBillingPlanSummaryResponse(
+    string BusinessSizeSegment,
+    string SubscriptionEdition,
+    string SubscriptionPlan,
+    string SubscriptionStatus,
+    string? PriceDisplay,
+    string? BillingLabel,
+    string? AudienceSummary,
+    string? PlanSummary,
+    IReadOnlyList<TenantBillingModuleAccessRowResponse> Modules);
+internal sealed record TenantBillingStandingResponse(
+    string AccountStanding,
+    string SuspensionRisk,
+    string BillingProvider,
+    DateTime? NextRenewalDateUtc,
+    decimal? ExpectedRenewalAmount,
+    DateTime? LatestSubmissionAtUtc,
+    string? LatestSubmissionStatus,
+    DateTime? LastConfirmedCoverageEndUtc,
+    int PendingReviewCount,
+    bool CanSubmitRenewalProof,
+    bool CanOpenBillingPortal);
+internal sealed record TenantBillingRecordRowResponse(
+    Guid Id,
+    string BillingPeriodLabel,
+    DateTime CoverageStartUtc,
+    DateTime CoverageEndUtc,
+    DateTime DueDateUtc,
+    decimal AmountDue,
+    decimal AmountSubmitted,
+    string PaymentMethod,
+    string ReferenceNumber,
+    string Status,
+    string? Note,
+    string? ReviewRemarks,
+    string? ProofOriginalFileName,
+    string? ProofRelativeUrl,
+    string SubmittedByUserName,
+    DateTime SubmittedAtUtc,
+    DateTime? ReviewedAtUtc);
+internal sealed record TenantBillingOverviewResponse(
+    TenantBillingPlanSummaryResponse Plan,
+    TenantBillingStandingResponse Standing,
+    IReadOnlyList<TenantBillingRecordRowResponse> History);
+internal sealed record TenantBillingPortalSessionResponse(string Url);
 internal sealed record TenantMlsDashboardSummaryResponse(
     int FinanceReadyInvoices,
     int ConvertedLoans,
@@ -236,7 +319,8 @@ internal sealed record TenantMlsLoanLedgerRowResponse(
     decimal DebitAmount,
     decimal CreditAmount,
     decimal RunningBalance,
-    string Remarks);
+    string Remarks,
+    bool CanReverse);
 internal sealed record TenantMlsLoanDetailResponse(
     TenantMlsLoanAccountRowResponse Loan,
     IReadOnlyList<TenantMlsAmortizationScheduleRowResponse> Schedule,
@@ -244,11 +328,23 @@ internal sealed record TenantMlsLoanDetailResponse(
 internal sealed record PostTenantMlsLoanPaymentRequest(
     decimal Amount,
     DateOnly PaymentDate,
+    int? ExpectedStartingInstallmentNumber,
     string? ReferenceNumber,
     string? Remarks);
 internal sealed record TenantMlsLoanPaymentPostedResponse(
     Guid MicroLoanId,
     decimal AmountApplied,
+    decimal OutstandingBalance,
+    int RemainingInstallments,
+    string LoanStatus);
+internal sealed record PostTenantMlsLoanPaymentReversalRequest(
+    DateOnly ReversalDate,
+    string? ReferenceNumber,
+    string Remarks);
+internal sealed record TenantMlsLoanPaymentReversedResponse(
+    Guid MicroLoanId,
+    Guid ReversedTransactionId,
+    decimal AmountReversed,
     decimal OutstandingBalance,
     int RemainingInstallments,
     string LoanStatus);
@@ -300,7 +396,8 @@ internal sealed record TenantMlsAuditSummaryResponse(
     int TotalEvents,
     int LoanCreationEvents,
     int StandaloneLoanEvents,
-    int PaymentEvents);
+    int PaymentEvents,
+    int PaymentReversalEvents);
 internal sealed record TenantMlsAuditRowResponse(
     Guid EventId,
     DateTime OccurredAtUtc,
@@ -313,6 +410,27 @@ internal sealed record TenantMlsAuditRowResponse(
 internal sealed record TenantMlsAuditWorkspaceResponse(
     TenantMlsAuditSummaryResponse Summary,
     IReadOnlyList<TenantMlsAuditRowResponse> Events);
+internal sealed record AuditSummaryResponse(
+    int TotalEvents,
+    int SystemEvents,
+    int SecurityEvents,
+    int FailedEvents);
+internal sealed record AuditEventRowResponse(
+    Guid EventId,
+    DateTime OccurredAtUtc,
+    string Scope,
+    string Category,
+    string ActionType,
+    string Outcome,
+    string ActorName,
+    string ActorEmail,
+    string SubjectType,
+    string SubjectLabel,
+    string Detail,
+    string? IpAddress);
+internal sealed record AuditWorkspaceResponse(
+    AuditSummaryResponse Summary,
+    IReadOnlyList<AuditEventRowResponse> Events);
 internal sealed record TenantMlsStandaloneLoanCustomerResponse(
     Guid CustomerId,
     string CustomerCode,

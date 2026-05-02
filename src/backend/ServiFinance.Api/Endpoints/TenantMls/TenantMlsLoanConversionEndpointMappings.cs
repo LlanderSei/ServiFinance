@@ -15,8 +15,14 @@ internal static class TenantMlsLoanConversionEndpointMappings {
         string tenantDomainSlug,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeServiceLinkedLoans);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           var candidates = await QueryConvertibleInvoices(dbContext)
@@ -42,8 +48,14 @@ internal static class TenantMlsLoanConversionEndpointMappings {
         [AsParameters] TenantMlsLoanConversionTermsRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeServiceLinkedLoans);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           var invoice = await QueryConvertibleInvoices(dbContext)
@@ -67,8 +79,14 @@ internal static class TenantMlsLoanConversionEndpointMappings {
         [FromBody] CreateTenantMlsLoanConversionRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeServiceLinkedLoans);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           if (!TryGetCurrentUserId(httpContext.User, out var currentUserId)) {

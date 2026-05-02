@@ -31,6 +31,10 @@ internal static class FrontendAppEndpointMappings {
         Results.Redirect($"/t/{tenantDomainSlug}/sms/"));
     app.MapGet("/t/{tenantDomainSlug}/sms", (string tenantDomainSlug) =>
         Results.File(indexHtml, "text/html"));
+    app.MapGet("/t/{tenantDomainSlug}/billing", (string tenantDomainSlug) =>
+        Results.File(indexHtml, "text/html"));
+    app.MapGet("/t/{tenantDomainSlug}/billing/{**billingPath}", (string tenantDomainSlug, string? billingPath) =>
+        Results.File(indexHtml, "text/html"));
     app.MapGet("/t/{tenantDomainSlug}/c", (string tenantDomainSlug) =>
         Results.File(indexHtml, "text/html"));
     app.MapGet("/t/{tenantDomainSlug}/c/{**customerPath}", (string tenantDomainSlug, string? customerPath) =>

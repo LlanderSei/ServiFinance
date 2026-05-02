@@ -4,9 +4,10 @@ import {
   TenantMlsLoanAccountRow,
   TenantMlsLoanAccountsWorkspaceResponse,
   TenantMlsLoanDetailResponse,
-  TenantMlsLoanPaymentPostedResponse
+  TenantMlsLoanPaymentPostedResponse,
+  TenantMlsLoanPaymentReversedResponse
 } from "@/shared/api/contracts";
-import { httpGet, httpPostJson } from "@/shared/api/http";
+import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
@@ -71,6 +72,9 @@ export function MlsLoanAccountsPage() {
   const [paymentDate, setPaymentDate] = useState(getDefaultPaymentDate());
   const [referenceNumber, setReferenceNumber] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [reversalDate, setReversalDate] = useState(getDefaultPaymentDate());
+  const [reversalReferenceNumber, setReversalReferenceNumber] = useState("");
+  const [reversalRemarks, setReversalRemarks] = useState("");
 
   const workspaceQuery = useQuery({
     queryKey: ["tenant", tenantDomainSlug, "mls-loans"],
@@ -83,6 +87,19 @@ export function MlsLoanAccountsPage() {
     queryFn: () => httpGet<TenantMlsLoanDetailResponse>(`/api/tenants/${tenantDomainSlug}/mls/loans/${selectedLoanId}`),
     enabled: Boolean(tenantDomainSlug && selectedLoanId && isModalOpen)
   });
+  const reversibleLedgerRow = detailQuery.data?.ledger.find((row) => row.canReverse) ?? null;
+
+  function invalidateMlsWorkspaceQueries(currentLoanId: string) {
+    void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-loans"] });
+    void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-loan-detail", currentLoanId] });
+    void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-dashboard"] });
+    void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-customers"] });
+    void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-customer-finance"] });
+    void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-collections"] });
+    void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-ledger"] });
+    void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-audit"] });
+    void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-reports"] });
+  }
 
   useEffect(() => {
     if (!selectedLoanId || !workspaceQuery.data?.loans.some((loan) => loan.microLoanId === selectedLoanId)) {
@@ -93,6 +110,9 @@ export function MlsLoanAccountsPage() {
     setPaymentDate(getDefaultPaymentDate());
     setReferenceNumber("");
     setRemarks("");
+    setReversalDate(getDefaultPaymentDate());
+    setReversalReferenceNumber("");
+    setReversalRemarks("");
   }, [selectedLoanId, workspaceQuery.data]);
 
   const paymentMutation = useMutation({
@@ -115,15 +135,45 @@ export function MlsLoanAccountsPage() {
       setPaymentAmount("");
       setReferenceNumber("");
       setRemarks("");
-      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-loans"] });
-      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-loan-detail", selectedLoanId] });
-      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-dashboard"] });
-      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-customers"] });
-      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-customer-finance"] });
+      invalidateMlsWorkspaceQueries(selectedLoanId);
     },
     onError: (error: Error) => {
       toast.error({
         title: "Unable to post payment",
+        message: error.message
+      });
+    }
+  });
+
+  const reversePaymentMutation = useMutation({
+    mutationFn: () => {
+      if (!reversibleLedgerRow) {
+        throw new Error("No reversible payment is currently available for this loan.");
+      }
+
+      return httpPostJson<TenantMlsLoanPaymentReversedResponse, {
+        reversalDate: string;
+        referenceNumber: string | null;
+        remarks: string;
+      }>(`/api/tenants/${tenantDomainSlug}/mls/loans/${selectedLoanId}/payments/${reversibleLedgerRow.transactionId}/reverse`, {
+        reversalDate,
+        referenceNumber: reversalReferenceNumber.trim() || null,
+        remarks: reversalRemarks.trim()
+      });
+    },
+    onSuccess: (payload) => {
+      toast.success({
+        title: "Payment reversed",
+        message: `Reversed ${formatCurrency(payload.amountReversed)}. Outstanding balance is now ${formatCurrency(payload.outstandingBalance)}.`
+      });
+      setReversalDate(getDefaultPaymentDate());
+      setReversalReferenceNumber("");
+      setReversalRemarks("");
+      invalidateMlsWorkspaceQueries(selectedLoanId);
+    },
+    onError: (error: Error) => {
+      toast.error({
+        title: "Unable to reverse payment",
         message: error.message
       });
     }
@@ -147,6 +197,11 @@ export function MlsLoanAccountsPage() {
     paymentMutation.mutate();
   }
 
+  function handleReversalSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    reversePaymentMutation.mutate();
+  }
+
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
@@ -164,7 +219,7 @@ export function MlsLoanAccountsPage() {
               {workspaceQuery.isLoading ? <WorkspaceNotice>Loading MLS loan accounts...</WorkspaceNotice> : null}
               {workspaceQuery.isError ? (
                 <WorkspaceNotice tone="error">
-                  Unable to load MLS loan accounts right now.
+                  {getApiErrorMessage(workspaceQuery.error, "Unable to load MLS loan accounts right now.")}
                 </WorkspaceNotice>
               ) : null}
 
@@ -205,12 +260,12 @@ export function MlsLoanAccountsPage() {
                     </thead>
                     <tbody>
                       {workspaceQuery.isLoading ? (
-                        <RecordTableStateRow colSpan={8}>Loading MLS loan portfolio...</RecordTableStateRow>
-                      ) : workspaceQuery.isError ? (
-                        <RecordTableStateRow colSpan={8} tone="error">
-                          Unable to load the MLS loan portfolio.
-                        </RecordTableStateRow>
-                      ) : workspaceQuery.data?.loans.length ? (
+                      <RecordTableStateRow colSpan={8}>Loading MLS loan portfolio...</RecordTableStateRow>
+                    ) : workspaceQuery.isError ? (
+                      <RecordTableStateRow colSpan={8} tone="error">
+                          {getApiErrorMessage(workspaceQuery.error, "Unable to load the MLS loan portfolio.")}
+                      </RecordTableStateRow>
+                    ) : workspaceQuery.data?.loans.length ? (
                         workspaceQuery.data.loans.map((loan) => (
                           <LoanPortfolioRow
                             key={loan.microLoanId}
@@ -240,18 +295,28 @@ export function MlsLoanAccountsPage() {
           detail={detailQuery.data ?? null}
           isLoading={detailQuery.isLoading}
           isError={detailQuery.isError}
+          errorMessage={getApiErrorMessage(detailQuery.error, "Unable to load this loan account right now.")}
           paymentAmount={paymentAmount}
           paymentDate={paymentDate}
           referenceNumber={referenceNumber}
           remarks={remarks}
+          reversalDate={reversalDate}
+          reversalReferenceNumber={reversalReferenceNumber}
+          reversalRemarks={reversalRemarks}
+          reversibleLedgerRow={reversibleLedgerRow}
           isPosting={paymentMutation.isPending}
+          isReversing={reversePaymentMutation.isPending}
           onChangeTab={(tabKey) => setActiveTab(tabKey)}
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleSubmit}
+          onReversalSubmit={handleReversalSubmit}
           onPaymentAmountChange={setPaymentAmount}
           onPaymentDateChange={setPaymentDate}
           onReferenceNumberChange={setReferenceNumber}
           onRemarksChange={setRemarks}
+          onReversalDateChange={setReversalDate}
+          onReversalReferenceNumberChange={setReversalReferenceNumber}
+          onReversalRemarksChange={setReversalRemarks}
         />
       </RecordWorkspace>
     </ProtectedRoute>
@@ -303,18 +368,28 @@ type LoanAccountModalProps = {
   detail: TenantMlsLoanDetailResponse | null;
   isLoading: boolean;
   isError: boolean;
+  errorMessage?: string;
   paymentAmount: string;
   paymentDate: string;
   referenceNumber: string;
   remarks: string;
+  reversalDate: string;
+  reversalReferenceNumber: string;
+  reversalRemarks: string;
+  reversibleLedgerRow: TenantMlsLoanDetailResponse["ledger"][number] | null;
   isPosting: boolean;
+  isReversing: boolean;
   onChangeTab: (tab: LoanAccountsTab) => void;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onReversalSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onPaymentAmountChange: (value: string) => void;
   onPaymentDateChange: (value: string) => void;
   onReferenceNumberChange: (value: string) => void;
   onRemarksChange: (value: string) => void;
+  onReversalDateChange: (value: string) => void;
+  onReversalReferenceNumberChange: (value: string) => void;
+  onReversalRemarksChange: (value: string) => void;
 };
 
 function LoanAccountModal({
@@ -325,18 +400,28 @@ function LoanAccountModal({
   detail,
   isLoading,
   isError,
+  errorMessage,
   paymentAmount,
   paymentDate,
   referenceNumber,
   remarks,
+  reversalDate,
+  reversalReferenceNumber,
+  reversalRemarks,
+  reversibleLedgerRow,
   isPosting,
+  isReversing,
   onChangeTab,
   onClose,
   onSubmit,
+  onReversalSubmit,
   onPaymentAmountChange,
   onPaymentDateChange,
   onReferenceNumberChange,
-  onRemarksChange
+  onRemarksChange,
+  onReversalDateChange,
+  onReversalReferenceNumberChange,
+  onReversalRemarksChange
 }: LoanAccountModalProps) {
   const tabs: Array<{ key: LoanAccountsTab; label: string }> = [
     { key: "payment-posting", label: "Payment Posting" },
@@ -369,7 +454,7 @@ function LoanAccountModal({
       {isLoading ? <WorkspaceNotice>Loading loan account detail...</WorkspaceNotice> : null}
       {isError ? (
         <WorkspaceNotice tone="error">
-          Unable to load this loan account right now.
+          {errorMessage ?? "Unable to load this loan account right now."}
         </WorkspaceNotice>
       ) : null}
 
@@ -396,7 +481,20 @@ function LoanAccountModal({
             />
           ) : null}
           {activeTab === "amortization" ? <LoanAmortizationTab detail={detail} /> : null}
-          {activeTab === "ledger" ? <LoanLedgerTab detail={detail} /> : null}
+          {activeTab === "ledger" ? (
+            <LoanLedgerTab
+              detail={detail}
+              reversalDate={reversalDate}
+              reversalReferenceNumber={reversalReferenceNumber}
+              reversalRemarks={reversalRemarks}
+              reversibleLedgerRow={reversibleLedgerRow}
+              isReversing={isReversing}
+              onSubmit={onReversalSubmit}
+              onReversalDateChange={onReversalDateChange}
+              onReversalReferenceNumberChange={onReversalReferenceNumberChange}
+              onReversalRemarksChange={onReversalRemarksChange}
+            />
+          ) : null}
         </div>
       ) : null}
     </RecordSurfaceModal>
@@ -553,17 +651,84 @@ function LoanAmortizationTab({ detail }: LoanAmortizationTabProps) {
 
 type LoanLedgerTabProps = {
   detail: TenantMlsLoanDetailResponse;
+  reversalDate: string;
+  reversalReferenceNumber: string;
+  reversalRemarks: string;
+  reversibleLedgerRow: TenantMlsLoanDetailResponse["ledger"][number] | null;
+  isReversing: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onReversalDateChange: (value: string) => void;
+  onReversalReferenceNumberChange: (value: string) => void;
+  onReversalRemarksChange: (value: string) => void;
 };
 
-function LoanLedgerTab({ detail }: LoanLedgerTabProps) {
+function LoanLedgerTab({
+  detail,
+  reversalDate,
+  reversalReferenceNumber,
+  reversalRemarks,
+  reversibleLedgerRow,
+  isReversing,
+  onSubmit,
+  onReversalDateChange,
+  onReversalReferenceNumberChange,
+  onReversalRemarksChange
+}: LoanLedgerTabProps) {
   return (
     <div className="grid auto-rows-max gap-4">
+      <WorkspacePanel>
+        <WorkspacePanelHeader eyebrow="Correction" title="Payment reversal control" />
+
+        {reversibleLedgerRow ? (
+          <WorkspaceForm onSubmit={onSubmit}>
+            <WorkspaceNotice>
+              Only the most recent unreversed loan payment can be corrected. This reversal targets {reversibleLedgerRow.referenceNumber} for {formatCurrency(reversibleLedgerRow.creditAmount)}.
+            </WorkspaceNotice>
+
+            <WorkspaceFieldGrid>
+              <WorkspaceField label="Reversal date">
+                <WorkspaceInput
+                  type="date"
+                  value={reversalDate}
+                  onChange={(event) => onReversalDateChange(event.target.value)}
+                  required
+                />
+              </WorkspaceField>
+              <WorkspaceField label="Reversal reference">
+                <WorkspaceInput
+                  value={reversalReferenceNumber}
+                  onChange={(event) => onReversalReferenceNumberChange(event.target.value)}
+                />
+              </WorkspaceField>
+              <WorkspaceField label="Correction remarks" wide={true}>
+                <WorkspaceInput
+                  value={reversalRemarks}
+                  onChange={(event) => onReversalRemarksChange(event.target.value)}
+                  placeholder="Reason for reversing this payment entry"
+                  required
+                />
+              </WorkspaceField>
+            </WorkspaceFieldGrid>
+
+            <div className="flex justify-end">
+              <WorkspaceModalButton type="submit" tone="danger" disabled={isReversing}>
+                {isReversing ? "Reversing Payment..." : "Reverse Payment"}
+              </WorkspaceModalButton>
+            </div>
+          </WorkspaceForm>
+        ) : (
+          <WorkspaceNotice>
+            No reversible payment is available right now. Reverse actions must start from the latest unreversed loan payment.
+          </WorkspaceNotice>
+        )}
+      </WorkspacePanel>
+
       <WorkspacePanel>
         <WorkspacePanelHeader eyebrow="Ledger" title="Recent loan transactions" />
 
         {detail.ledger.length ? (
           <WorkspaceSubtableShell className="max-h-[min(56vh,34rem)]">
-            <WorkspaceSubtable className="min-w-[62rem]">
+            <WorkspaceSubtable className="min-w-[70rem]">
               <thead>
                 <tr>
                   <th>Date</th>
@@ -573,18 +738,28 @@ function LoanLedgerTab({ detail }: LoanLedgerTabProps) {
                   <th>Credit</th>
                   <th>Balance</th>
                   <th>Remarks</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {detail.ledger.map((row) => (
                   <tr key={row.transactionId}>
-                    <td>{row.transactionDateUtc.slice(0, 10)}</td>
+                    <td>{new Date(row.transactionDateUtc).toLocaleString("en-PH")}</td>
                     <td>{row.transactionType}</td>
                     <td>{row.referenceNumber}</td>
                     <td>{formatCurrency(row.debitAmount)}</td>
                     <td>{formatCurrency(row.creditAmount)}</td>
                     <td>{formatCurrency(row.runningBalance)}</td>
-                    <td>{row.remarks || "—"}</td>
+                    <td>{row.remarks || "No remarks recorded."}</td>
+                    <td>
+                      {row.canReverse ? (
+                        <WorkspaceStatusPill tone="warning">Reversible</WorkspaceStatusPill>
+                      ) : row.transactionType === "LoanPaymentReversal" ? (
+                        <WorkspaceStatusPill tone="inactive">Correction</WorkspaceStatusPill>
+                      ) : (
+                        <WorkspaceStatusPill tone="neutral">History</WorkspaceStatusPill>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -592,7 +767,7 @@ function LoanLedgerTab({ detail }: LoanLedgerTabProps) {
           </WorkspaceSubtableShell>
         ) : (
           <WorkspaceEmptyState>
-            Loan creation and payment ledger entries will appear here for this account.
+            Loan creation, payment, and correction entries will appear here for this account.
           </WorkspaceEmptyState>
         )}
       </WorkspacePanel>

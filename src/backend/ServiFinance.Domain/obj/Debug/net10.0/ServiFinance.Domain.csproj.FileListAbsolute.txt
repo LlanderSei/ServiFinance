@@ -10,3 +10,6 @@ E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\
 E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\refint\ServiFinance.Domain.dll
 E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.pdb
 E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ref\ServiFinance.Domain.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\verify-api-build\api\ServiFinance.Domain.deps.json
+E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\verify-api-build\api\ServiFinance.Domain.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\verify-api-build\api\ServiFinance.Domain.pdb

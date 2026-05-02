@@ -19,6 +19,7 @@ public sealed class DevelopmentDataSeeder(
     var customerSeeds = GetDevelopmentCustomerSeeds();
     var serviceRequestSeeds = GetDevelopmentServiceRequestSeeds();
     var invoiceSeeds = GetDevelopmentInvoiceSeeds();
+    var billingRecordSeeds = GetDevelopmentBillingRecordSeeds();
     var staffUserSeeds = GetDevelopmentStaffUserSeeds();
     var assignmentSeeds = GetDevelopmentAssignmentSeeds();
 
@@ -123,7 +124,11 @@ public sealed class DevelopmentDataSeeder(
     platformTenant.SubscriptionEdition = "Internal";
     platformTenant.SubscriptionPlan = "Platform";
     platformTenant.SubscriptionStatus = "Internal";
+    platformTenant.BillingProvider = "Manual";
+    platformTenant.StripeCustomerId = null;
+    platformTenant.StripeSubscriptionId = null;
     platformTenant.IsActive = true;
+    await EnsureTenantThemeAsync(platformTenant.Id, cancellationToken);
 
     var developmentTier = tiersById[ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId];
     var tenant = await dbContext.Tenants
@@ -147,7 +152,11 @@ public sealed class DevelopmentDataSeeder(
     tenant.SubscriptionEdition = developmentTier.SubscriptionEdition;
     tenant.SubscriptionPlan = developmentTier.DisplayName;
     tenant.SubscriptionStatus = "Active";
+    tenant.BillingProvider = "Manual";
+    tenant.StripeCustomerId = null;
+    tenant.StripeSubscriptionId = null;
     tenant.IsActive = true;
+    await EnsureTenantThemeAsync(tenant.Id, cancellationToken);
 
     var superAdminRole = await dbContext.Roles
         .IgnoreQueryFilters()
@@ -419,6 +428,43 @@ public sealed class DevelopmentDataSeeder(
       invoice.InvoiceStatus = seed.InvoiceStatus;
     }
 
+    var billingRecordsById = await dbContext.TenantBillingRecords
+        .IgnoreQueryFilters()
+        .Where(entity => entity.TenantId == options.TenantId)
+        .ToDictionaryAsync(entity => entity.Id, cancellationToken);
+
+    foreach (var seed in billingRecordSeeds) {
+      if (!billingRecordsById.TryGetValue(seed.Id, out var billingRecord)) {
+        billingRecord = new TenantBillingRecord {
+            Id = seed.Id,
+            TenantId = options.TenantId
+        };
+        dbContext.TenantBillingRecords.Add(billingRecord);
+        billingRecordsById[seed.Id] = billingRecord;
+        logger.LogInformation("Seeded tenant billing record '{BillingPeriodLabel}'.", seed.BillingPeriodLabel);
+      }
+
+      billingRecord.TenantId = options.TenantId;
+      billingRecord.SubmittedByUserId = adminUser.Id;
+      billingRecord.BillingPeriodLabel = seed.BillingPeriodLabel;
+      billingRecord.CoverageStartUtc = seed.CoverageStartUtc;
+      billingRecord.CoverageEndUtc = seed.CoverageEndUtc;
+      billingRecord.DueDateUtc = seed.DueDateUtc;
+      billingRecord.AmountDue = seed.AmountDue;
+      billingRecord.AmountSubmitted = seed.AmountSubmitted;
+      billingRecord.PaymentMethod = seed.PaymentMethod;
+      billingRecord.ReferenceNumber = seed.ReferenceNumber;
+      billingRecord.Status = seed.Status;
+      billingRecord.Note = seed.Note;
+      billingRecord.ReviewRemarks = seed.ReviewRemarks;
+      billingRecord.ProofOriginalFileName = null;
+      billingRecord.ProofStoredFileName = null;
+      billingRecord.ProofContentType = null;
+      billingRecord.ProofRelativeUrl = null;
+      billingRecord.SubmittedAtUtc = seed.SubmittedAtUtc;
+      billingRecord.ReviewedAtUtc = seed.ReviewedAtUtc;
+    }
+
     var assignmentsById = await dbContext.Assignments
         .IgnoreQueryFilters()
         .Where(entity => entity.TenantId == options.TenantId)
@@ -446,6 +492,19 @@ public sealed class DevelopmentDataSeeder(
     }
 
     await dbContext.SaveChangesAsync(cancellationToken);
+  }
+
+  private async Task EnsureTenantThemeAsync(Guid tenantId, CancellationToken cancellationToken) {
+    var theme = await dbContext.TenantThemes
+        .IgnoreQueryFilters()
+        .SingleOrDefaultAsync(entity => entity.TenantId == tenantId, cancellationToken);
+    if (theme is not null) {
+      return;
+    }
+
+    dbContext.TenantThemes.Add(new TenantTheme {
+      TenantId = tenantId
+    });
   }
 
   private static IReadOnlyList<SubscriptionTierSeed> GetSubscriptionTierSeeds() => [
@@ -692,6 +751,39 @@ public sealed class DevelopmentDataSeeder(
           "Finalized")
   ];
 
+  private static IReadOnlyList<DevelopmentBillingRecordSeed> GetDevelopmentBillingRecordSeeds() => [
+      new(
+          Guid.Parse("eeee1111-1111-1111-1111-111111111111"),
+          "April 2026 subscription cycle",
+          new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+          new DateTime(2026, 4, 30, 0, 0, 0, DateTimeKind.Utc),
+          new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+          4490m,
+          4490m,
+          "Bank transfer",
+          "BILL-APR-2026-041",
+          "Confirmed",
+          "Transferred the monthly subscription renewal before the new service window opened.",
+          "Verified against the tenant plan rate.",
+          new DateTime(2026, 3, 29, 9, 15, 0, DateTimeKind.Utc),
+          new DateTime(2026, 3, 29, 13, 45, 0, DateTimeKind.Utc)),
+      new(
+          Guid.Parse("eeee2222-2222-2222-2222-222222222222"),
+          "May 2026 subscription cycle",
+          new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+          new DateTime(2026, 5, 31, 0, 0, 0, DateTimeKind.Utc),
+          new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+          4490m,
+          4490m,
+          "GCash",
+          "BILL-MAY-2026-058",
+          "Confirmed",
+          "Settled through the tenant owner wallet before the monthly service cycle started.",
+          "Confirmed and aligned to the subscribed Small Premium plan.",
+          new DateTime(2026, 4, 28, 8, 40, 0, DateTimeKind.Utc),
+          new DateTime(2026, 4, 28, 11, 10, 0, DateTimeKind.Utc))
+  ];
+
   private static IReadOnlyList<DevelopmentStaffUserSeed> GetDevelopmentStaffUserSeeds() => [
       new(
           Guid.Parse("12121212-1212-1212-1212-121212121212"),
@@ -804,4 +896,20 @@ public sealed class DevelopmentDataSeeder(
       decimal TotalAmount,
       decimal OutstandingAmount,
       string InvoiceStatus);
+
+  private sealed record DevelopmentBillingRecordSeed(
+      Guid Id,
+      string BillingPeriodLabel,
+      DateTime CoverageStartUtc,
+      DateTime CoverageEndUtc,
+      DateTime DueDateUtc,
+      decimal AmountDue,
+      decimal AmountSubmitted,
+      string PaymentMethod,
+      string ReferenceNumber,
+      string Status,
+      string? Note,
+      string? ReviewRemarks,
+      DateTime SubmittedAtUtc,
+      DateTime? ReviewedAtUtc);
 }

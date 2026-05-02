@@ -1,6 +1,6 @@
 # ServiFinance Data Dictionary
 
-Last updated: 2026-05-01
+Last updated: 2026-05-03
 
 ## Scope
 
@@ -15,6 +15,7 @@ Last updated: 2026-05-01
 Tables primarily handled by this user:
 
 - `Tenants`
+- `TenantThemes`
 - `SubscriptionTiers`
 - `ModuleCatalog`
 - `SubscriptionTierModules`
@@ -37,14 +38,24 @@ BusinessSizeSegment | nvarchar | 50 | MSME size segment such as Micro, Small, or
 SubscriptionEdition | nvarchar | 50 | Product edition such as Standard or Premium
 SubscriptionPlan | nvarchar | 100 | Commercial plan label for the tenant
 SubscriptionStatus | nvarchar | 100 | Current subscription lifecycle state
+BillingProvider | nvarchar | 50 | Billing owner such as Manual or Stripe
+StripeCustomerId | nvarchar | 200 | Optional external Stripe customer reference
+StripeSubscriptionId | nvarchar | 200 | Optional external Stripe subscription reference
+CreatedAtUtc | datetime2 | - | UTC date and time when the tenant was created
+IsActive | bit | 1 | Active or inactive status of the tenant
+```
+### [TenantThemes] table
+
+```text
+Field Names | Datatype | Length | Description
+Id | uniqueidentifier | 36 | Primary key of the tenant theme record
+TenantId | uniqueidentifier | 36 | Unique foreign key to `Tenants.Id`
 DisplayName | nvarchar | 200 | Optional public-facing tenant name used in branded screens
 LogoUrl | nvarchar | 500 | Optional logo path or URL for tenant branding
 PrimaryColor | nvarchar | 20 | Optional primary brand color value
 SecondaryColor | nvarchar | 20 | Optional secondary brand color value
 HeaderBackgroundColor | nvarchar | 20 | Optional header background color value
 PageBackgroundColor | nvarchar | 20 | Optional page background color value
-CreatedAtUtc | datetime2 | - | UTC date and time when the tenant was created
-IsActive | bit | 1 | Active or inactive status of the tenant
 ```
 ### [SubscriptionTiers] table
 
@@ -712,6 +723,6 @@ Status | nvarchar | 50 | Review or follow-up status
 ```
 ## Notes
 
-- Implemented tables in the current codebase: `Tenants`, `SubscriptionTiers`, `ModuleCatalog`, `SubscriptionTierModules`, `Users`, `Roles`, `UserRoles`, `RefreshSessions`, `Customers`, `ServiceRequests`, `StatusLogs`, `Assignments`, `AssignmentEvents`, `AssignmentEvidence`, `Invoices`, `InvoiceLines`, `MicroLoans`, `AmortizationSchedules`, `Transactions`.
+- Implemented tables in the current codebase: `Tenants`, `TenantThemes`, `SubscriptionTiers`, `ModuleCatalog`, `SubscriptionTierModules`, `Users`, `Roles`, `UserRoles`, `RefreshSessions`, `Customers`, `ServiceRequests`, `StatusLogs`, `Assignments`, `AssignmentEvents`, `AssignmentEvidence`, `Invoices`, `InvoiceLines`, `MicroLoans`, `AmortizationSchedules`, `Transactions`.
 - Assumed future tables from existing docs: `TenantModuleEntitlements`, `AuditLogs`, `CustomerFeedback`, `ServiceRequestPhotos`.
 - `Collections Queue` and reporting screens are currently better modeled as derived queries, dashboards, or views from `MicroLoans`, `AmortizationSchedules`, and `Transactions`, not as standalone base tables.

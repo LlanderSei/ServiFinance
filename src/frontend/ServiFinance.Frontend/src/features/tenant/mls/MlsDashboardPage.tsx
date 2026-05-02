@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import type { TenantMlsDashboardResponse } from "@/shared/api/contracts";
-import { httpGet } from "@/shared/api/http";
+import { getApiErrorMessage, httpGet } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -81,7 +81,7 @@ export function MlsDashboardPage() {
 
           {dashboardQuery.isError ? (
             <WorkspaceNotice tone="error">
-              Unable to load the MLS dashboard right now. Refresh the desktop session and try again.
+              {getApiErrorMessage(dashboardQuery.error, "Unable to load the MLS dashboard right now. Refresh the desktop session and try again.")}
             </WorkspaceNotice>
           ) : null}
 

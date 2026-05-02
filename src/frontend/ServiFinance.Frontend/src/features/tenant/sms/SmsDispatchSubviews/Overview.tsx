@@ -40,8 +40,10 @@ export function SmsDispatchOverview({
 }: OverviewProps) {
   const summary = useMemo(() => {
     return {
+      pendingAcceptance: assignments.filter((a) => a.assignmentStatus === "Pending Acceptance").length,
       scheduled: assignments.filter((a) => a.assignmentStatus === "Scheduled").length,
       inProgress: assignments.filter((a) => a.assignmentStatus === "In Progress").length,
+      conflicts: assignments.filter((a) => a.scheduleConflictCount > 0).length,
       mine: currentUserId ? assignments.filter((a) => a.assignedUserId === currentUserId).length : 0,
     };
   }, [assignments, currentUserId]);
@@ -54,12 +56,17 @@ export function SmsDispatchOverview({
   }, [assignments, viewMode, currentUserId]);
 
   const filteredAssignments = useMemo(() => {
-    return visibleAssignments.filter(a => ["Completed", "Cancelled", "Abandoned"].includes(a.assignmentStatus));
+    return visibleAssignments.filter(a => !["Completed", "Cancelled", "Abandoned"].includes(a.assignmentStatus));
   }, [visibleAssignments]);
 
   return (
     <>
-      <WorkspaceMetricGrid className="2xl:grid-cols-3">
+      <WorkspaceMetricGrid className="2xl:grid-cols-5">
+        <MetricCard
+          label="Pending acceptance"
+          value={summary.pendingAcceptance}
+          description="Handover assignments waiting for the assigned staff response."
+        />
         <MetricCard
           label="Scheduled"
           value={summary.scheduled}
@@ -74,6 +81,11 @@ export function SmsDispatchOverview({
           label="My tasks"
           value={summary.mine}
           description="Assignments currently owned by the signed-in operator."
+        />
+        <MetricCard
+          label="Conflicts"
+          value={summary.conflicts}
+          description="Active assignments with overlapping schedule visibility."
         />
       </WorkspaceMetricGrid>
 
@@ -104,7 +116,7 @@ export function SmsDispatchOverview({
             ) : null}
             {!isLoading && !isError && !filteredAssignments.length ? (
               <RecordTableStateRow colSpan={10}>
-                {viewMode === "all" ? "No archived assignments yet." : "No archived assignments are currently assigned to your account."}
+                {viewMode === "all" ? "No active dispatch assignments right now." : "No active assignments are currently assigned to your account."}
               </RecordTableStateRow>
             ) : null}
             {filteredAssignments.map((assignment) => (

@@ -11,15 +11,31 @@ internal static class TenantMlsLedgerEndpointMappings {
         HttpContext httpContext,
         string tenantDomainSlug,
         string? transactionType,
+        string? searchTerm,
+        DateTime? dateFrom,
+        DateTime? dateTo,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeLedgerReports);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           var normalizedTransactionType = string.IsNullOrWhiteSpace(transactionType)
             ? null
             : transactionType.Trim();
+          var normalizedSearchTerm = string.IsNullOrWhiteSpace(searchTerm)
+            ? null
+            : searchTerm.Trim();
+          var dateRange = ResolveDateRange(dateFrom, dateTo);
+          if (dateRange.Error is not null) {
+            return Results.BadRequest(new { error = dateRange.Error });
+          }
 
           var ledgerQuery = dbContext.Transactions
               .AsNoTracking()
@@ -32,6 +48,23 @@ internal static class TenantMlsLedgerEndpointMappings {
 
           if (!string.IsNullOrWhiteSpace(normalizedTransactionType)) {
             ledgerQuery = ledgerQuery.Where(entity => entity.TransactionType == normalizedTransactionType);
+          }
+
+          if (dateRange.DateFromUtc.HasValue) {
+            ledgerQuery = ledgerQuery.Where(entity => entity.TransactionDateUtc >= dateRange.DateFromUtc.Value);
+          }
+
+          if (dateRange.DateToExclusiveUtc.HasValue) {
+            ledgerQuery = ledgerQuery.Where(entity => entity.TransactionDateUtc < dateRange.DateToExclusiveUtc.Value);
+          }
+
+          if (!string.IsNullOrWhiteSpace(normalizedSearchTerm)) {
+            ledgerQuery = ledgerQuery.Where(entity =>
+                entity.TransactionType.Contains(normalizedSearchTerm) ||
+                entity.ReferenceNumber.Contains(normalizedSearchTerm) ||
+                entity.Remarks.Contains(normalizedSearchTerm) ||
+                (entity.Customer != null && entity.Customer.FullName.Contains(normalizedSearchTerm)) ||
+                (entity.Invoice != null && entity.Invoice.InvoiceNumber.Contains(normalizedSearchTerm)));
           }
 
           var entries = await ledgerQuery
@@ -57,16 +90,32 @@ internal static class TenantMlsLedgerEndpointMappings {
           if (!string.IsNullOrWhiteSpace(normalizedTransactionType)) {
             summaryBaseQuery = summaryBaseQuery.Where(entity => entity.TransactionType == normalizedTransactionType);
           }
+          if (dateRange.DateFromUtc.HasValue) {
+            summaryBaseQuery = summaryBaseQuery.Where(entity => entity.TransactionDateUtc >= dateRange.DateFromUtc.Value);
+          }
+          if (dateRange.DateToExclusiveUtc.HasValue) {
+            summaryBaseQuery = summaryBaseQuery.Where(entity => entity.TransactionDateUtc < dateRange.DateToExclusiveUtc.Value);
+          }
+          if (!string.IsNullOrWhiteSpace(normalizedSearchTerm)) {
+            summaryBaseQuery = summaryBaseQuery.Where(entity =>
+                entity.TransactionType.Contains(normalizedSearchTerm) ||
+                entity.ReferenceNumber.Contains(normalizedSearchTerm) ||
+                entity.Remarks.Contains(normalizedSearchTerm) ||
+                (entity.Customer != null && entity.Customer.FullName.Contains(normalizedSearchTerm)) ||
+                (entity.Invoice != null && entity.Invoice.InvoiceNumber.Contains(normalizedSearchTerm)));
+          }
 
           var totalEntries = await summaryBaseQuery.CountAsync(cancellationToken);
           var totalLoanDisbursed = await summaryBaseQuery
               .Where(entity => entity.TransactionType == "LoanCreation" || entity.TransactionType == "StandaloneLoanCreation")
               .SumAsync(entity => (decimal?)entity.DebitAmount, cancellationToken) ?? 0m;
           var totalCollections = await summaryBaseQuery
-              .Where(entity => entity.TransactionType == "LoanPayment")
-              .SumAsync(entity => (decimal?)entity.CreditAmount, cancellationToken) ?? 0m;
-          var currentRunningBalance = await dbContext.Transactions
-              .AsNoTracking()
+              .Where(entity => entity.TransactionType == "LoanPayment" || entity.TransactionType == "LoanPaymentReversal")
+              .SumAsync(entity => (decimal?)(
+                  entity.TransactionType == "LoanPayment"
+                    ? entity.CreditAmount
+                    : -entity.DebitAmount), cancellationToken) ?? 0m;
+          var currentRunningBalance = await summaryBaseQuery
               .OrderByDescending(entity => entity.TransactionDateUtc)
               .ThenByDescending(entity => entity.Id)
               .Select(entity => (decimal?)entity.RunningBalance)
@@ -83,4 +132,19 @@ internal static class TenantMlsLedgerEndpointMappings {
 
     return tenantApi;
   }
+
+  private static DateRange ResolveDateRange(DateTime? dateFrom, DateTime? dateTo) {
+    var dateFromUtc = dateFrom?.Date;
+    var dateToExclusiveUtc = dateTo?.Date.AddDays(1);
+    if (dateFromUtc.HasValue && dateToExclusiveUtc.HasValue && dateToExclusiveUtc.Value <= dateFromUtc.Value) {
+      return new DateRange("Ledger end date must be on or after the start date.", null, null);
+    }
+
+    return new DateRange(null, dateFromUtc, dateToExclusiveUtc);
+  }
+
+  private readonly record struct DateRange(
+      string? Error,
+      DateTime? DateFromUtc,
+      DateTime? DateToExclusiveUtc);
 }

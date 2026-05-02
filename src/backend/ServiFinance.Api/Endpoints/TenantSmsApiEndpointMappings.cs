@@ -2,6 +2,7 @@
 namespace ServiFinance.Api.Endpoints;
 
 using Microsoft.AspNetCore.Authorization;
+using ServiFinance.Api.Endpoints.TenantBilling;
 using ServiFinance.Api.Endpoints.TenantMls;
 using ServiFinance.Api.Endpoints.TenantSms;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
@@ -17,6 +18,7 @@ internal static class TenantSmsApiEndpointMappings {
     tenantApi.MapTenantSmsServiceRequestsEndpoints();
     tenantApi.MapTenantSmsDispatchEndpoints();
     tenantApi.MapTenantSmsReportsEndpoints();
+    tenantApi.MapTenantBillingEndpoints();
     tenantApi.MapTenantMlsDashboardEndpoints();
     tenantApi.MapTenantMlsLoanConversionEndpoints();
     tenantApi.MapTenantMlsLoanAccountsEndpoints();

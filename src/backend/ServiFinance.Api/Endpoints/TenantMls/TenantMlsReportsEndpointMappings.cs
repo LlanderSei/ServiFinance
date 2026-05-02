@@ -11,18 +11,31 @@ internal static class TenantMlsReportsEndpointMappings {
     tenantApi.MapGet("/mls/reports", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
+        DateTime? dateFrom,
+        DateTime? dateTo,
         int? rangeDays,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeLedgerReports);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
-          var normalizedRangeDays = NormalizeRangeDays(rangeDays);
+          var reportWindow = ResolveReportWindow(dateFrom, dateTo, rangeDays);
+          if (reportWindow.Error is not null) {
+            return Results.BadRequest(new { error = reportWindow.Error });
+          }
+
+          var normalizedRangeDays = reportWindow.RangeDays;
           var todayUtc = DateTime.UtcNow.Date;
-          var dateFromUtc = todayUtc.AddDays(-(normalizedRangeDays - 1));
-          var dateToUtc = todayUtc.AddDays(1).AddTicks(-1);
-          var dateToExclusiveUtc = todayUtc.AddDays(1);
+          var dateFromUtc = reportWindow.DateFromUtc;
+          var dateToUtc = reportWindow.DateToUtc;
+          var dateToExclusiveUtc = reportWindow.DateToExclusiveUtc;
 
           var activeLoans = await dbContext.MicroLoans
               .AsNoTracking()
@@ -52,8 +65,8 @@ internal static class TenantMlsReportsEndpointMappings {
               .ToListAsync(cancellationToken);
 
           var collectionsInWindow = rangedTransactions
-              .Where(entity => entity.TransactionType == "LoanPayment")
-              .Sum(entity => entity.CreditAmount);
+              .Where(entity => entity.TransactionType == "LoanPayment" || entity.TransactionType == "LoanPaymentReversal")
+              .Sum(entity => entity.TransactionType == "LoanPayment" ? entity.CreditAmount : -entity.DebitAmount);
           var paymentCountInWindow = rangedTransactions.Count(entity => entity.TransactionType == "LoanPayment");
           var loanDisbursedInWindow = rangedTransactions
               .Where(entity => entity.TransactionType is "LoanCreation" or "StandaloneLoanCreation")
@@ -123,6 +136,37 @@ internal static class TenantMlsReportsEndpointMappings {
       : 30;
   }
 
+  private static ReportWindow ResolveReportWindow(DateTime? dateFrom, DateTime? dateTo, int? rangeDays) {
+    var todayUtc = DateTime.UtcNow.Date;
+
+    if (dateFrom.HasValue || dateTo.HasValue) {
+      var dateToExclusiveUtc = (dateTo?.Date ?? todayUtc).AddDays(1);
+      var dateFromUtc = dateFrom?.Date ?? dateToExclusiveUtc.AddDays(-NormalizeRangeDays(rangeDays));
+      if (dateToExclusiveUtc <= dateFromUtc) {
+        return new ReportWindow("Report end date must be on or after the start date.", 0, default, default, default);
+      }
+
+      var normalizedRangeDays = (int)(dateToExclusiveUtc - dateFromUtc).TotalDays;
+      return new ReportWindow(
+          null,
+          normalizedRangeDays,
+          DateTime.SpecifyKind(dateFromUtc, DateTimeKind.Utc),
+          DateTime.SpecifyKind(dateToExclusiveUtc.AddTicks(-1), DateTimeKind.Utc),
+          DateTime.SpecifyKind(dateToExclusiveUtc, DateTimeKind.Utc));
+    }
+
+    var normalizedRangeDaysFromPreset = NormalizeRangeDays(rangeDays);
+    var presetDateToExclusiveUtc = todayUtc.AddDays(1);
+    var presetDateFromUtc = presetDateToExclusiveUtc.AddDays(-normalizedRangeDaysFromPreset);
+
+    return new ReportWindow(
+        null,
+        normalizedRangeDaysFromPreset,
+        DateTime.SpecifyKind(presetDateFromUtc, DateTimeKind.Utc),
+        DateTime.SpecifyKind(presetDateToExclusiveUtc.AddTicks(-1), DateTimeKind.Utc),
+        DateTime.SpecifyKind(presetDateToExclusiveUtc, DateTimeKind.Utc));
+  }
+
   private static TenantMlsReportsAgingBucketRowResponse[] BuildAgingBuckets(
       IReadOnlyList<AmortizationSchedule> schedules,
       DateTime todayUtc) {
@@ -167,7 +211,7 @@ internal static class TenantMlsReportsEndpointMappings {
       IReadOnlyList<LedgerTransaction> transactions,
       int rangeDays) {
     var paymentRows = transactions
-        .Where(entity => entity.TransactionType == "LoanPayment")
+        .Where(entity => entity.TransactionType == "LoanPayment" || entity.TransactionType == "LoanPaymentReversal")
         .ToArray();
 
     if (rangeDays <= 31) {
@@ -176,8 +220,8 @@ internal static class TenantMlsReportsEndpointMappings {
           .OrderBy(group => group.Key)
           .Select(group => new TenantMlsReportsTrendRowResponse(
               group.Key.ToString("yyyy-MM-dd"),
-              RoundCurrency(group.Sum(item => item.CreditAmount)),
-              group.Count()))
+              RoundCurrency(group.Sum(item => item.TransactionType == "LoanPayment" ? item.CreditAmount : -item.DebitAmount)),
+              group.Count(item => item.TransactionType == "LoanPayment")))
           .ToArray();
     }
 
@@ -186,11 +230,18 @@ internal static class TenantMlsReportsEndpointMappings {
         .OrderBy(group => group.Key)
         .Select(group => new TenantMlsReportsTrendRowResponse(
             group.Key.ToString("yyyy-MM"),
-            RoundCurrency(group.Sum(item => item.CreditAmount)),
-            group.Count()))
+            RoundCurrency(group.Sum(item => item.TransactionType == "LoanPayment" ? item.CreditAmount : -item.DebitAmount)),
+            group.Count(item => item.TransactionType == "LoanPayment")))
         .ToArray();
   }
 
   private static decimal RoundCurrency(decimal value) =>
     Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+  private readonly record struct ReportWindow(
+      string? Error,
+      int RangeDays,
+      DateTime DateFromUtc,
+      DateTime DateToUtc,
+      DateTime DateToExclusiveUtc);
 }

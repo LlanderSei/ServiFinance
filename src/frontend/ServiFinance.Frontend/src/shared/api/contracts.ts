@@ -23,6 +23,38 @@ export type SubscriptionTierCard = {
   modules: SubscriptionTierModuleCard[];
 };
 
+export type CreatePlatformTenantCheckoutRequest = {
+  businessName: string;
+  domainSlug: string;
+  ownerFullName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+  subscriptionTierId: string;
+};
+
+export type CreatePlatformTenantCheckoutResponse = {
+  registrationId: string;
+  checkoutSessionId: string;
+  checkoutUrl: string;
+};
+
+export type PlatformTenantRegistrationStatus = {
+  registrationId: string;
+  status: string;
+  businessName: string;
+  domainSlug: string;
+  ownerEmail: string;
+  subscriptionPlan: string;
+  subscriptionEdition: string;
+  billingProvider: string | null;
+  stripeSubscriptionStatus: string | null;
+  failureReason: string | null;
+  tenantId: string | null;
+  tenantLoginUrl: string | null;
+  createdAtUtc: string;
+  provisionedAtUtc: string | null;
+};
+
 export type SuperadminTenantRow = {
   id: string;
   name: string;
@@ -391,6 +423,69 @@ export type TenantOperationalReportsResponse = {
   };
 };
 
+export type TenantBillingModuleAccessRow = {
+  moduleCode: string;
+  moduleName: string;
+  channel: string;
+  accessLevel: string;
+};
+
+export type TenantBillingPlanSummary = {
+  businessSizeSegment: string;
+  subscriptionEdition: string;
+  subscriptionPlan: string;
+  subscriptionStatus: string;
+  priceDisplay: string | null;
+  billingLabel: string | null;
+  audienceSummary: string | null;
+  planSummary: string | null;
+  modules: TenantBillingModuleAccessRow[];
+};
+
+export type TenantBillingStanding = {
+  accountStanding: string;
+  suspensionRisk: string;
+  billingProvider: string;
+  nextRenewalDateUtc: string | null;
+  expectedRenewalAmount: number | null;
+  latestSubmissionAtUtc: string | null;
+  latestSubmissionStatus: string | null;
+  lastConfirmedCoverageEndUtc: string | null;
+  pendingReviewCount: number;
+  canSubmitRenewalProof: boolean;
+  canOpenBillingPortal: boolean;
+};
+
+export type TenantBillingRecordRow = {
+  id: string;
+  billingPeriodLabel: string;
+  coverageStartUtc: string;
+  coverageEndUtc: string;
+  dueDateUtc: string;
+  amountDue: number;
+  amountSubmitted: number;
+  paymentMethod: string;
+  referenceNumber: string;
+  status: string;
+  note: string | null;
+  reviewRemarks: string | null;
+  proofOriginalFileName: string | null;
+  proofRelativeUrl: string | null;
+  submittedByUserName: string;
+  submittedAtUtc: string;
+  reviewedAtUtc: string | null;
+};
+
+export type TenantBillingOverviewResponse = {
+  plan: TenantBillingPlanSummary;
+  standing: TenantBillingStanding;
+  history: TenantBillingRecordRow[];
+};
+
+export type TenantBillingPortalSessionResponse = {
+  url: string;
+};
+
 export type TenantMlsDashboardSummary = {
   financeReadyInvoices: number;
   convertedLoans: number;
@@ -515,6 +610,7 @@ export type TenantMlsLoanLedgerRow = {
   creditAmount: number;
   runningBalance: number;
   remarks: string;
+  canReverse: boolean;
 };
 
 export type TenantMlsLoanDetailResponse = {
@@ -526,6 +622,15 @@ export type TenantMlsLoanDetailResponse = {
 export type TenantMlsLoanPaymentPostedResponse = {
   microLoanId: string;
   amountApplied: number;
+  outstandingBalance: number;
+  remainingInstallments: number;
+  loanStatus: string;
+};
+
+export type TenantMlsLoanPaymentReversedResponse = {
+  microLoanId: string;
+  reversedTransactionId: string;
+  amountReversed: number;
   outstandingBalance: number;
   remainingInstallments: number;
   loanStatus: string;
@@ -594,6 +699,7 @@ export type TenantMlsAuditSummary = {
   loanCreationEvents: number;
   standaloneLoanEvents: number;
   paymentEvents: number;
+  paymentReversalEvents: number;
 };
 
 export type TenantMlsAuditRow = {
@@ -610,6 +716,33 @@ export type TenantMlsAuditRow = {
 export type TenantMlsAuditWorkspaceResponse = {
   summary: TenantMlsAuditSummary;
   events: TenantMlsAuditRow[];
+};
+
+export type AuditSummary = {
+  totalEvents: number;
+  systemEvents: number;
+  securityEvents: number;
+  failedEvents: number;
+};
+
+export type AuditEventRow = {
+  eventId: string;
+  occurredAtUtc: string;
+  scope: string;
+  category: string;
+  actionType: string;
+  outcome: string;
+  actorName: string;
+  actorEmail: string;
+  subjectType: string;
+  subjectLabel: string;
+  detail: string;
+  ipAddress: string | null;
+};
+
+export type AuditWorkspaceResponse = {
+  summary: AuditSummary;
+  events: AuditEventRow[];
 };
 
 export type TenantMlsStandaloneLoanCustomer = {

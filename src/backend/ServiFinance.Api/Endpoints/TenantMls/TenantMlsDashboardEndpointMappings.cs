@@ -12,8 +12,9 @@ internal static class TenantMlsDashboardEndpointMappings {
         string tenantDomainSlug,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(httpContext, tenantDomainSlug, dbContext, cancellationToken);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           var finalizedInvoices = await dbContext.Invoices

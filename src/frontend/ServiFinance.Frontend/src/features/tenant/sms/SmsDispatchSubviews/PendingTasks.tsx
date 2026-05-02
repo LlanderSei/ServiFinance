@@ -1,6 +1,5 @@
-import { useMemo } from "react";
 import { RecordTable, RecordTableActionButton, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
-import { WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
+import { WorkspaceActionButton, WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
 import type { TenantDispatchAssignmentRow } from "@/shared/api/contracts";
 
 interface PendingTasksProps {
@@ -9,6 +8,10 @@ interface PendingTasksProps {
   isError: boolean;
   viewMode: string;
   onSelectAssignment: (assignment: TenantDispatchAssignmentRow) => void;
+  canRespondToAssignment: (assignment: TenantDispatchAssignmentRow) => boolean;
+  onAcceptAssignment: (assignment: TenantDispatchAssignmentRow) => void;
+  onRejectAssignment: (assignment: TenantDispatchAssignmentRow) => void;
+  isResponding: boolean;
   formatDateTime: (value: string | null) => string;
   getFinanceTone: (status: string) => "active" | "warning" | "progress" | "neutral";
 }
@@ -19,6 +22,10 @@ export function SmsDispatchPendingTasks({
   isError,
   viewMode,
   onSelectAssignment,
+  canRespondToAssignment,
+  onAcceptAssignment,
+  onRejectAssignment,
+  isResponding,
   formatDateTime,
   getFinanceTone
 }: PendingTasksProps) {
@@ -50,7 +57,7 @@ export function SmsDispatchPendingTasks({
           ) : null}
           {!isLoading && !isError && !assignments.length ? (
             <RecordTableStateRow colSpan={10}>
-              {viewMode === "all" ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+              {viewMode === "all" ? "No pending dispatch tasks right now." : "No pending tasks are currently assigned to your account."}
             </RecordTableStateRow>
           ) : null}
           {assignments.map((assignment) => (
@@ -75,9 +82,29 @@ export function SmsDispatchPendingTasks({
                 </WorkspaceStatusPill>
               </td>
               <td>
-                <RecordTableActionButton onClick={() => onSelectAssignment(assignment)}>
-                  View
-                </RecordTableActionButton>
+                <div className="flex flex-wrap gap-1">
+                  <RecordTableActionButton onClick={() => onSelectAssignment(assignment)}>
+                    View
+                  </RecordTableActionButton>
+                  {canRespondToAssignment(assignment) ? (
+                    <>
+                      <WorkspaceActionButton
+                        className="btn-xs text-success hover:bg-success/10"
+                        disabled={isResponding}
+                        onClick={() => onAcceptAssignment(assignment)}
+                      >
+                        Accept
+                      </WorkspaceActionButton>
+                      <WorkspaceActionButton
+                        className="btn-xs text-error hover:bg-error/10"
+                        disabled={isResponding}
+                        onClick={() => onRejectAssignment(assignment)}
+                      >
+                        Reject
+                      </WorkspaceActionButton>
+                    </>
+                  ) : null}
+                </div>
               </td>
             </tr>
           ))}

@@ -12,6 +12,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   private const int TenantDisplayNameMaxLength = 200;
   private const int TenantBrandColorMaxLength = 20;
   private const int TenantLogoUrlMaxLength = 500;
+  private const int ExternalBillingReferenceMaxLength = 200;
 
   private readonly Guid _currentTenantId;
   private readonly bool _hasRequestContext;
@@ -25,9 +26,12 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   }
 
   public DbSet<Tenant> Tenants => Set<Tenant>();
+  public DbSet<TenantTheme> TenantThemes => Set<TenantTheme>();
+  public DbSet<PlatformTenantRegistration> PlatformTenantRegistrations => Set<PlatformTenantRegistration>();
   public DbSet<SubscriptionTier> SubscriptionTiers => Set<SubscriptionTier>();
   public DbSet<PlatformModule> PlatformModules => Set<PlatformModule>();
   public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
+  public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
   public DbSet<SubscriptionTierModule> SubscriptionTierModules => Set<SubscriptionTierModule>();
   public DbSet<AppUser> Users => Set<AppUser>();
   public DbSet<Role> Roles => Set<Role>();
@@ -38,6 +42,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   public DbSet<Assignment> Assignments => Set<Assignment>();
   public DbSet<AssignmentEvent> AssignmentEvents => Set<AssignmentEvent>();
   public DbSet<AssignmentEvidence> AssignmentEvidenceItems => Set<AssignmentEvidence>();
+  public DbSet<TenantBillingRecord> TenantBillingRecords => Set<TenantBillingRecord>();
   public DbSet<Invoice> Invoices => Set<Invoice>();
   public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
   public DbSet<MicroLoan> MicroLoans => Set<MicroLoan>();
@@ -46,9 +51,12 @@ public sealed partial class ServiFinanceDbContext : DbContext {
 
   protected override void OnModelCreating(ModelBuilder modelBuilder) {
     ConfigureTenant(modelBuilder);
+    ConfigureTenantThemes(modelBuilder);
+    ConfigurePlatformTenantRegistrations(modelBuilder);
     ConfigureSubscriptionTiers(modelBuilder);
     ConfigurePlatformModules(modelBuilder);
     ConfigureRefreshSessions(modelBuilder);
+    ConfigureAuditEvents(modelBuilder);
     ConfigureSubscriptionTierModules(modelBuilder);
     ConfigureUsers(modelBuilder);
     ConfigureRoles(modelBuilder);
@@ -59,6 +67,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
     ConfigureAssignments(modelBuilder);
     ConfigureAssignmentEvents(modelBuilder);
     ConfigureAssignmentEvidence(modelBuilder);
+    ConfigureTenantBillingRecords(modelBuilder);
     ConfigureInvoices(modelBuilder);
     ConfigureInvoiceLines(modelBuilder);
     ConfigureMicroLoans(modelBuilder);

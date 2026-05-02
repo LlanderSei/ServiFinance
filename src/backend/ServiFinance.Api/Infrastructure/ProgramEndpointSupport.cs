@@ -6,9 +6,16 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Application.Auth;
+using ServiFinance.Domain;
 
 internal static class ProgramEndpointSupport {
   internal const string ApiAuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme + "," + Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+  internal const string MlsModuleCodeServiceLinkedLoans = "D1_SERVICE_LINKED_LOANS";
+  internal const string MlsModuleCodeStandaloneLoans = "D2_STANDALONE_LOANS";
+  internal const string MlsModuleCodeFinancialRecords = "D3_FINANCIAL_RECORDS";
+  internal const string MlsModuleCodeLedgerReports = "D5_LEDGER_REPORTS";
+  internal const string MlsModuleCodeAuditLogs = "D6_AUDIT_LOGS";
+  internal const string MlsModuleCodeCollectionsQueue = "D7_COLLECTIONS_QUEUE";
 
   internal static bool IsAllowedFrontendOrigin(string origin) {
     if (string.IsNullOrWhiteSpace(origin)) {
@@ -97,6 +104,72 @@ internal static class ProgramEndpointSupport {
 
   internal static bool TryGetCurrentUserId(ClaimsPrincipal principal, out Guid userId) =>
     Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
+
+  internal static async Task<IResult?> RequireTenantMlsAccessAsync(
+      HttpContext httpContext,
+      string tenantDomainSlug,
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      CancellationToken cancellationToken,
+      string? requiredModuleCode = null) {
+    if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "This MLS session is not allowed to access the selected tenant route.");
+    }
+
+    var surfaceText = httpContext.User.FindFirstValue("surface");
+    if (!string.Equals(surfaceText, AuthenticationSurface.TenantDesktop.ToString(), StringComparison.OrdinalIgnoreCase)) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "MLS desktop routes require a desktop MLS session. Sign in through the MLS desktop login.");
+    }
+
+    if (!Guid.TryParse(httpContext.User.FindFirstValue("tenant_id"), out var tenantId)) {
+      return Results.Unauthorized();
+    }
+
+    var accessError = await GetTenantMlsAccessErrorAsync(
+        tenantId,
+        tenantDomainSlug,
+        dbContext,
+        cancellationToken,
+        requiredModuleCode);
+
+    return accessError is null
+      ? null
+      : CreateJsonError(StatusCodes.Status403Forbidden, accessError);
+  }
+
+  internal static async Task<string?> GetTenantMlsAccessErrorAsync(
+      Guid tenantId,
+      string tenantDomainSlug,
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      CancellationToken cancellationToken,
+      string? requiredModuleCode = null) {
+    var tenant = await dbContext.Tenants
+        .AsNoTracking()
+        .SingleOrDefaultAsync(
+            entity => entity.Id == tenantId && entity.DomainSlug == tenantDomainSlug,
+            cancellationToken);
+    if (tenant is null) {
+      return "The tenant context for this MLS session could not be resolved.";
+    }
+
+    if (!tenant.IsActive) {
+      return "This tenant is inactive and cannot access the MLS desktop.";
+    }
+
+    if (string.Equals(tenant.SubscriptionStatus, "Suspended", StringComparison.OrdinalIgnoreCase)) {
+      return "MLS desktop access is suspended for this tenant until subscription standing is restored.";
+    }
+
+    var currentTier = await ResolveCurrentTierAsync(dbContext, tenant, cancellationToken);
+    if (currentTier is null || !currentTier.IsActive || !currentTier.IncludesMicroLendingDesktop) {
+      return "MLS desktop access is not included in the current tenant subscription.";
+    }
+
+    if (!string.IsNullOrWhiteSpace(requiredModuleCode) && !HasTenantMlsModuleAccess(currentTier, requiredModuleCode)) {
+      return $"The current tenant subscription does not include the {GetTenantMlsModuleLabel(requiredModuleCode)} module.";
+    }
+
+    return null;
+  }
 
   internal static string NormalizeAssignmentStatus(string? assignmentStatus) {
     var normalized = assignmentStatus?.Trim();
@@ -330,6 +403,9 @@ internal static class ProgramEndpointSupport {
   internal static string GenerateReferenceCode(string prefix) =>
     $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Random.Shared.Next(100, 999)}";
 
+  internal static IResult CreateJsonError(int statusCode, string message) =>
+    Results.Json(new { error = message }, statusCode: statusCode);
+
   internal static void WriteRefreshTokenCookie(HttpContext httpContext, string refreshToken, TimeSpan? lifetime = null) {
     var cookieOptions = new CookieOptions {
       HttpOnly = true,
@@ -375,6 +451,45 @@ internal static class ProgramEndpointSupport {
     return currentUser is null
         ? Results.Unauthorized()
         : Results.Ok(new AuthSessionResponse(tokens, currentUser));
+  }
+
+  private static bool HasTenantMlsModuleAccess(SubscriptionTier tier, string requiredModuleCode) {
+    var accessLevel = tier.Modules
+        .Where(entity => entity.PlatformModule != null && entity.PlatformModule.IsActive)
+        .FirstOrDefault(entity => string.Equals(entity.PlatformModule!.Code, requiredModuleCode, StringComparison.OrdinalIgnoreCase))
+        ?.AccessLevel;
+
+    return !string.IsNullOrWhiteSpace(accessLevel) &&
+        !string.Equals(accessLevel, "Excluded", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(accessLevel, "None", StringComparison.OrdinalIgnoreCase);
+  }
+
+  private static string GetTenantMlsModuleLabel(string requiredModuleCode) =>
+    requiredModuleCode switch {
+      MlsModuleCodeServiceLinkedLoans => "service-linked loans",
+      MlsModuleCodeStandaloneLoans => "standalone loans",
+      MlsModuleCodeFinancialRecords => "financial records",
+      MlsModuleCodeLedgerReports => "ledger and reporting",
+      MlsModuleCodeAuditLogs => "audit review",
+      MlsModuleCodeCollectionsQueue => "collections queue",
+      _ => "requested MLS"
+    };
+
+  private static async Task<SubscriptionTier?> ResolveCurrentTierAsync(
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      Tenant tenant,
+      CancellationToken cancellationToken) {
+    var tierQuery = dbContext.SubscriptionTiers
+        .AsNoTracking()
+        .Where(entity => entity.IsActive)
+        .Include(entity => entity.Modules)
+        .ThenInclude(entity => entity.PlatformModule);
+
+    return await tierQuery.FirstOrDefaultAsync(entity => entity.DisplayName == tenant.SubscriptionPlan, cancellationToken)
+        ?? await tierQuery.FirstOrDefaultAsync(
+            entity => entity.BusinessSizeSegment == tenant.BusinessSizeSegment &&
+                entity.SubscriptionEdition == tenant.SubscriptionEdition,
+            cancellationToken);
   }
 
 }

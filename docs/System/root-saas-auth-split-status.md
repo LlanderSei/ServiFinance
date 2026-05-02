@@ -1,6 +1,6 @@
 # Root SaaS Landing And Domain-Scoped Auth Status
 
-Last updated: 2026-03-25
+Last updated: 2026-05-03
 
 ## Scope Implemented
 
@@ -31,7 +31,11 @@ The current route contract is:
 - The landing page includes:
   - a `Login` button that opens a superadmin login modal
   - a `Register / Sign up` button that routes to `/register`
-- Added a public registration page shell at `/register`.
+- Added a live public registration page at `/register`.
+- Root registration now:
+  - collects tenant business and owner information
+  - creates a Stripe subscription checkout session for the selected tier
+  - provisions the tenant and first administrator account after Stripe confirms the checkout
 - Root login now authenticates only platform superadmin accounts.
 
 ### SuperAdmin Area
@@ -95,7 +99,8 @@ The current route contract is:
 
 - Visiting `/` shows the SaaS landing page.
 - The login modal posts to the root superadmin login flow.
-- Visiting `/register` shows the non-persistent registration shell.
+- Visiting `/register` shows the live tenant signup flow.
+- Successful Stripe checkout returns to `/register`, where the page polls provisioning state until the tenant workspace is ready.
 
 ### Tenant Surface
 
@@ -118,8 +123,8 @@ The current route contract is:
 
 - real SaaS metrics on the superadmin dashboard
 - subscribed tenant lifecycle management
-- subscription billing and plan enforcement
-- registration persistence and tenant provisioning
+- broader subscription billing and plan enforcement
+- stronger Stripe subscription lifecycle tooling for upgrades, downgrade policy, and platform-side billing review
 
 ### Service Management System
 
@@ -140,11 +145,10 @@ The current route contract is:
 - stronger password and lockout policy
 - audit trail for sign-in and admin actions
 - finer-grained permission model beyond role names
-- production tenant onboarding and provisioning flow
+- email verification, password recovery, and linked external login for tenant owners
 
 ## Notes
 
-- The registration page is intentionally a shell only in this milestone.
 - The desktop routes are currently web placeholders, not the final MAUI client implementation.
 - All account access is tenant-bound. Tenant-scoped users cannot cross into other tenant routes.
 - The root platform tenant is internal and reserved for SaaS ownership and superadmin access only.

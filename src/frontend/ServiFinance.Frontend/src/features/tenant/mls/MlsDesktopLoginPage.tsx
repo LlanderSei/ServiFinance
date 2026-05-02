@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuthSessionResponse } from "@/shared/api/contracts";
+import { readApiErrorMessage } from "@/shared/api/http";
 import { applySession, getCurrentSession, refreshSession } from "@/shared/auth/session";
 import { PublicButton } from "@/shared/public/PublicPrimitives";
 import { isDesktopShell, resolveApiUrl, toPlatformRoute } from "@/platform/runtime";
@@ -60,7 +61,8 @@ export function MlsDesktopLoginPage() {
       });
 
       if (!response.ok) {
-        setLocalError("Invalid MLS email or password.");
+        const errorMessage = await readApiErrorMessage(response);
+        setLocalError(errorMessage ?? "Invalid MLS email or password.");
         return;
       }
 

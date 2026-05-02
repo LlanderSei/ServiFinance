@@ -13,8 +13,14 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         string tenantDomainSlug,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeFinancialRecords);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           var customers = await dbContext.Customers
@@ -46,8 +52,14 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         Guid customerId,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeFinancialRecords);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           var customer = await dbContext.Customers
@@ -102,17 +114,15 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
     var activeLoanCount = entity.MicroLoans.Count(item => item.LoanStatus != "Paid");
     var settledLoanCount = entity.MicroLoans.Count(item => item.LoanStatus == "Paid");
     var outstandingBalance = entity.MicroLoans.Sum(GetOutstandingBalance);
-    var totalCollectedAmount = entity.Transactions
-        .Where(item => item.TransactionType == "LoanPayment")
-        .Sum(item => item.CreditAmount);
+    var activePaymentTransactions = GetActivePaymentTransactions(entity.Transactions);
+    var totalCollectedAmount = activePaymentTransactions.Sum(item => item.CreditAmount);
     var nextDueDate = entity.MicroLoans
         .SelectMany(item => item.AmortizationSchedules)
         .Where(item => item.InstallmentStatus != "Paid")
         .OrderBy(item => item.DueDate)
         .Select(item => DateOnly.FromDateTime(item.DueDate))
         .FirstOrDefault();
-    var lastPaymentDateUtc = entity.Transactions
-        .Where(item => item.TransactionType == "LoanPayment")
+    var lastPaymentDateUtc = activePaymentTransactions
         .OrderByDescending(item => item.TransactionDateUtc)
         .Select(item => (DateTime?)item.TransactionDateUtc)
         .FirstOrDefault();
@@ -156,6 +166,17 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
   private static decimal GetOutstandingBalance(MicroLoan entity) {
     var totalPaidAmount = entity.AmortizationSchedules.Sum(item => item.PaidAmount);
     return RoundCurrency(entity.TotalRepayableAmount - totalPaidAmount);
+  }
+
+  private static IReadOnlyList<LedgerTransaction> GetActivePaymentTransactions(IEnumerable<LedgerTransaction> transactions) {
+    var reversedTransactionIds = transactions
+        .Where(item => item.TransactionType == "LoanPaymentReversal" && item.ReversalOfTransactionId.HasValue)
+        .Select(item => item.ReversalOfTransactionId!.Value)
+        .ToHashSet();
+
+    return transactions
+        .Where(item => item.TransactionType == "LoanPayment" && !reversedTransactionIds.Contains(item.Id))
+        .ToArray();
   }
 
   private static decimal RoundCurrency(decimal value) =>

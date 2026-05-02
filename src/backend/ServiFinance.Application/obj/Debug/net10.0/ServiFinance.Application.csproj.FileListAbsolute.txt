@@ -14,3 +14,6 @@ E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application
 E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\refint\ServiFinance.Application.dll
 E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.pdb
 E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ref\ServiFinance.Application.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\verify-api-build\api\ServiFinance.Application.deps.json
+E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\verify-api-build\api\ServiFinance.Application.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\verify-api-build\api\ServiFinance.Application.pdb

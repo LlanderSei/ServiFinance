@@ -14,8 +14,14 @@ internal static class TenantMlsCollectionsEndpointMappings {
         string? state,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeCollectionsQueue);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           var today = DateOnly.FromDateTime(DateTime.UtcNow);

@@ -1,5 +1,5 @@
 -- ServiFinance ERD import script for dbdiagram.io
--- Last updated: 2026-05-01
+-- Last updated: 2026-05-03
 -- Implemented tables are listed first.
 -- Planned tables inferred from existing docs are listed at the end.
 
@@ -12,14 +12,23 @@ CREATE TABLE Tenants (
   SubscriptionEdition nvarchar(50) NOT NULL,
   SubscriptionPlan nvarchar(100) NOT NULL,
   SubscriptionStatus nvarchar(100) NOT NULL,
+  BillingProvider nvarchar(50) NOT NULL,
+  StripeCustomerId nvarchar(200),
+  StripeSubscriptionId nvarchar(200),
+  CreatedAtUtc datetime2 NOT NULL,
+  IsActive bit NOT NULL
+);
+
+CREATE TABLE TenantThemes (
+  Id uniqueidentifier PRIMARY KEY,
+  TenantId uniqueidentifier NOT NULL UNIQUE,
   DisplayName nvarchar(200),
   LogoUrl nvarchar(500),
   PrimaryColor nvarchar(20),
   SecondaryColor nvarchar(20),
   HeaderBackgroundColor nvarchar(20),
   PageBackgroundColor nvarchar(20),
-  CreatedAtUtc datetime2 NOT NULL,
-  IsActive bit NOT NULL
+  CONSTRAINT FK_TenantThemes_Tenants FOREIGN KEY (TenantId) REFERENCES Tenants(Id)
 );
 
 CREATE TABLE SubscriptionTiers (

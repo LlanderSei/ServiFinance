@@ -5,7 +5,7 @@ import {
   TenantMlsCustomerFinanceRow,
   TenantMlsCustomerFinanceWorkspaceResponse
 } from "@/shared/api/contracts";
-import { httpGet } from "@/shared/api/http";
+import { getApiErrorMessage, httpGet } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
@@ -118,14 +118,14 @@ export function MlsCustomerFinancePage() {
               {workspaceQuery.isLoading ? <WorkspaceNotice>Loading MLS borrower records...</WorkspaceNotice> : null}
               {workspaceQuery.isError ? (
                 <WorkspaceNotice tone="error">
-                  Unable to load MLS customer finance records right now.
+                  {getApiErrorMessage(workspaceQuery.error, "Unable to load MLS customer finance records right now.")}
                 </WorkspaceNotice>
               ) : null}
 
               <MetricCard label="Borrowers" value={String(summary?.totalBorrowers ?? 0)} description="Customers with at least one loan record or MLS ledger trail." />
               <MetricCard label="Active borrowers" value={String(summary?.activeBorrowers ?? 0)} description="Borrowers who still carry at least one unpaid or active loan account." />
               <MetricCard label="Outstanding portfolio" value={formatCurrency(summary?.outstandingPortfolioBalance ?? 0)} description="Remaining repayable balance across the tenant borrower portfolio." />
-              <MetricCard label="Collected to date" value={formatCurrency(summary?.totalCollectedAmount ?? 0)} description="All loan-payment collections already posted inside MLS." />
+              <MetricCard label="Collected to date" value={formatCurrency(summary?.totalCollectedAmount ?? 0)} description="Net collected amount after any posted MLS payment reversals." />
             </div>
           </aside>
 
@@ -167,12 +167,12 @@ export function MlsCustomerFinancePage() {
                     </thead>
                     <tbody>
                       {workspaceQuery.isLoading ? (
-                        <RecordTableStateRow colSpan={8}>Loading borrower portfolio...</RecordTableStateRow>
-                      ) : workspaceQuery.isError ? (
-                        <RecordTableStateRow colSpan={8} tone="error">
-                          Unable to load the borrower portfolio.
-                        </RecordTableStateRow>
-                      ) : workspaceQuery.data?.customers.length ? (
+                      <RecordTableStateRow colSpan={8}>Loading borrower portfolio...</RecordTableStateRow>
+                    ) : workspaceQuery.isError ? (
+                      <RecordTableStateRow colSpan={8} tone="error">
+                          {getApiErrorMessage(workspaceQuery.error, "Unable to load the borrower portfolio.")}
+                      </RecordTableStateRow>
+                    ) : workspaceQuery.data?.customers.length ? (
                         workspaceQuery.data.customers.map((customer) => (
                           <BorrowerTableRow
                             key={customer.customerId}
@@ -203,6 +203,7 @@ export function MlsCustomerFinancePage() {
           latestLoanLabel={latestLoan ? `${latestLoan.invoiceNumber} with ${formatCurrency(latestLoan.outstandingBalance)} remaining.` : null}
           isLoading={detailQuery.isLoading}
           isError={detailQuery.isError}
+          errorMessage={getApiErrorMessage(detailQuery.error, "Unable to load this borrower's finance detail right now.")}
           detail={detailQuery.data ?? null}
           onChangeTab={setActiveTab}
           onClose={() => setIsModalOpen(false)}
@@ -259,6 +260,7 @@ type BorrowerFinanceModalProps = {
   latestLoanLabel: string | null;
   isLoading: boolean;
   isError: boolean;
+  errorMessage?: string;
   detail: TenantMlsCustomerFinanceDetailResponse | null;
   onChangeTab: (tab: CustomerFinanceTab) => void;
   onClose: () => void;
@@ -273,6 +275,7 @@ function BorrowerFinanceModal({
   latestLoanLabel,
   isLoading,
   isError,
+  errorMessage,
   detail,
   onChangeTab,
   onClose
@@ -298,7 +301,7 @@ function BorrowerFinanceModal({
       {isLoading ? <WorkspaceNotice>Loading borrower detail...</WorkspaceNotice> : null}
       {isError ? (
         <WorkspaceNotice tone="error">
-          Unable to load this borrower&apos;s finance detail right now.
+          {errorMessage ?? "Unable to load this borrower's finance detail right now."}
         </WorkspaceNotice>
       ) : null}
 
@@ -360,9 +363,9 @@ function BorrowerProfileTab({ customer, latestLoanLabel }: BorrowerProfileTabPro
 
           <div className="grid gap-3 sm:grid-cols-2">
             <MetricCard label="Outstanding" value={formatCurrency(customer.outstandingBalance)} description="Current unpaid exposure across this borrower portfolio." />
-            <MetricCard label="Collected" value={formatCurrency(customer.totalCollectedAmount)} description="All collections posted against this borrower." />
+            <MetricCard label="Collected" value={formatCurrency(customer.totalCollectedAmount)} description="Net collected amount currently retained against this borrower." />
             <MetricCard label="Next due date" value={customer.nextDueDate ?? "Settled"} description="Next unpaid installment due for this borrower." />
-            <MetricCard label="Last payment" value={formatDateTime(customer.lastPaymentDateUtc)} description="Most recent posted payment activity for this borrower." />
+            <MetricCard label="Last payment" value={formatDateTime(customer.lastPaymentDateUtc)} description="Most recent unreversed payment activity for this borrower." />
           </div>
         </WorkspacePanel>
       </div>

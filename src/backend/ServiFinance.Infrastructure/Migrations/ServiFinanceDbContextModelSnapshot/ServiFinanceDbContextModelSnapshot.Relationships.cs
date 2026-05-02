@@ -299,6 +299,36 @@ namespace ServiFinance.Infrastructure.Migrations {
             b.Navigation("SubscriptionTier");
         });
 
+    modelBuilder.Entity("ServiFinance.Domain.TenantBillingRecord", b =>
+        {
+            b.HasOne("ServiFinance.Domain.AppUser", "SubmittedByUser")
+                .WithMany("SubmittedBillingRecords")
+                .HasForeignKey("SubmittedByUserId")
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired();
+
+            b.HasOne("ServiFinance.Domain.Tenant", "Tenant")
+                .WithMany("BillingRecords")
+                .HasForeignKey("TenantId")
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired();
+
+            b.Navigation("SubmittedByUser");
+
+            b.Navigation("Tenant");
+        });
+
+    modelBuilder.Entity("ServiFinance.Domain.TenantTheme", b =>
+        {
+            b.HasOne("ServiFinance.Domain.Tenant", "Tenant")
+                .WithOne("Theme")
+                .HasForeignKey("ServiFinance.Domain.TenantTheme", "TenantId")
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+
+            b.Navigation("Tenant");
+        });
+
     modelBuilder.Entity("ServiFinance.Domain.UserRole", b =>
         {
             b.HasOne("ServiFinance.Domain.Role", "Role")

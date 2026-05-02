@@ -33,7 +33,8 @@ internal static class WebAccountEndpointMappings {
     app.MapPost("/account/tenant-login", [AllowAnonymous] async Task<IResult> (
         HttpContext httpContext,
         [FromForm] TenantLoginRequest request,
-        IUserAuthenticationService authenticationService) => {
+        IUserAuthenticationService authenticationService,
+        ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext) => {
           var isMls = string.Equals(request.TargetSystem, "mls", StringComparison.OrdinalIgnoreCase);
           var surface = isMls ? AuthenticationSurface.TenantDesktop : AuthenticationSurface.TenantWeb;
           var tenantSlug = NormalizeTenantSlug(request.TenantDomainSlug);
@@ -54,6 +55,17 @@ internal static class WebAccountEndpointMappings {
             ? "/t/mls/"
             : $"/t/{tenantSlug}/sms/";
             return Results.LocalRedirect($"{loginUrl}?error=Invalid%20tenant%20email%20or%20password&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
+          }
+
+          if (isMls) {
+            var accessError = await GetTenantMlsAccessErrorAsync(
+                user.TenantId,
+                user.TenantDomainSlug,
+                dbContext,
+                httpContext.RequestAborted);
+            if (accessError is not null) {
+              return Results.LocalRedirect($"/t/mls/?error={Uri.EscapeDataString(accessError)}&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
+            }
           }
 
           await SignInUserAsync(httpContext, user);

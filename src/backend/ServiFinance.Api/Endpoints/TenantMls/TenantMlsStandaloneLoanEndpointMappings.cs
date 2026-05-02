@@ -14,8 +14,14 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
         string tenantDomainSlug,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeStandaloneLoans);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           var customers = await dbContext.Customers
@@ -40,8 +46,14 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
         DateOnly loanStartDate,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeStandaloneLoans);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           var customer = await dbContext.Customers
@@ -69,8 +81,14 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
         [FromBody] CreateTenantMlsStandaloneLoanRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
-            return Results.Forbid();
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeStandaloneLoans);
+          if (accessResult is not null) {
+            return accessResult;
           }
 
           if (!TryGetCurrentUserId(httpContext.User, out var currentUserId)) {

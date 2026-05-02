@@ -31,6 +31,8 @@ namespace ServiFinance.Infrastructure.Migrations {
 
             b.Navigation("StatusLogs");
 
+            b.Navigation("SubmittedBillingRecords");
+
             b.Navigation("UserRoles");
         });
 
@@ -94,9 +96,13 @@ namespace ServiFinance.Infrastructure.Migrations {
 
     modelBuilder.Entity("ServiFinance.Domain.Tenant", b =>
         {
+            b.Navigation("BillingRecords");
+
             b.Navigation("Customers");
 
             b.Navigation("Roles");
+
+            b.Navigation("Theme");
 
             b.Navigation("Users");
         });

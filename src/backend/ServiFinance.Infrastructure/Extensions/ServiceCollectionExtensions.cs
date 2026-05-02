@@ -2,13 +2,17 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ServiFinance.Application.Auditing;
 using ServiFinance.Application.Auth;
+using ServiFinance.Application.Onboarding;
 using ServiFinance.Application.Subscriptions;
 using ServiFinance.Application.Tenancy;
 using ServiFinance.Domain;
+using ServiFinance.Infrastructure.Auditing;
 using ServiFinance.Infrastructure.Auth;
 using ServiFinance.Infrastructure.Configuration;
 using ServiFinance.Infrastructure.Data;
+using ServiFinance.Infrastructure.Onboarding;
 using ServiFinance.Infrastructure.Subscriptions;
 using ServiFinance.Infrastructure.Tenancy;
 
@@ -38,11 +42,14 @@ public static class ServiceCollectionExtensions {
     services.AddScoped<IUserAuthenticationService, UserAuthenticationService>();
     services.AddScoped<ICustomerAuthenticationService, CustomerAuthenticationService>();
     services.AddScoped<IUserManagementService, UserManagementService>();
+    services.AddScoped<IAuditLogService, AuditLogService>();
+    services.AddScoped<IPlatformTenantOnboardingService, StripePlatformTenantOnboardingService>();
     services.AddScoped<ISubscriptionTierCatalogService, SubscriptionTierCatalogService>();
     services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
     services.AddScoped<IPasswordHasher<Customer>, PasswordHasher<Customer>>();
     services.AddSingleton(TimeProvider.System);
     services.Configure<SessionTokenOptions>(configuration?.GetSection(SessionTokenOptions.SectionName) ?? new ConfigurationBuilder().Build().GetSection(SessionTokenOptions.SectionName));
+    services.Configure<StripeBillingOptions>(configuration?.GetSection(StripeBillingOptions.SectionName) ?? new ConfigurationBuilder().Build().GetSection(StripeBillingOptions.SectionName));
     services.AddScoped<ISessionTokenService, JwtSessionTokenService>();
     services.AddScoped<DevelopmentDataSeeder>();
     services.AddSingleton(new DevelopmentSeedOptions {

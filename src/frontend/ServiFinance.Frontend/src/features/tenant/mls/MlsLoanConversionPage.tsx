@@ -6,7 +6,7 @@ import {
   TenantMlsLoanConversionWorkspaceResponse,
   TenantMlsLoanCreatedResponse
 } from "@/shared/api/contracts";
-import { httpGet, httpPostJson } from "@/shared/api/http";
+import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
@@ -163,7 +163,7 @@ export function MlsLoanConversionPage() {
               {workspaceQuery.isLoading ? <WorkspaceNotice>Loading finance-ready invoices...</WorkspaceNotice> : null}
               {workspaceQuery.isError ? (
                 <WorkspaceNotice tone="error">
-                  Unable to load the loan-conversion workspace right now. Refresh the desktop session and try again.
+                  {getApiErrorMessage(workspaceQuery.error, "Unable to load the loan-conversion workspace right now. Refresh the desktop session and try again.")}
                 </WorkspaceNotice>
               ) : null}
 
@@ -222,12 +222,12 @@ export function MlsLoanConversionPage() {
                     </thead>
                     <tbody>
                       {workspaceQuery.isLoading ? (
-                        <RecordTableStateRow colSpan={7}>Loading finance-ready invoices...</RecordTableStateRow>
-                      ) : workspaceQuery.isError ? (
-                        <RecordTableStateRow colSpan={7} tone="error">
-                          Unable to load finance-ready invoices right now.
-                        </RecordTableStateRow>
-                      ) : workspaceQuery.data?.candidates.length ? (
+                      <RecordTableStateRow colSpan={7}>Loading finance-ready invoices...</RecordTableStateRow>
+                    ) : workspaceQuery.isError ? (
+                      <RecordTableStateRow colSpan={7} tone="error">
+                          {getApiErrorMessage(workspaceQuery.error, "Unable to load finance-ready invoices right now.")}
+                      </RecordTableStateRow>
+                    ) : workspaceQuery.data?.candidates.length ? (
                         workspaceQuery.data.candidates.map((candidate) => (
                           <ConvertibleInvoiceRow
                             key={candidate.invoiceId}
@@ -258,6 +258,7 @@ export function MlsLoanConversionPage() {
           loanStartDate={loanStartDate}
           isPreviewLoading={previewQuery.isLoading}
           isPreviewError={previewQuery.isError}
+          previewErrorMessage={getApiErrorMessage(previewQuery.error, "The loan preview could not be generated for the current term setup.")}
           isSubmitting={createMutation.isPending}
           onAnnualInterestRateChange={setAnnualInterestRate}
           onTermMonthsChange={setTermMonths}
@@ -308,6 +309,7 @@ type LoanConversionModalProps = {
   loanStartDate: string;
   isPreviewLoading: boolean;
   isPreviewError: boolean;
+  previewErrorMessage?: string;
   isSubmitting: boolean;
   onAnnualInterestRateChange: (value: string) => void;
   onTermMonthsChange: (value: string) => void;
@@ -326,6 +328,7 @@ function LoanConversionModal({
   loanStartDate,
   isPreviewLoading,
   isPreviewError,
+  previewErrorMessage,
   isSubmitting,
   onAnnualInterestRateChange,
   onTermMonthsChange,
@@ -365,7 +368,7 @@ function LoanConversionModal({
                 {isPreviewLoading ? <WorkspaceNotice>Generating amortization preview...</WorkspaceNotice> : null}
                 {isPreviewError ? (
                   <WorkspaceNotice tone="error">
-                    The loan preview could not be generated for the current term setup.
+                    {previewErrorMessage ?? "The loan preview could not be generated for the current term setup."}
                   </WorkspaceNotice>
                 ) : null}
 

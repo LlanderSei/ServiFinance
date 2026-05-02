@@ -28,7 +28,9 @@ const SystemHealthPage = lazyPage(() => import("@/features/superadmin/SystemHeal
 const TenantsPage = lazyPage(() => import("@/features/superadmin/TenantsPage"), "TenantsPage");
 const SubscriptionsPage = lazyPage(() => import("@/features/superadmin/SubscriptionsPage"), "SubscriptionsPage");
 const ModulesPage = lazyPage(() => import("@/features/superadmin/ModulesPage"), "ModulesPage");
+const PlatformAuditsPage = lazyPage(() => import("@/features/administration/audits/AuditsPage"), "PlatformAuditsPage");
 const TenantLandingPage = lazyPage(() => import("@/features/tenant/TenantLandingPage"), "TenantLandingPage");
+const TenantBillingPage = lazyPage(() => import("@/features/tenant/TenantBillingPage"), "TenantBillingPage");
 const CustomerLoginPage = lazyPage(() => import("@/features/customer/CustomerLoginPage"), "CustomerLoginPage");
 const CustomerRegisterPage = lazyPage(() => import("@/features/customer/CustomerRegisterPage"), "CustomerRegisterPage");
 const CustomerDashboardPage = lazyPage(() => import("@/features/customer/CustomerDashboardPage"), "CustomerDashboardPage");
@@ -43,6 +45,7 @@ const SmsServiceRequestsPage = lazyPage(() => import("@/features/tenant/sms/SmsS
 const SmsDispatchPage = lazyPage(() => import("@/features/tenant/sms/SmsDispatchTabs"), "SmsDispatchPage");
 const SmsReportsPage = lazyPage(() => import("@/features/tenant/sms/SmsReportsPage"), "SmsReportsPage");
 const SmsUsersPage = lazyPage(() => import("@/features/tenant/sms/SmsUsersPage"), "SmsUsersPage");
+const TenantSmsAuditsPage = lazyPage(() => import("@/features/administration/audits/AuditsPage"), "TenantSmsAuditsPage");
 const MlsDashboardPage = lazyPage(() => import("@/features/tenant/mls/MlsDashboardPage"), "MlsDashboardPage");
 const MlsCustomerFinancePage = lazyPage(() => import("@/features/tenant/mls/MlsCustomerFinancePage"), "MlsCustomerFinancePage");
 const MlsLoanConversionPage = lazyPage(() => import("@/features/tenant/mls/MlsLoanConversionPage"), "MlsLoanConversionPage");
@@ -71,7 +74,8 @@ const browserRoutes = [
           { path: "system-health", element: <SystemHealthPage /> },
           { path: "tenants", element: <TenantsPage /> },
           { path: "subscriptions", element: <SubscriptionsPage /> },
-          { path: "modules", element: <ModulesPage /> }
+          { path: "modules", element: <ModulesPage /> },
+          { path: "audits", element: <PlatformAuditsPage /> }
         ]
       },
       { path: "desktop-required", element: <DesktopRequiredPage /> },
@@ -116,8 +120,10 @@ const browserRoutes = [
             ]
           },
           {
-            element: <TenantSmsAdminProtectedLayout />,
+            element: <TenantAdminProtectedLayout />,
             children: [
+              { path: "billing", element: <TenantBillingPage /> },
+              { path: "sms/audits", element: <TenantSmsAuditsPage /> },
               { path: "sms/users", element: <SmsUsersPage /> }
             ]
           },
@@ -144,7 +150,8 @@ const desktopRoutes = [
           { path: "system-health", element: <SystemHealthPage /> },
           { path: "tenants", element: <TenantsPage /> },
           { path: "subscriptions", element: <SubscriptionsPage /> },
-          { path: "modules", element: <ModulesPage /> }
+          { path: "modules", element: <ModulesPage /> },
+          { path: "audits", element: <PlatformAuditsPage /> }
         ]
       },
       { path: "desktop-required", element: <DesktopRequiredPage /> },
@@ -197,8 +204,10 @@ const desktopRoutes = [
             ]
           },
           {
-            element: <TenantSmsAdminProtectedLayout />,
+            element: <TenantAdminProtectedLayout />,
             children: [
+              { path: "billing", element: <TenantBillingPage /> },
+              { path: "sms/audits", element: <TenantSmsAuditsPage /> },
               { path: "sms/users", element: <SmsUsersPage /> }
             ]
           },
@@ -220,7 +229,7 @@ function TenantSmsProtectedLayout() {
   return <ProtectedRoute tenantSlug={tenantDomainSlug} />;
 }
 
-function TenantSmsAdminProtectedLayout() {
+function TenantAdminProtectedLayout() {
   const { tenantDomainSlug = "" } = useParams();
   return <ProtectedRoute tenantSlug={tenantDomainSlug} requireRole="Administrator" />;
 }

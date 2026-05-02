@@ -15,6 +15,17 @@ import { httpDelete, httpGet, httpPostFormData, httpPostJson } from "@/shared/ap
 import { getCurrentSession } from "@/shared/auth/session";
 import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
+import { WorkspaceTopTabs } from "@/shared/records/WorkspaceTopTabs";
+import { WorkspacePanel, WorkspacePanelHeader } from "@/shared/records/WorkspacePanel";
+import {
+  WorkspaceActionButton,
+  WorkspaceField,
+  WorkspaceFieldGrid,
+  WorkspaceInput,
+  WorkspaceSelect,
+  WorkspaceToggleButton,
+  WorkspaceToggleGroup
+} from "@/shared/records/WorkspaceControls";
 import { useToast } from "@/shared/toast/ToastProvider";
 
 import { useDispatchPage } from "./useDispatchPage";
@@ -64,7 +75,7 @@ export function SmsDispatchPage() {
   const [isHandoverModalOpen, setIsHandoverModalOpen] = useState(false);
   const [isAbandonModalOpen, setIsAbandonModalOpen] = useState(false);
 
-  const [filters] = useState<DispatchFilterState>({
+  const [filters, setFilters] = useState<DispatchFilterState>({
     assignedUserId: "",
     assignmentStatus: "",
     priority: "",
@@ -271,6 +282,30 @@ export function SmsDispatchPage() {
     }
   });
 
+  const acceptAssignmentMutation = useMutation<void, Error, { assignmentId: string }>({
+    mutationFn: ({ assignmentId }: { assignmentId: string }) =>
+      httpPostJson(`/api/tenants/${tenantDomainSlug}/sms/dispatch/${assignmentId}/accept`, {}),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-dispatch"] });
+      toast.success({ title: "Assignment accepted", message: "The handover task is now scheduled for execution." });
+    },
+    onError: (error: Error) => {
+      toast.error({ title: "Unable to accept assignment", message: error.message });
+    }
+  });
+
+  const rejectAssignmentMutation = useMutation<void, Error, { assignmentId: string; reason: string }>({
+    mutationFn: ({ assignmentId, reason }: { assignmentId: string; reason: string }) =>
+      httpPostJson(`/api/tenants/${tenantDomainSlug}/sms/dispatch/${assignmentId}/reject`, { reason }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-dispatch"] });
+      toast.success({ title: "Assignment rejected", message: "The rejected handover was moved out of the active queue." });
+    },
+    onError: (error: Error) => {
+      toast.error({ title: "Unable to reject assignment", message: error.message });
+    }
+  });
+
   const visibleAssignments = useMemo(() => {
     const assignments = dispatchQuery.data ?? [];
     if (viewMode === "mine" && currentUser?.userId) {
@@ -278,6 +313,25 @@ export function SmsDispatchPage() {
     }
     return assignments;
   }, [currentUser?.userId, dispatchQuery.data, viewMode]);
+
+  const myAssignments = useMemo(() => {
+    const assignments = dispatchQuery.data ?? [];
+    if (!currentUser?.userId) {
+      return [];
+    }
+
+    return assignments.filter((assignment) => assignment.assignedUserId === currentUser.userId);
+  }, [currentUser?.userId, dispatchQuery.data]);
+
+  const pendingAssignments = useMemo(
+    () => visibleAssignments.filter((assignment) => isPendingDispatchAssignment(assignment)),
+    [visibleAssignments]
+  );
+
+  const archivedAssignments = useMemo(
+    () => visibleAssignments.filter((assignment) => isArchivedDispatchAssignment(assignment)),
+    [visibleAssignments]
+  );
 
   function handleStatusUpdate(assignment: TenantDispatchAssignmentRow, assignmentStatus: string, serviceStatus?: string) {
     updateAssignmentStatusMutation.mutate({
@@ -309,6 +363,20 @@ export function SmsDispatchPage() {
       !["Completed", "Cancelled", "Abandoned", "In Progress"].includes(assignment.assignmentStatus);
   }
 
+  function canRespondToAssignment(assignment: TenantDispatchAssignmentRow): boolean {
+    return assignment.assignmentStatus === "Pending Acceptance" &&
+      (isAdmin || assignment.assignedUserId === currentUser?.userId);
+  }
+
+  function handleRejectAssignment(assignment: TenantDispatchAssignmentRow) {
+    const reason = window.prompt(`Reason for rejecting ${assignment.requestNumber}`);
+    if (!reason?.trim()) {
+      return;
+    }
+
+    rejectAssignmentMutation.mutate({ assignmentId: assignment.id, reason: reason.trim() });
+  }
+
   function renderTabContent() {
     const commonProps = {
       isLoading: dispatchQuery.isLoading,
@@ -335,11 +403,29 @@ export function SmsDispatchPage() {
           />
         );
       case "pending":
-        return <SmsDispatchPendingTasks assignments={visibleAssignments} {...commonProps} />;
+        return (
+          <SmsDispatchPendingTasks
+            assignments={pendingAssignments}
+            canRespondToAssignment={canRespondToAssignment}
+            onAcceptAssignment={(assignment) => acceptAssignmentMutation.mutate({ assignmentId: assignment.id })}
+            onRejectAssignment={handleRejectAssignment}
+            isResponding={acceptAssignmentMutation.isPending || rejectAssignmentMutation.isPending}
+            {...commonProps}
+          />
+        );
       case "assignments":
         return <SmsDispatchAssignments assignments={visibleAssignments} {...commonProps} />;
       case "mytasks":
-        return <SmsDispatchMyTasks assignments={visibleAssignments} {...commonProps} />;
+        return (
+          <SmsDispatchMyTasks
+            assignments={myAssignments}
+            canRespondToAssignment={canRespondToAssignment}
+            onAcceptAssignment={(assignment) => acceptAssignmentMutation.mutate({ assignmentId: assignment.id })}
+            onRejectAssignment={handleRejectAssignment}
+            isResponding={acceptAssignmentMutation.isPending || rejectAssignmentMutation.isPending}
+            {...commonProps}
+          />
+        );
       case "timeline":
         return (
           <SmsDispatchTimeline
@@ -349,8 +435,8 @@ export function SmsDispatchPage() {
             setViewMode={(mode) => setViewMode(mode)}
           />
         );
-      case "history":
-        return <SmsDispatchHistory assignments={visibleAssignments} {...commonProps} />;
+      case "archive":
+        return <SmsDispatchHistory assignments={archivedAssignments} {...commonProps} />;
       default:
         return null;
     }
@@ -365,32 +451,28 @@ export function SmsDispatchPage() {
         recordCount={visibleAssignments.length}
         singularLabel="assignment"
         headerBottom={
-          <div className="flex items-center justify-between gap-4">
-            <SmsDispatchTabs activeTab={activeTab} setActiveTab={setActiveTab} isAdmin={isAdmin} />
-            <div className="flex gap-1 rounded-xl border border-base-300/70 bg-base-100 p-1">
-              <button
-                type="button"
-                className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  viewMode === "all" ? "bg-primary text-primary-content" : "text-base-content/70 hover:bg-base-200"
-                }`}
-                onClick={() => setViewMode("all")}
-              >
-                Overview (All)
-              </button>
-              <button
-                type="button"
-                className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  viewMode === "mine" ? "bg-primary text-primary-content" : "text-base-content/70 hover:bg-base-200"
-                }`}
-                onClick={() => setViewMode("mine")}
-              >
-                My Timeline
-              </button>
-            </div>
+          <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <WorkspaceTopTabs tabs={getDispatchTabs(isAdmin)} activeTab={activeTab} onChange={setActiveTab} />
+            <WorkspaceToggleGroup className="w-max max-w-full overflow-x-auto">
+              <WorkspaceToggleButton active={viewMode === "all"} onClick={() => setViewMode("all")}>
+                All assignments
+              </WorkspaceToggleButton>
+              <WorkspaceToggleButton active={viewMode === "mine"} onClick={() => setViewMode("mine")}>
+                My assignments
+              </WorkspaceToggleButton>
+            </WorkspaceToggleGroup>
           </div>
         }
       >
         <RecordContentStack>
+          {activeTab === "assignments" ? (
+            <DispatchFilterPanel
+              filters={filters}
+              setFilters={setFilters}
+              meta={dispatchMetaQuery.data}
+              isAdmin={isAdmin}
+            />
+          ) : null}
           {renderTabContent()}
           <WorkspaceFabDock
             actions={[
@@ -529,42 +611,112 @@ export function SmsDispatchPage() {
   );
 }
 
-function SmsDispatchTabs({
-  activeTab,
-  setActiveTab,
-  isAdmin,
-}: {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-  isAdmin: boolean;
-}) {
-  const tabs = [
+function getDispatchTabs(isAdmin: boolean) {
+  return [
     { key: "overview", label: "Overview" },
     { key: "pending", label: "Pending Tasks" },
-    ...(isAdmin ? [{ key: "assignments", label: "Assignments" }] : []),
+    ...(isAdmin ? [{ key: "assignments", label: "Register" }] : []),
     { key: "mytasks", label: "My Tasks" },
     { key: "timeline", label: "Timeline" },
-    ...(isAdmin ? [{ key: "history", label: "History" }] : []),
+    ...(isAdmin ? [{ key: "archive", label: "Archive" }] : []),
   ];
+}
 
+function DispatchFilterPanel({
+  filters,
+  setFilters,
+  meta,
+  isAdmin
+}: {
+  filters: DispatchFilterState;
+  setFilters: (filters: DispatchFilterState) => void;
+  meta?: TenantDispatchMetaResponse;
+  isAdmin: boolean;
+}) {
   return (
-    <div className="flex gap-1 rounded-xl p-1">
-      {tabs.map((tab) => (
-        <button
-          key={tab.key}
-          type="button"
-          className={`whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors duration-200 rounded-t-lg ${
-            activeTab === tab.key
-              ? "border-primary text-primary"
-              : "border-transparent text-base-content/60 hover:text-base-content hover:border-base-300"
-          }`}
-          onClick={() => setActiveTab(tab.key)}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
+    <WorkspacePanel>
+      <WorkspacePanelHeader
+        eyebrow="Filters"
+        title="Assignment register filters"
+        actions={(
+          <WorkspaceActionButton
+            onClick={() => setFilters({
+              assignedUserId: "",
+              assignmentStatus: "",
+              priority: "",
+              dateFrom: "",
+              dateTo: ""
+            })}
+          >
+            Clear filters
+          </WorkspaceActionButton>
+        )}
+      />
+      <WorkspaceFieldGrid>
+        {isAdmin ? (
+          <WorkspaceField label="Assigned staff">
+            <WorkspaceSelect
+              value={filters.assignedUserId}
+              onChange={(event) => setFilters({ ...filters, assignedUserId: event.target.value })}
+            >
+              <option value="">All staff</option>
+              {(meta?.assignableUsers ?? []).map((user) => (
+                <option key={user.id} value={user.id}>{user.fullName}</option>
+              ))}
+            </WorkspaceSelect>
+          </WorkspaceField>
+        ) : null}
+        <WorkspaceField label="Assignment status">
+          <WorkspaceSelect
+            value={filters.assignmentStatus}
+            onChange={(event) => setFilters({ ...filters, assignmentStatus: event.target.value })}
+          >
+            <option value="">All statuses</option>
+            <option value="Pending Acceptance">Pending Acceptance</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="In Progress">In Progress</option>
+            <option value="On Hold">On Hold</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+            <option value="Abandoned">Abandoned</option>
+          </WorkspaceSelect>
+        </WorkspaceField>
+        <WorkspaceField label="Priority">
+          <WorkspaceSelect
+            value={filters.priority}
+            onChange={(event) => setFilters({ ...filters, priority: event.target.value })}
+          >
+            <option value="">All priorities</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </WorkspaceSelect>
+        </WorkspaceField>
+        <WorkspaceField label="Date from">
+          <WorkspaceInput
+            type="date"
+            value={filters.dateFrom}
+            onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })}
+          />
+        </WorkspaceField>
+        <WorkspaceField label="Date to">
+          <WorkspaceInput
+            type="date"
+            value={filters.dateTo}
+            onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })}
+          />
+        </WorkspaceField>
+      </WorkspaceFieldGrid>
+    </WorkspacePanel>
   );
+}
+
+function isPendingDispatchAssignment(assignment: TenantDispatchAssignmentRow) {
+  return ["Pending Acceptance", "Scheduled", "On Hold"].includes(assignment.assignmentStatus);
+}
+
+function isArchivedDispatchAssignment(assignment: TenantDispatchAssignmentRow) {
+  return ["Completed", "Cancelled", "Abandoned"].includes(assignment.assignmentStatus);
 }
 
 function formatDateTime(value: string | null) {

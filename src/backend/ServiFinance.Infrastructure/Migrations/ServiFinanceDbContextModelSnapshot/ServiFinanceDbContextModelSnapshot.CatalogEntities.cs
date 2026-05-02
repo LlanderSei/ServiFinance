@@ -172,42 +172,18 @@ namespace ServiFinance.Infrastructure.Migrations {
             b.Property<DateTime>("CreatedAtUtc")
                 .HasColumnType("datetime2");
 
-            b.Property<string>("DisplayName")
-                .HasMaxLength(200)
-                .HasColumnType("nvarchar(200)");
-
             b.Property<string>("DomainSlug")
                 .IsRequired()
                 .HasMaxLength(100)
                 .HasColumnType("nvarchar(100)");
 
-            b.Property<string>("HeaderBackgroundColor")
-                .HasMaxLength(20)
-                .HasColumnType("nvarchar(20)");
-
             b.Property<bool>("IsActive")
                 .HasColumnType("bit");
-
-            b.Property<string>("LogoUrl")
-                .HasMaxLength(500)
-                .HasColumnType("nvarchar(500)");
 
             b.Property<string>("Name")
                 .IsRequired()
                 .HasMaxLength(200)
                 .HasColumnType("nvarchar(200)");
-
-            b.Property<string>("PageBackgroundColor")
-                .HasMaxLength(20)
-                .HasColumnType("nvarchar(20)");
-
-            b.Property<string>("PrimaryColor")
-                .HasMaxLength(20)
-                .HasColumnType("nvarchar(20)");
-
-            b.Property<string>("SecondaryColor")
-                .HasMaxLength(20)
-                .HasColumnType("nvarchar(20)");
 
             b.Property<string>("SubscriptionEdition")
                 .IsRequired()
@@ -233,6 +209,47 @@ namespace ServiFinance.Infrastructure.Migrations {
                 .IsUnique();
 
             b.ToTable("Tenants", (string)null);
+        });
+
+    modelBuilder.Entity("ServiFinance.Domain.TenantTheme", b =>
+        {
+            b.Property<Guid>("Id")
+                .ValueGeneratedOnAdd()
+                .HasColumnType("uniqueidentifier");
+
+            b.Property<string>("DisplayName")
+                .HasMaxLength(200)
+                .HasColumnType("nvarchar(200)");
+
+            b.Property<string>("HeaderBackgroundColor")
+                .HasMaxLength(20)
+                .HasColumnType("nvarchar(20)");
+
+            b.Property<string>("LogoUrl")
+                .HasMaxLength(500)
+                .HasColumnType("nvarchar(500)");
+
+            b.Property<string>("PageBackgroundColor")
+                .HasMaxLength(20)
+                .HasColumnType("nvarchar(20)");
+
+            b.Property<string>("PrimaryColor")
+                .HasMaxLength(20)
+                .HasColumnType("nvarchar(20)");
+
+            b.Property<string>("SecondaryColor")
+                .HasMaxLength(20)
+                .HasColumnType("nvarchar(20)");
+
+            b.Property<Guid>("TenantId")
+                .HasColumnType("uniqueidentifier");
+
+            b.HasKey("Id");
+
+            b.HasIndex("TenantId")
+                .IsUnique();
+
+            b.ToTable("TenantThemes", (string)null);
         });
 
     }

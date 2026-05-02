@@ -96,6 +96,7 @@ public sealed partial class ServiFinanceDbContext {
     ConfigureMoney(transaction.Property(entity => entity.DebitAmount));
     ConfigureMoney(transaction.Property(entity => entity.CreditAmount));
     ConfigureMoney(transaction.Property(entity => entity.RunningBalance));
+    transaction.HasIndex(entity => entity.ReversalOfTransactionId);
     transaction.HasOne(entity => entity.Customer)
         .WithMany(entity => entity.Transactions)
         .HasForeignKey(entity => entity.CustomerId)

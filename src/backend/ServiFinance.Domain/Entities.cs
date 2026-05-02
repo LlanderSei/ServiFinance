@@ -20,10 +20,21 @@ public sealed class Tenant : Entity {
   public string SubscriptionEdition { get; set; } = string.Empty;
   public string SubscriptionPlan { get; set; } = string.Empty;
   public string SubscriptionStatus { get; set; } = string.Empty;
+  public string BillingProvider { get; set; } = "Manual";
+  public string? StripeCustomerId { get; set; }
+  public string? StripeSubscriptionId { get; set; }
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
   public bool IsActive { get; set; } = true;
 
-  // Tenant Branding Configuration
+  public ICollection<AppUser> Users { get; set; } = [];
+  public ICollection<Role> Roles { get; set; } = [];
+  public ICollection<Customer> Customers { get; set; } = [];
+  public ICollection<TenantBillingRecord> BillingRecords { get; set; } = [];
+  public TenantTheme? Theme { get; set; }
+}
+
+public sealed class TenantTheme : Entity, ITenantEntity {
+  public Guid TenantId { get; set; }
   public string? DisplayName { get; set; }
   public string? LogoUrl { get; set; }
   public string? PrimaryColor { get; set; }
@@ -31,9 +42,30 @@ public sealed class Tenant : Entity {
   public string? HeaderBackgroundColor { get; set; }
   public string? PageBackgroundColor { get; set; }
 
-  public ICollection<AppUser> Users { get; set; } = [];
-  public ICollection<Role> Roles { get; set; } = [];
-  public ICollection<Customer> Customers { get; set; } = [];
+  public Tenant Tenant { get; set; } = null!;
+}
+
+public sealed class PlatformTenantRegistration : Entity {
+  public Guid SubscriptionTierId { get; set; }
+  public Guid? TenantId { get; set; }
+  public string BusinessName { get; set; } = string.Empty;
+  public string TenantCode { get; set; } = string.Empty;
+  public string DomainSlug { get; set; } = string.Empty;
+  public string OwnerFullName { get; set; } = string.Empty;
+  public string OwnerEmail { get; set; } = string.Empty;
+  public string OwnerPasswordHash { get; set; } = string.Empty;
+  public string Status { get; set; } = string.Empty;
+  public string? StripeCheckoutSessionId { get; set; }
+  public string? StripeCustomerId { get; set; }
+  public string? StripeSubscriptionId { get; set; }
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime? CheckoutExpiresAtUtc { get; set; }
+  public DateTime? ProvisionedAtUtc { get; set; }
+  public string? FailureReason { get; set; }
+
+  public SubscriptionTier? SubscriptionTier { get; set; }
+  public Tenant? Tenant { get; set; }
 }
 
 public sealed class SubscriptionTier : Entity {
@@ -80,6 +112,26 @@ public sealed class RefreshSession : Entity {
   public Customer? Customer { get; set; }
 }
 
+public sealed class AuditEvent : TenantEntity {
+  public string Scope { get; set; } = string.Empty;
+  public string Category { get; set; } = string.Empty;
+  public string ActionType { get; set; } = string.Empty;
+  public string Outcome { get; set; } = string.Empty;
+  public Guid? ActorUserId { get; set; }
+  public string ActorName { get; set; } = string.Empty;
+  public string ActorEmail { get; set; } = string.Empty;
+  public string SubjectType { get; set; } = string.Empty;
+  public Guid? SubjectId { get; set; }
+  public string SubjectLabel { get; set; } = string.Empty;
+  public string Detail { get; set; } = string.Empty;
+  public string? IpAddress { get; set; }
+  public string? UserAgent { get; set; }
+  public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
+
+  public Tenant? Tenant { get; set; }
+  public AppUser? ActorUser { get; set; }
+}
+
 public sealed class SubscriptionTierModule : Entity {
   public Guid SubscriptionTierId { get; set; }
   public Guid PlatformModuleId { get; set; }
@@ -105,6 +157,7 @@ public sealed class AppUser : TenantEntity {
   public ICollection<Assignment> CreatedAssignments { get; set; } = [];
   public ICollection<AssignmentEvent> AssignmentEvents { get; set; } = [];
   public ICollection<AssignmentEvidence> AssignmentEvidenceItems { get; set; } = [];
+  public ICollection<TenantBillingRecord> SubmittedBillingRecords { get; set; } = [];
   public ICollection<MicroLoan> CreatedMicroLoans { get; set; } = [];
   public ICollection<LedgerTransaction> CreatedTransactions { get; set; } = [];
   public ICollection<RefreshSession> RefreshSessions { get; set; } = [];
@@ -225,6 +278,30 @@ public sealed class AssignmentEvidence : TenantEntity {
   public AppUser? SubmittedByUser { get; set; }
 }
 
+public sealed class TenantBillingRecord : TenantEntity {
+  public Guid SubmittedByUserId { get; set; }
+  public string BillingPeriodLabel { get; set; } = string.Empty;
+  public DateTime CoverageStartUtc { get; set; }
+  public DateTime CoverageEndUtc { get; set; }
+  public DateTime DueDateUtc { get; set; }
+  public decimal AmountDue { get; set; }
+  public decimal AmountSubmitted { get; set; }
+  public string PaymentMethod { get; set; } = string.Empty;
+  public string ReferenceNumber { get; set; } = string.Empty;
+  public string Status { get; set; } = string.Empty;
+  public string? Note { get; set; }
+  public string? ReviewRemarks { get; set; }
+  public string? ProofOriginalFileName { get; set; }
+  public string? ProofStoredFileName { get; set; }
+  public string? ProofContentType { get; set; }
+  public string? ProofRelativeUrl { get; set; }
+  public DateTime SubmittedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime? ReviewedAtUtc { get; set; }
+
+  public Tenant? Tenant { get; set; }
+  public AppUser? SubmittedByUser { get; set; }
+}
+
 public sealed class Invoice : TenantEntity {
   public Guid CustomerId { get; set; }
   public Guid? ServiceRequestId { get; set; }
@@ -297,6 +374,7 @@ public sealed class LedgerTransaction : TenantEntity {
   public Guid? InvoiceId { get; set; }
   public Guid? MicroLoanId { get; set; }
   public Guid? AmortizationScheduleId { get; set; }
+  public Guid? ReversalOfTransactionId { get; set; }
   public DateTime TransactionDateUtc { get; set; } = DateTime.UtcNow;
   public string TransactionType { get; set; } = string.Empty;
   public string ReferenceNumber { get; set; } = string.Empty;

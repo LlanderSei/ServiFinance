@@ -14,14 +14,28 @@ public sealed partial class ServiFinanceDbContext {
     tenant.Property(entity => entity.SubscriptionEdition).HasMaxLength(50);
     tenant.Property(entity => entity.SubscriptionPlan).HasMaxLength(100);
     tenant.Property(entity => entity.SubscriptionStatus).HasMaxLength(100);
-    tenant.Property(entity => entity.DisplayName).HasMaxLength(TenantDisplayNameMaxLength);
-    tenant.Property(entity => entity.LogoUrl).HasMaxLength(TenantLogoUrlMaxLength);
-    tenant.Property(entity => entity.PrimaryColor).HasMaxLength(TenantBrandColorMaxLength);
-    tenant.Property(entity => entity.SecondaryColor).HasMaxLength(TenantBrandColorMaxLength);
-    tenant.Property(entity => entity.HeaderBackgroundColor).HasMaxLength(TenantBrandColorMaxLength);
-    tenant.Property(entity => entity.PageBackgroundColor).HasMaxLength(TenantBrandColorMaxLength);
+    tenant.Property(entity => entity.BillingProvider).HasMaxLength(50);
+    tenant.Property(entity => entity.StripeCustomerId).HasMaxLength(ExternalBillingReferenceMaxLength);
+    tenant.Property(entity => entity.StripeSubscriptionId).HasMaxLength(ExternalBillingReferenceMaxLength);
     tenant.HasIndex(entity => entity.Code).IsUnique();
     tenant.HasIndex(entity => entity.DomainSlug).IsUnique();
+    tenant.HasOne(entity => entity.Theme)
+        .WithOne(entity => entity.Tenant)
+        .HasForeignKey<TenantTheme>(entity => entity.TenantId)
+        .OnDelete(DeleteBehavior.Cascade);
+  }
+
+  private void ConfigureTenantThemes(ModelBuilder modelBuilder) {
+    var tenantTheme = modelBuilder.Entity<TenantTheme>();
+    tenantTheme.ToTable("TenantThemes");
+    tenantTheme.Property(entity => entity.DisplayName).HasMaxLength(TenantDisplayNameMaxLength);
+    tenantTheme.Property(entity => entity.LogoUrl).HasMaxLength(TenantLogoUrlMaxLength);
+    tenantTheme.Property(entity => entity.PrimaryColor).HasMaxLength(TenantBrandColorMaxLength);
+    tenantTheme.Property(entity => entity.SecondaryColor).HasMaxLength(TenantBrandColorMaxLength);
+    tenantTheme.Property(entity => entity.HeaderBackgroundColor).HasMaxLength(TenantBrandColorMaxLength);
+    tenantTheme.Property(entity => entity.PageBackgroundColor).HasMaxLength(TenantBrandColorMaxLength);
+    ConfigureTenantOwned(tenantTheme);
+    tenantTheme.HasIndex(entity => entity.TenantId).IsUnique();
   }
 
   private void ConfigureSubscriptionTiers(ModelBuilder modelBuilder) {

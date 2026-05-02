@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import type { AuthSessionResponse } from "@/shared/api/contracts";
+import { readApiErrorMessage } from "@/shared/api/http";
 import { isDesktopShell, resolveApiUrl, toPlatformRoute } from "@/platform/runtime";
 import { applySession } from "@/shared/auth/session";
 import { PublicButton } from "@/shared/public/PublicPrimitives";
@@ -48,7 +49,8 @@ export function TenantLoginModal({ open, tenantDomainSlug, system, error, onClos
       });
 
       if (!response.ok) {
-        setLocalError("Invalid tenant email or password.");
+        const errorMessage = await readApiErrorMessage(response);
+        setLocalError(errorMessage ?? "Invalid tenant email or password.");
         return;
       }
 

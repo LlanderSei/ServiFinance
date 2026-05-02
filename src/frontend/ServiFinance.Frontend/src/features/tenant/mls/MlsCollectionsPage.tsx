@@ -5,7 +5,7 @@ import {
   TenantMlsCollectionsWorkspaceResponse,
   TenantMlsLoanPaymentPostedResponse
 } from "@/shared/api/contracts";
-import { httpGet, httpPostJson } from "@/shared/api/http";
+import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
@@ -189,11 +189,13 @@ export function MlsCollectionsPage() {
     mutationFn: () => httpPostJson<TenantMlsLoanPaymentPostedResponse, {
       amount: number;
       paymentDate: string;
+      expectedStartingInstallmentNumber: number | null;
       referenceNumber: string | null;
       remarks: string | null;
     }>(`/api/tenants/${tenantDomainSlug}/mls/loans/${selectedLoanId}/payments`, {
       amount: Number(paymentAmount),
       paymentDate,
+      expectedStartingInstallmentNumber: selectedEntry?.installmentNumber ?? null,
       referenceNumber: referenceNumber.trim() || null,
       remarks: remarks.trim() || null
     }),
@@ -208,6 +210,10 @@ export function MlsCollectionsPage() {
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-loans"] });
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-ledger"] });
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-customers"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-customer-finance"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-audit"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-reports"] });
     },
     onError: (error: Error) => {
       toast.error({
@@ -226,12 +232,6 @@ export function MlsCollectionsPage() {
     setReferenceNumber("");
     setRemarks("");
     setIsModalOpen(true);
-  }
-
-  function handleSelectEntry(entry: TenantMlsCollectionRow) {
-    setSelectedLoanId(entry.microLoanId);
-    setSelectedEntryKey(getEntryKey(entry));
-    setPaymentAmount(entry.outstandingAmount.toFixed(2));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -256,7 +256,7 @@ export function MlsCollectionsPage() {
               {collectionsQuery.isLoading ? <WorkspaceNotice>Loading MLS collections queue...</WorkspaceNotice> : null}
               {collectionsQuery.isError ? (
                 <WorkspaceNotice tone="error">
-                  Unable to load the MLS collections queue right now.
+                  {getApiErrorMessage(collectionsQuery.error, "Unable to load the MLS collections queue right now.")}
                 </WorkspaceNotice>
               ) : null}
 
@@ -308,7 +308,7 @@ export function MlsCollectionsPage() {
                       <RecordTableStateRow colSpan={7}>Loading collections queue...</RecordTableStateRow>
                     ) : collectionsQuery.isError ? (
                       <RecordTableStateRow colSpan={7} tone="error">
-                        Unable to load the collections queue.
+                        {getApiErrorMessage(collectionsQuery.error, "Unable to load the collections queue.")}
                       </RecordTableStateRow>
                     ) : groupedEntries.length ? (
                       groupedEntries.map((group) => (
@@ -371,6 +371,10 @@ export function MlsCollectionsPage() {
               <WorkspacePanel className="min-h-0 overflow-hidden">
                 <WorkspacePanelHeader eyebrow="Queue collections" title="Installments for this record" />
 
+                <WorkspaceNotice>
+                  Collections always start with the next payable installment for the selected loan. If the entered amount is larger, the remaining amount rolls forward to later unpaid installments automatically.
+                </WorkspaceNotice>
+
                 {selectedGroup.entries.length ? (
                   <WorkspaceSubtableShell className="min-h-0 flex-1">
                     <WorkspaceSubtable className="min-w-[54rem]">
@@ -401,9 +405,15 @@ export function MlsCollectionsPage() {
                               </WorkspaceStatusPill>
                             </td>
                             <td>
-                              <RecordTableActionButton onClick={() => handleSelectEntry(entry)}>
-                                {getEntryKey(entry) === selectedEntryKey ? "Selected" : "Select"}
-                              </RecordTableActionButton>
+                              {getEntryKey(entry) === selectedEntryKey ? (
+                                <RecordTableActionButton disabled>
+                                  Next Payable
+                                </RecordTableActionButton>
+                              ) : (
+                                <span className="text-sm text-base-content/55">
+                                  Queued after installment #{selectedGroup.entries[0]?.installmentNumber}
+                                </span>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -440,7 +450,7 @@ export function MlsCollectionsPage() {
                     <div className="grid gap-3 rounded-box border border-base-300/70 bg-base-200/30 px-4 py-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">Selected installment</p>
+                          <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">Next payable installment</p>
                           <h3 className="mt-1 text-lg font-semibold text-base-content">
                             #{selectedEntry.installmentNumber} due {selectedEntry.dueDate}
                           </h3>
@@ -460,7 +470,7 @@ export function MlsCollectionsPage() {
                     </div>
                   ) : (
                     <WorkspaceEmptyState>
-                      Select an installment from the queue table to prepare collection posting.
+                      Select a grouped collection record from the queue to prepare collection posting.
                     </WorkspaceEmptyState>
                   )}
                 </WorkspaceForm>

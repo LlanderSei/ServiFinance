@@ -49,7 +49,7 @@ export function SmsDispatchHistory({
           ) : null}
           {!isLoading && !isError && !assignments.length ? (
             <RecordTableStateRow colSpan={10}>
-              {viewMode === "all" ? "No dispatch assignments yet." : "No assignments are currently assigned to your account."}
+              {viewMode === "all" ? "No archived assignments yet." : "No archived assignments are currently assigned to your account."}
             </RecordTableStateRow>
           ) : null}
           {assignments.map((assignment) => (

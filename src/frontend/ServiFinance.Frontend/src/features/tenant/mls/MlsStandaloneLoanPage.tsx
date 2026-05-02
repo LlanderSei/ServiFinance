@@ -6,7 +6,7 @@ import {
   TenantMlsStandaloneLoanPreviewResponse,
   TenantMlsStandaloneLoanWorkspaceResponse
 } from "@/shared/api/contracts";
-import { httpGet, httpPostJson } from "@/shared/api/http";
+import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
@@ -163,7 +163,7 @@ export function MlsStandaloneLoanPage() {
               {workspaceQuery.isLoading ? <WorkspaceNotice>Loading standalone-loan borrowers...</WorkspaceNotice> : null}
               {workspaceQuery.isError ? (
                 <WorkspaceNotice tone="error">
-                  Unable to load tenant borrowers for standalone loan processing right now.
+                  {getApiErrorMessage(workspaceQuery.error, "Unable to load tenant borrowers for standalone loan processing right now.")}
                 </WorkspaceNotice>
               ) : null}
 
@@ -199,12 +199,12 @@ export function MlsStandaloneLoanPage() {
                     </thead>
                     <tbody>
                       {workspaceQuery.isLoading ? (
-                        <RecordTableStateRow colSpan={3}>Loading tenant borrowers...</RecordTableStateRow>
-                      ) : workspaceQuery.isError ? (
-                        <RecordTableStateRow colSpan={3} tone="error">
-                          Unable to load tenant borrowers right now.
-                        </RecordTableStateRow>
-                      ) : workspaceQuery.data?.customers.length ? (
+                      <RecordTableStateRow colSpan={3}>Loading tenant borrowers...</RecordTableStateRow>
+                    ) : workspaceQuery.isError ? (
+                      <RecordTableStateRow colSpan={3} tone="error">
+                          {getApiErrorMessage(workspaceQuery.error, "Unable to load tenant borrowers right now.")}
+                      </RecordTableStateRow>
+                    ) : workspaceQuery.data?.customers.length ? (
                         workspaceQuery.data.customers.map((customer) => (
                           <BorrowerRow
                             key={customer.customerId}
@@ -238,6 +238,7 @@ export function MlsStandaloneLoanPage() {
           remarks={remarks}
           isPreviewLoading={previewQuery.isLoading}
           isPreviewError={previewQuery.isError}
+          previewErrorMessage={getApiErrorMessage(previewQuery.error, "The standalone loan preview could not be generated for the current setup.")}
           isSubmitting={createMutation.isPending}
           onPrincipalAmountChange={setPrincipalAmount}
           onAnnualInterestRateChange={setAnnualInterestRate}
@@ -285,6 +286,7 @@ type StandaloneLoanModalProps = {
   remarks: string;
   isPreviewLoading: boolean;
   isPreviewError: boolean;
+  previewErrorMessage?: string;
   isSubmitting: boolean;
   onPrincipalAmountChange: (value: string) => void;
   onAnnualInterestRateChange: (value: string) => void;
@@ -309,6 +311,7 @@ function StandaloneLoanModal({
   remarks,
   isPreviewLoading,
   isPreviewError,
+  previewErrorMessage,
   isSubmitting,
   onPrincipalAmountChange,
   onAnnualInterestRateChange,
@@ -351,7 +354,7 @@ function StandaloneLoanModal({
                 {isPreviewLoading ? <WorkspaceNotice>Generating standalone-loan preview...</WorkspaceNotice> : null}
                 {isPreviewError ? (
                   <WorkspaceNotice tone="error">
-                    The standalone loan preview could not be generated for the current setup.
+                    {previewErrorMessage ?? "The standalone loan preview could not be generated for the current setup."}
                   </WorkspaceNotice>
                 ) : null}
 

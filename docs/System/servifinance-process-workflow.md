@@ -45,13 +45,15 @@ The full business process typically moves in this order:
 ### 3.2 Tenant Provisioning
 
 1. A new tenant is registered through the platform onboarding flow.
-2. The tenant is created with:
+2. The root registration flow now creates a Stripe subscription checkout session for the selected MSME tier.
+3. After Stripe confirms the checkout, the platform provisions the tenant with:
    - identity information
    - domain slug
    - MSME size segment
    - subscription edition and plan
    - activation status
-3. The tenant then becomes reachable through tenant-scoped routes such as:
+   - the first tenant administrator account
+4. The tenant then becomes reachable through tenant-scoped routes such as:
    - `/t/{tenant}/sms/*`
    - `/t/{tenant}/c/*`
    - `/t/{tenant}/mls/*` or the MLS desktop channel
@@ -60,7 +62,10 @@ The full business process typically moves in this order:
 
 1. The superadmin can review whether a tenant is active or suspended.
 2. The superadmin can inspect subscription posture and module catalog metadata.
-3. Future tenant billing and entitlement enforcement will tighten this layer further, but that workflow is not fully implemented yet.
+3. Tenant billing can now follow two commercial paths:
+   - `Manual`, where tenant admins submit renewal proof for review
+   - `Stripe`, where the subscription is collected through Stripe Checkout and later managed in the Stripe billing portal
+4. Future entitlement enforcement and broader platform-side billing review will tighten this layer further.
 
 ## 4. Tenant Entry Workflow
 

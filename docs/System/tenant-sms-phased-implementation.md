@@ -291,7 +291,19 @@ Implementation notes:
 
 Current implementation:
 
-- not started
+- implemented as a tenant-admin billing workspace at `/t/{slug}/billing`
+- tenant admins can now review plan, edition, billing cadence, renewal checkpoint, risk posture, and unlocked module coverage from the same tenant-scoped page
+- a persisted `TenantBillingRecords` ledger now stores subscription-cycle history, submitted amount, payment method, reference number, notes, proof metadata, and submission status
+- root onboarding at `/register` now creates a Stripe subscription checkout for the selected MSME tier and provisions the tenant after Stripe webhook confirmation
+- Stripe-managed tenants can now open the hosted billing portal from `/t/{slug}/billing`, while manual-billing tenants continue using the proof-submission path
+- Stripe invoice webhooks now sync subscription-cycle billing entries into the tenant billing ledger so the same workspace can show Stripe-managed payment history
+- manual renewal proof submission is still working for manual-billing tenants, with one pending-review submission allowed at a time to prevent duplicate renewal stacking
+- the billing workspace is aligned to the same superadmin subscription catalog metadata, so plan labels, price display, billing label, and module coverage stay consistent across platform and tenant views
+
+Deferred within or after this phase:
+
+- embedded custom payment forms are still deferred; the current Stripe collection flow uses hosted Checkout and the hosted billing portal rather than in-app card form capture
+- platform-side billing review and reconciliation tooling can still be tightened further, especially for mixed manual and Stripe-managed tenants
 
 ## Phase 10: Workflow Tightening and Role Hardening
 
