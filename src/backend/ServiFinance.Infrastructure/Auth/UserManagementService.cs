@@ -9,6 +9,8 @@ namespace ServiFinance.Infrastructure.Auth;
 public sealed class UserManagementService(
     ServiFinanceDbContext dbContext,
     IPasswordHasher<AppUser> passwordHasher) : IUserManagementService {
+  private const int EmailMaxLength = 50;
+
   public async Task<IReadOnlyList<UserListItem>> GetUsersAsync(CancellationToken cancellationToken = default) {
     return await dbContext.Users
         .AsNoTracking()
@@ -39,6 +41,10 @@ public sealed class UserManagementService(
 
   public async Task<UserListItem> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default) {
     var normalizedEmail = request.Email.Trim();
+    if (normalizedEmail.Length > EmailMaxLength) {
+      throw new InvalidOperationException($"Email must be {EmailMaxLength} characters or fewer.");
+    }
+
     var normalizedEmailUpper = normalizedEmail.ToUpperInvariant();
     var existingUser = await dbContext.Users
         .IgnoreQueryFilters()

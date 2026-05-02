@@ -1,31 +1,28 @@
 using Microsoft.EntityFrameworkCore;
-using ServiFinance.Domain;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ServiFinance.Application.Tenancy;
+using ServiFinance.Domain;
 
 namespace ServiFinance.Infrastructure.Data;
 
-public sealed class ServiFinanceDbContext(
-    DbContextOptions<ServiFinanceDbContext> options,
-    ITenantProvider tenantProvider) : DbContext(options) {
-  private static readonly Type[] TenantEntityTypes = [
-      typeof(AppUser),
-      typeof(Role),
-      typeof(UserRole),
-      typeof(Customer),
-      typeof(ServiceRequest),
-      typeof(StatusLog),
-      typeof(Assignment),
-      typeof(AssignmentEvent),
-      typeof(AssignmentEvidence),
-      typeof(Invoice),
-      typeof(InvoiceLine),
-      typeof(MicroLoan),
-      typeof(AmortizationSchedule),
-      typeof(LedgerTransaction)
-  ];
+public sealed partial class ServiFinanceDbContext : DbContext {
+  private const int EmailMaxLength = 50;
+  private const int PasswordHashMaxLength = 512;
+  private const int FeedbackCommentsMaxLength = 1000;
+  private const int TenantDisplayNameMaxLength = 200;
+  private const int TenantBrandColorMaxLength = 20;
+  private const int TenantLogoUrlMaxLength = 500;
 
-  private readonly Guid _currentTenantId = tenantProvider.CurrentTenantId;
-  private readonly bool _hasRequestContext = tenantProvider.HasRequestContext;
+  private readonly Guid _currentTenantId;
+  private readonly bool _hasRequestContext;
+
+  public ServiFinanceDbContext(
+      DbContextOptions<ServiFinanceDbContext> options,
+      ITenantProvider tenantProvider)
+      : base(options) {
+    _currentTenantId = tenantProvider.CurrentTenantId;
+    _hasRequestContext = tenantProvider.HasRequestContext;
+  }
 
   public DbSet<Tenant> Tenants => Set<Tenant>();
   public DbSet<SubscriptionTier> SubscriptionTiers => Set<SubscriptionTier>();
@@ -111,361 +108,14 @@ public sealed class ServiFinanceDbContext(
     }
   }
 
-  private void ConfigureTenant(ModelBuilder modelBuilder) {
-    var tenant = modelBuilder.Entity<Tenant>();
-    tenant.ToTable("Tenants");
-    tenant.Property(entity => entity.Name).HasMaxLength(200);
-    tenant.Property(entity => entity.Code).HasMaxLength(50);
-    tenant.Property(entity => entity.DomainSlug).HasMaxLength(100);
-    tenant.Property(entity => entity.BusinessSizeSegment).HasMaxLength(50);
-    tenant.Property(entity => entity.SubscriptionEdition).HasMaxLength(50);
-    tenant.Property(entity => entity.SubscriptionPlan).HasMaxLength(100);
-    tenant.Property(entity => entity.SubscriptionStatus).HasMaxLength(100);
-    tenant.HasIndex(entity => entity.Code).IsUnique();
-    tenant.HasIndex(entity => entity.DomainSlug).IsUnique();
-  }
-
-  private void ConfigureUsers(ModelBuilder modelBuilder) {
-    var user = modelBuilder.Entity<AppUser>();
-    user.ToTable("Users");
-    ConfigureTenantOwned(user);
-    user.Property(entity => entity.Email).HasMaxLength(256);
-    user.Property(entity => entity.PasswordHash).HasMaxLength(512);
-    user.Property(entity => entity.FullName).HasMaxLength(200);
-    user.HasIndex(entity => entity.Email).IsUnique();
-    user.HasOne(entity => entity.Tenant)
-        .WithMany(entity => entity.Users)
-        .HasForeignKey(entity => entity.TenantId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureSubscriptionTiers(ModelBuilder modelBuilder) {
-    var subscriptionTier = modelBuilder.Entity<SubscriptionTier>();
-    subscriptionTier.ToTable("SubscriptionTiers");
-    subscriptionTier.Property(entity => entity.Code).HasMaxLength(50);
-    subscriptionTier.Property(entity => entity.DisplayName).HasMaxLength(100);
-    subscriptionTier.Property(entity => entity.BusinessSizeSegment).HasMaxLength(50);
-    subscriptionTier.Property(entity => entity.SubscriptionEdition).HasMaxLength(50);
-    subscriptionTier.Property(entity => entity.AudienceSummary).HasMaxLength(200);
-    subscriptionTier.Property(entity => entity.Description).HasMaxLength(1000);
-    subscriptionTier.Property(entity => entity.PriceDisplay).HasMaxLength(100);
-    subscriptionTier.Property(entity => entity.BillingLabel).HasMaxLength(100);
-    subscriptionTier.Property(entity => entity.PlanSummary).HasMaxLength(300);
-    subscriptionTier.Property(entity => entity.HighlightLabel).HasMaxLength(100);
-    subscriptionTier.HasIndex(entity => entity.Code).IsUnique();
-  }
-
-  private void ConfigurePlatformModules(ModelBuilder modelBuilder) {
-    var platformModule = modelBuilder.Entity<PlatformModule>();
-    platformModule.ToTable("ModuleCatalog");
-    platformModule.Property(entity => entity.Code).HasMaxLength(50);
-    platformModule.Property(entity => entity.Name).HasMaxLength(150);
-    platformModule.Property(entity => entity.Channel).HasMaxLength(50);
-    platformModule.Property(entity => entity.Summary).HasMaxLength(300);
-    platformModule.HasIndex(entity => entity.Code).IsUnique();
-  }
-
-  private void ConfigureRefreshSessions(ModelBuilder modelBuilder) {
-    var refreshSession = modelBuilder.Entity<RefreshSession>();
-    refreshSession.ToTable("RefreshSessions");
-    refreshSession.Property(entity => entity.Surface).HasMaxLength(50);
-    refreshSession.Property(entity => entity.RefreshTokenHash).HasMaxLength(128);
-    refreshSession.HasIndex(entity => entity.RefreshTokenHash).IsUnique();
-    refreshSession.HasIndex(entity => entity.ExpiresAtUtc);
-    refreshSession.HasOne(entity => entity.User)
-        .WithMany(entity => entity.RefreshSessions)
-        .HasForeignKey(entity => entity.UserId)
-        .IsRequired(false)
-        .OnDelete(DeleteBehavior.SetNull);
-    refreshSession.HasOne(entity => entity.Customer)
-        .WithMany()
-        .HasForeignKey(entity => entity.CustomerId)
-        .IsRequired(false)
-        .OnDelete(DeleteBehavior.SetNull);
-  }
-
-  private void ConfigureSubscriptionTierModules(ModelBuilder modelBuilder) {
-    var subscriptionTierModule = modelBuilder.Entity<SubscriptionTierModule>();
-    subscriptionTierModule.ToTable("SubscriptionTierModules");
-    subscriptionTierModule.Property(entity => entity.AccessLevel).HasMaxLength(30);
-    subscriptionTierModule.HasIndex(entity => new { entity.SubscriptionTierId, entity.PlatformModuleId }).IsUnique();
-    subscriptionTierModule.HasOne(entity => entity.SubscriptionTier)
-        .WithMany(entity => entity.Modules)
-        .HasForeignKey(entity => entity.SubscriptionTierId)
-        .OnDelete(DeleteBehavior.Cascade);
-    subscriptionTierModule.HasOne(entity => entity.PlatformModule)
-        .WithMany(entity => entity.TierAssignments)
-        .HasForeignKey(entity => entity.PlatformModuleId)
-        .OnDelete(DeleteBehavior.Cascade);
-  }
-
-  private void ConfigureRoles(ModelBuilder modelBuilder) {
-    var role = modelBuilder.Entity<Role>();
-    role.ToTable("Roles");
-    ConfigureTenantOwned(role);
-    role.Property(entity => entity.Name).HasMaxLength(100);
-    role.Property(entity => entity.Description).HasMaxLength(256);
-    role.HasIndex(entity => new { entity.TenantId, entity.Name }).IsUnique();
-    role.HasOne(entity => entity.Tenant)
-        .WithMany(entity => entity.Roles)
-        .HasForeignKey(entity => entity.TenantId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureUserRoles(ModelBuilder modelBuilder) {
-    var userRole = modelBuilder.Entity<UserRole>();
-    userRole.ToTable("UserRoles");
-    ConfigureTenantOwned(userRole);
-    userRole.HasIndex(entity => new { entity.TenantId, entity.UserId, entity.RoleId }).IsUnique();
-    userRole.HasOne(entity => entity.User)
-        .WithMany(entity => entity.UserRoles)
-        .HasForeignKey(entity => entity.UserId)
-        .OnDelete(DeleteBehavior.Restrict);
-    userRole.HasOne(entity => entity.Role)
-        .WithMany(entity => entity.UserRoles)
-        .HasForeignKey(entity => entity.RoleId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureCustomers(ModelBuilder modelBuilder) {
-    var customer = modelBuilder.Entity<Customer>();
-    customer.ToTable("Customers");
-    ConfigureTenantOwned(customer);
-    customer.Property(entity => entity.CustomerCode).HasMaxLength(50);
-    customer.Property(entity => entity.FullName).HasMaxLength(200);
-    customer.Property(entity => entity.MobileNumber).HasMaxLength(50);
-    customer.Property(entity => entity.Email).HasMaxLength(256);
-    customer.Property(entity => entity.Address).HasMaxLength(500);
-    customer.HasIndex(entity => new { entity.TenantId, entity.CustomerCode }).IsUnique();
-    customer.HasOne(entity => entity.Tenant)
-        .WithMany(entity => entity.Customers)
-        .HasForeignKey(entity => entity.TenantId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureServiceRequests(ModelBuilder modelBuilder) {
-    var serviceRequest = modelBuilder.Entity<ServiceRequest>();
-    serviceRequest.ToTable("ServiceRequests");
-    ConfigureTenantOwned(serviceRequest);
-    serviceRequest.Property(entity => entity.RequestNumber).HasMaxLength(50);
-    serviceRequest.Property(entity => entity.ItemType).HasMaxLength(100);
-    serviceRequest.Property(entity => entity.ItemDescription).HasMaxLength(500);
-    serviceRequest.Property(entity => entity.IssueDescription).HasMaxLength(1000);
-    serviceRequest.Property(entity => entity.Priority).HasMaxLength(50);
-    serviceRequest.Property(entity => entity.CurrentStatus).HasMaxLength(50);
-    serviceRequest.HasIndex(entity => new { entity.TenantId, entity.RequestNumber }).IsUnique();
-    serviceRequest.HasOne(entity => entity.Customer)
-        .WithMany(entity => entity.ServiceRequests)
-        .HasForeignKey(entity => entity.CustomerId)
-        .OnDelete(DeleteBehavior.Restrict);
-    serviceRequest.HasOne(entity => entity.CreatedByUser)
-        .WithMany(entity => entity.CreatedServiceRequests)
-        .HasForeignKey(entity => entity.CreatedByUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureStatusLogs(ModelBuilder modelBuilder) {
-    var statusLog = modelBuilder.Entity<StatusLog>();
-    statusLog.ToTable("StatusLogs");
-    ConfigureTenantOwned(statusLog);
-    statusLog.Property(entity => entity.Status).HasMaxLength(50);
-    statusLog.Property(entity => entity.Remarks).HasMaxLength(1000);
-    statusLog.HasOne(entity => entity.ServiceRequest)
-        .WithMany(entity => entity.StatusLogs)
-        .HasForeignKey(entity => entity.ServiceRequestId)
-        .OnDelete(DeleteBehavior.Cascade);
-    statusLog.HasOne(entity => entity.ChangedByUser)
-        .WithMany(entity => entity.StatusLogs)
-        .HasForeignKey(entity => entity.ChangedByUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureAssignments(ModelBuilder modelBuilder) {
-    var assignment = modelBuilder.Entity<Assignment>();
-    assignment.ToTable("Assignments");
-    ConfigureTenantOwned(assignment);
-    assignment.Property(entity => entity.AssignmentStatus).HasMaxLength(50);
-    assignment.HasOne(entity => entity.ServiceRequest)
-        .WithMany(entity => entity.Assignments)
-        .HasForeignKey(entity => entity.ServiceRequestId)
-        .OnDelete(DeleteBehavior.Cascade);
-    assignment.HasOne(entity => entity.AssignedUser)
-        .WithMany(entity => entity.AssignedAssignments)
-        .HasForeignKey(entity => entity.AssignedUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-    assignment.HasOne(entity => entity.AssignedByUser)
-        .WithMany(entity => entity.CreatedAssignments)
-        .HasForeignKey(entity => entity.AssignedByUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureAssignmentEvents(ModelBuilder modelBuilder) {
-    var assignmentEvent = modelBuilder.Entity<AssignmentEvent>();
-    assignmentEvent.ToTable("AssignmentEvents");
-    ConfigureTenantOwned(assignmentEvent);
-    assignmentEvent.Property(entity => entity.EventType).HasMaxLength(50);
-    assignmentEvent.Property(entity => entity.AssignmentStatus).HasMaxLength(50);
-    assignmentEvent.Property(entity => entity.Remarks).HasMaxLength(1000);
-    assignmentEvent.HasOne(entity => entity.Assignment)
-        .WithMany(entity => entity.Events)
-        .HasForeignKey(entity => entity.AssignmentId)
-        .OnDelete(DeleteBehavior.Cascade);
-    assignmentEvent.HasOne(entity => entity.PreviousAssignedUser)
-        .WithMany()
-        .HasForeignKey(entity => entity.PreviousAssignedUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-    assignmentEvent.HasOne(entity => entity.AssignedUser)
-        .WithMany()
-        .HasForeignKey(entity => entity.AssignedUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-    assignmentEvent.HasOne(entity => entity.ChangedByUser)
-        .WithMany(entity => entity.AssignmentEvents)
-        .HasForeignKey(entity => entity.ChangedByUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureAssignmentEvidence(ModelBuilder modelBuilder) {
-    var assignmentEvidence = modelBuilder.Entity<AssignmentEvidence>();
-    assignmentEvidence.ToTable("AssignmentEvidence");
-    ConfigureTenantOwned(assignmentEvidence);
-    assignmentEvidence.Property(entity => entity.Note).HasMaxLength(2000);
-    assignmentEvidence.Property(entity => entity.OriginalFileName).HasMaxLength(260);
-    assignmentEvidence.Property(entity => entity.StoredFileName).HasMaxLength(260);
-    assignmentEvidence.Property(entity => entity.ContentType).HasMaxLength(120);
-    assignmentEvidence.Property(entity => entity.RelativeUrl).HasMaxLength(500);
-    assignmentEvidence.HasOne(entity => entity.Assignment)
-        .WithMany(entity => entity.EvidenceItems)
-        .HasForeignKey(entity => entity.AssignmentId)
-        .OnDelete(DeleteBehavior.Cascade);
-    assignmentEvidence.HasOne(entity => entity.SubmittedByUser)
-        .WithMany(entity => entity.AssignmentEvidenceItems)
-        .HasForeignKey(entity => entity.SubmittedByUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureInvoices(ModelBuilder modelBuilder) {
-    var invoice = modelBuilder.Entity<Invoice>();
-    invoice.ToTable("Invoices");
-    ConfigureTenantOwned(invoice);
-    invoice.Property(entity => entity.InvoiceNumber).HasMaxLength(50);
-    invoice.Property(entity => entity.InvoiceStatus).HasMaxLength(50);
-    ConfigureMoney(invoice.Property(entity => entity.SubtotalAmount));
-    ConfigureMoney(invoice.Property(entity => entity.InterestableAmount));
-    ConfigureMoney(invoice.Property(entity => entity.DiscountAmount));
-    ConfigureMoney(invoice.Property(entity => entity.TotalAmount));
-    ConfigureMoney(invoice.Property(entity => entity.OutstandingAmount));
-    invoice.HasIndex(entity => new { entity.TenantId, entity.InvoiceNumber }).IsUnique();
-    invoice.HasOne(entity => entity.Customer)
-        .WithMany(entity => entity.Invoices)
-        .HasForeignKey(entity => entity.CustomerId)
-        .OnDelete(DeleteBehavior.Restrict);
-    invoice.HasOne(entity => entity.ServiceRequest)
-        .WithMany(entity => entity.Invoices)
-        .HasForeignKey(entity => entity.ServiceRequestId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureInvoiceLines(ModelBuilder modelBuilder) {
-    var invoiceLine = modelBuilder.Entity<InvoiceLine>();
-    invoiceLine.ToTable("InvoiceLines");
-    ConfigureTenantOwned(invoiceLine);
-    invoiceLine.Property(entity => entity.Description).HasMaxLength(500);
-    ConfigureMoney(invoiceLine.Property(entity => entity.Quantity), 18, 4);
-    ConfigureMoney(invoiceLine.Property(entity => entity.UnitPrice));
-    ConfigureMoney(invoiceLine.Property(entity => entity.LineTotal));
-    invoiceLine.HasOne(entity => entity.Invoice)
-        .WithMany(entity => entity.InvoiceLines)
-        .HasForeignKey(entity => entity.InvoiceId)
-        .OnDelete(DeleteBehavior.Cascade);
-  }
-
-  private void ConfigureMicroLoans(ModelBuilder modelBuilder) {
-    var microLoan = modelBuilder.Entity<MicroLoan>();
-    microLoan.ToTable("MicroLoans");
-    ConfigureTenantOwned(microLoan);
-    microLoan.Property(entity => entity.LoanStatus).HasMaxLength(50);
-    ConfigureMoney(microLoan.Property(entity => entity.PrincipalAmount));
-    ConfigureMoney(microLoan.Property(entity => entity.AnnualInterestRate), 9, 4);
-    ConfigureMoney(microLoan.Property(entity => entity.MonthlyInstallment));
-    ConfigureMoney(microLoan.Property(entity => entity.TotalInterestAmount));
-    ConfigureMoney(microLoan.Property(entity => entity.TotalRepayableAmount));
-    microLoan.HasIndex(entity => entity.InvoiceId)
-        .IsUnique()
-        .HasFilter("[InvoiceId] IS NOT NULL");
-    microLoan.HasOne(entity => entity.Invoice)
-        .WithOne(entity => entity.MicroLoan)
-        .HasForeignKey<MicroLoan>(entity => entity.InvoiceId)
-        .IsRequired(false)
-        .OnDelete(DeleteBehavior.Restrict);
-    microLoan.HasOne(entity => entity.Customer)
-        .WithMany(entity => entity.MicroLoans)
-        .HasForeignKey(entity => entity.CustomerId)
-        .OnDelete(DeleteBehavior.Restrict);
-    microLoan.HasOne(entity => entity.CreatedByUser)
-        .WithMany(entity => entity.CreatedMicroLoans)
-        .HasForeignKey(entity => entity.CreatedByUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureAmortizationSchedules(ModelBuilder modelBuilder) {
-    var schedule = modelBuilder.Entity<AmortizationSchedule>();
-    schedule.ToTable("AmortizationSchedules");
-    ConfigureTenantOwned(schedule);
-    schedule.Property(entity => entity.InstallmentStatus).HasMaxLength(50);
-    ConfigureMoney(schedule.Property(entity => entity.BeginningBalance));
-    ConfigureMoney(schedule.Property(entity => entity.PrincipalPortion));
-    ConfigureMoney(schedule.Property(entity => entity.InterestPortion));
-    ConfigureMoney(schedule.Property(entity => entity.InstallmentAmount));
-    ConfigureMoney(schedule.Property(entity => entity.EndingBalance));
-    ConfigureMoney(schedule.Property(entity => entity.PaidAmount));
-    schedule.HasIndex(entity => new { entity.MicroLoanId, entity.InstallmentNumber }).IsUnique();
-    schedule.HasOne(entity => entity.MicroLoan)
-        .WithMany(entity => entity.AmortizationSchedules)
-        .HasForeignKey(entity => entity.MicroLoanId)
-        .OnDelete(DeleteBehavior.Cascade);
-  }
-
-  private void ConfigureTransactions(ModelBuilder modelBuilder) {
-    var transaction = modelBuilder.Entity<LedgerTransaction>();
-    transaction.ToTable("Transactions");
-    ConfigureTenantOwned(transaction);
-    transaction.Property(entity => entity.TransactionType).HasMaxLength(50);
-    transaction.Property(entity => entity.ReferenceNumber).HasMaxLength(100);
-    transaction.Property(entity => entity.Remarks).HasMaxLength(1000);
-    ConfigureMoney(transaction.Property(entity => entity.DebitAmount));
-    ConfigureMoney(transaction.Property(entity => entity.CreditAmount));
-    ConfigureMoney(transaction.Property(entity => entity.RunningBalance));
-    transaction.HasOne(entity => entity.Customer)
-        .WithMany(entity => entity.Transactions)
-        .HasForeignKey(entity => entity.CustomerId)
-        .OnDelete(DeleteBehavior.Restrict);
-    transaction.HasOne(entity => entity.Invoice)
-        .WithMany(entity => entity.Transactions)
-        .HasForeignKey(entity => entity.InvoiceId)
-        .OnDelete(DeleteBehavior.Restrict);
-    transaction.HasOne(entity => entity.MicroLoan)
-        .WithMany(entity => entity.Transactions)
-        .HasForeignKey(entity => entity.MicroLoanId)
-        .OnDelete(DeleteBehavior.Restrict);
-    transaction.HasOne(entity => entity.AmortizationSchedule)
-        .WithMany(entity => entity.Transactions)
-        .HasForeignKey(entity => entity.AmortizationScheduleId)
-        .OnDelete(DeleteBehavior.Restrict);
-    transaction.HasOne(entity => entity.CreatedByUser)
-        .WithMany(entity => entity.CreatedTransactions)
-        .HasForeignKey(entity => entity.CreatedByUserId)
-        .OnDelete(DeleteBehavior.Restrict);
-  }
-
-  private void ConfigureTenantOwned<TEntity>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<TEntity> builder)
+  private void ConfigureTenantOwned<TEntity>(EntityTypeBuilder<TEntity> builder)
       where TEntity : class, ITenantEntity {
     builder.Property(entity => entity.TenantId).IsRequired();
     builder.HasIndex(entity => entity.TenantId);
     builder.HasQueryFilter(entity => entity.TenantId == _currentTenantId);
   }
 
-  private static void ConfigureMoney(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder<decimal> propertyBuilder, int precision = 18, int scale = 2) {
+  private static void ConfigureMoney(PropertyBuilder<decimal> propertyBuilder, int precision = 12, int scale = 2) {
     propertyBuilder.HasPrecision(precision, scale);
   }
 }
-

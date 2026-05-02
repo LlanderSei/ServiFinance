@@ -10,6 +10,8 @@ using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantSmsCustomersEndpointMappings {
+  private const int EmailMaxLength = 50;
+
   public static RouteGroupBuilder MapTenantSmsCustomersEndpoints(this RouteGroupBuilder tenantApi) {
     tenantApi.MapGet("/sms/customers", async Task<IResult> (
         HttpContext httpContext,
@@ -50,6 +52,9 @@ internal static class TenantSmsCustomersEndpointMappings {
           if (string.IsNullOrWhiteSpace(request.FullName)) {
             return Results.BadRequest(new { error = "Customer full name is required." });
           }
+          if (request.Email.Trim().Length > EmailMaxLength) {
+            return Results.BadRequest(new { error = $"Customer email must be {EmailMaxLength} characters or fewer." });
+          }
 
           var customer = new ServiFinance.Domain.Customer {
             CustomerCode = GenerateReferenceCode("CUS"),
@@ -87,6 +92,9 @@ internal static class TenantSmsCustomersEndpointMappings {
 
           if (string.IsNullOrWhiteSpace(request.FullName)) {
             return Results.BadRequest(new { error = "Customer full name is required." });
+          }
+          if (request.Email.Trim().Length > EmailMaxLength) {
+            return Results.BadRequest(new { error = $"Customer email must be {EmailMaxLength} characters or fewer." });
           }
 
           var customer = await dbContext.Customers

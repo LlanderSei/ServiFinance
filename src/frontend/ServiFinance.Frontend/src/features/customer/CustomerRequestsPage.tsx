@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import { useCustomerRequests, useCreateCustomerRequest, useSubmitCustomerFeedback } from "./useCustomerRequests";
 import type { CustomerRequest } from "./useCustomerRequests";
 
-function RequestRow({ request }: { request: CustomerRequest }) {
+function RequestRow({ request, tenantDomainSlug }: { request: CustomerRequest; tenantDomainSlug: string }) {
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState("");
   const submitFeedback = useSubmitCustomerFeedback();
@@ -24,6 +25,17 @@ function RequestRow({ request }: { request: CustomerRequest }) {
       <p className="mt-4 text-sm leading-6 text-slate-600">
         <strong>Issue:</strong> {request.issueDescription}
       </p>
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        <strong>Item:</strong> {request.itemDescription}
+      </p>
+      <div className="mt-5">
+        <Link
+          className="btn btn-sm rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
+          to={`/t/${tenantDomainSlug}/c/requests/${request.id}`}
+        >
+          Track request
+        </Link>
+      </div>
 
       {isCompleted && !hasFeedback && (
         <div className="mt-6 rounded-2xl bg-slate-50 p-4 border border-slate-100">
@@ -68,6 +80,7 @@ function RequestRow({ request }: { request: CustomerRequest }) {
 }
 
 export function CustomerRequestsPage() {
+  const { tenantDomainSlug = "" } = useParams();
   const { data: requests, isLoading } = useCustomerRequests();
   const createRequest = useCreateCustomerRequest();
   
@@ -138,7 +151,7 @@ export function CustomerRequestsPage() {
               You haven't made any service requests yet.
             </div>
           ) : (
-            requests?.map((req) => <RequestRow key={req.id} request={req} />)
+            requests?.map((req) => <RequestRow key={req.id} request={req} tenantDomainSlug={tenantDomainSlug} />)
           )}
         </section>
       )}

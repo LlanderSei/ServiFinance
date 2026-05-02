@@ -33,6 +33,7 @@ const CustomerLoginPage = lazyPage(() => import("@/features/customer/CustomerLog
 const CustomerRegisterPage = lazyPage(() => import("@/features/customer/CustomerRegisterPage"), "CustomerRegisterPage");
 const CustomerDashboardPage = lazyPage(() => import("@/features/customer/CustomerDashboardPage"), "CustomerDashboardPage");
 const CustomerRequestsPage = lazyPage(() => import("@/features/customer/CustomerRequestsPage"), "CustomerRequestsPage");
+const CustomerRequestDetailsPage = lazyPage(() => import("@/features/customer/CustomerRequestDetailsPage"), "CustomerRequestDetailsPage");
 const CustomerInvoicesPage = lazyPage(() => import("@/features/customer/CustomerInvoicesPage"), "CustomerInvoicesPage");
 const CustomerFeedbackPage = lazyPage(() => import("@/features/customer/CustomerFeedbackPage"), "CustomerFeedbackPage");
 const MlsDesktopLoginPage = lazyPage(() => import("@/features/tenant/mls/MlsDesktopLoginPage"), "MlsDesktopLoginPage");
@@ -97,6 +98,7 @@ const browserRoutes = [
                 children: [
                   { path: "dashboard", element: <CustomerDashboardPage /> },
                   { path: "requests", element: <CustomerRequestsPage /> },
+                  { path: "requests/:requestId", element: <CustomerRequestDetailsPage /> },
                   { path: "invoices", element: <CustomerInvoicesPage /> },
                   { path: "feedback", element: <CustomerFeedbackPage /> }
                 ]
@@ -177,6 +179,7 @@ const desktopRoutes = [
                 children: [
                   { path: "dashboard", element: <CustomerDashboardPage /> },
                   { path: "requests", element: <CustomerRequestsPage /> },
+                  { path: "requests/:requestId", element: <CustomerRequestDetailsPage /> },
                   { path: "invoices", element: <CustomerInvoicesPage /> },
                   { path: "feedback", element: <CustomerFeedbackPage /> }
                 ]

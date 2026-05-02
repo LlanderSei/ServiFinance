@@ -14,6 +14,44 @@ export type CustomerRequest = {
   feedbackComments?: string | null;
 };
 
+export type CustomerRequestInvoice = {
+  id: string;
+  invoiceNumber: string;
+  invoiceStatus: string;
+  totalAmount: number;
+  outstandingAmount: number;
+  invoiceDateUtc: string;
+  hasMicroLoan: boolean;
+  microLoanStatus?: string | null;
+};
+
+export type CustomerRequestTimelineEntry = {
+  id: string;
+  status: string;
+  remarks: string;
+  changedAtUtc: string;
+  changedByLabel: string;
+};
+
+export type CustomerRequestAssignment = {
+  id: string;
+  assignmentStatus: string;
+  scheduledStartUtc?: string | null;
+  scheduledEndUtc?: string | null;
+  createdAtUtc: string;
+  assignedUserName: string;
+  assignedByUserName: string;
+};
+
+export type CustomerRequestDetailsResponse = {
+  request: CustomerRequest & {
+    requestedServiceDate?: string | null;
+    invoice?: CustomerRequestInvoice | null;
+  };
+  timeline: CustomerRequestTimelineEntry[];
+  assignments: CustomerRequestAssignment[];
+};
+
 export type CreateCustomerRequestPayload = {
   itemType: string;
   itemDescription: string;
@@ -24,6 +62,14 @@ export function useCustomerRequests() {
   return useQuery({
     queryKey: ["customer", "requests"],
     queryFn: () => httpGet<CustomerRequest[]>("/api/customer-portal/requests")
+  });
+}
+
+export function useCustomerRequestDetails(requestId: string | null) {
+  return useQuery({
+    queryKey: ["customer", "requests", requestId, "details"],
+    queryFn: () => httpGet<CustomerRequestDetailsResponse>(`/api/customer-portal/requests/${requestId}/details`),
+    enabled: Boolean(requestId)
   });
 }
 

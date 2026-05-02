@@ -8,7 +8,10 @@ export type CustomerInvoice = {
   totalAmount: number;
   outstandingAmount: number;
   invoiceStatus: string;
+  serviceRequestId?: string | null;
   serviceRequestNumber?: string | null;
+  hasMicroLoan: boolean;
+  microLoanStatus?: string | null;
 };
 
 export function useCustomerInvoices() {

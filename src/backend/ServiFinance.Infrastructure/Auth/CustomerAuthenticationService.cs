@@ -9,6 +9,8 @@ using ServiFinance.Infrastructure.Data;
 public sealed class CustomerAuthenticationService(
     ServiFinanceDbContext dbContext,
     IPasswordHasher<Customer> passwordHasher) : ICustomerAuthenticationService {
+  private const int EmailMaxLength = 50;
+
 
   public async Task<AuthenticatedUser?> AuthenticateAsync(string email, string password, string tenantDomainSlug, CancellationToken cancellationToken = default) {
     var tenantSlug = tenantDomainSlug.Trim().ToLowerInvariant();
@@ -42,6 +44,9 @@ public sealed class CustomerAuthenticationService(
   public async Task<AuthenticatedUser> RegisterAsync(CustomerRegisterRequest request, CancellationToken cancellationToken = default) {
     var tenantSlug = request.TenantDomainSlug.Trim().ToLowerInvariant();
     var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+    if (normalizedEmail.Length > EmailMaxLength) {
+      throw new InvalidOperationException($"Email must be {EmailMaxLength} characters or fewer.");
+    }
 
     var tenant = await dbContext.Tenants
         .AsNoTracking()

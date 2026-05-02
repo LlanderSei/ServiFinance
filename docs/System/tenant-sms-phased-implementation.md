@@ -17,11 +17,9 @@ Based on `Use Case IT15 ServiFinance`, the current SMS web implementation is alr
 
 The remaining gaps are the customer-facing and billing-facing use cases that are still outside the current SMS web scope:
 
-- customer self-service service request submission is not implemented
-- customer real-time status tracking is not implemented
 - customer service-invoice payment in the SMS web is not implemented
-- customer feedback and ratings capture is not implemented
 - tenant-facing domain or subscription payment processing is not implemented
+- direct online invoice settlement or proof-submission is not implemented in the customer portal
 
 There is also one workflow-tightening gap where the use-case intent is only partially matched:
 
@@ -252,7 +250,18 @@ Implementation notes:
 
 Current implementation:
 
-- not started
+- tenant-scoped customer registration and login now use real backend auth endpoints under `/api/auth/customer/*`
+- customer routes now live under `/t/{slug}/c/*` and are served by the web host for direct browser access
+- customer dashboard, request list, invoice list, and feedback routes now load inside a dedicated customer shell with mobile drawer navigation
+- customers can create new service requests directly from the portal without tenant-staff intervention
+- customer request tracking now includes a request-detail page with service timeline, dispatch assignment context, and invoice handoff visibility
+- customer invoices now expose settlement status, outstanding balances, and whether the invoice has already been converted into an MLS loan account
+- customer feedback and ratings now persist back to completed service requests through the portal
+
+Deferred within or after this phase:
+
+- direct online payment capture is still deferred; the current customer portal only tracks invoice and settlement state
+- guest or token-based tracking links are still deferred; request tracking currently uses the authenticated customer session
 
 ## Phase 9: Tenant Subscription and Domain Billing Workspace
 

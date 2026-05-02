@@ -1,6 +1,6 @@
 # ServiFinance Data Dictionary
 
-Last updated: 2026-04-09
+Last updated: 2026-05-01
 
 ## Scope
 
@@ -37,6 +37,12 @@ BusinessSizeSegment | nvarchar | 50 | MSME size segment such as Micro, Small, or
 SubscriptionEdition | nvarchar | 50 | Product edition such as Standard or Premium
 SubscriptionPlan | nvarchar | 100 | Commercial plan label for the tenant
 SubscriptionStatus | nvarchar | 100 | Current subscription lifecycle state
+DisplayName | nvarchar | 200 | Optional public-facing tenant name used in branded screens
+LogoUrl | nvarchar | 500 | Optional logo path or URL for tenant branding
+PrimaryColor | nvarchar | 20 | Optional primary brand color value
+SecondaryColor | nvarchar | 20 | Optional secondary brand color value
+HeaderBackgroundColor | nvarchar | 20 | Optional header background color value
+PageBackgroundColor | nvarchar | 20 | Optional page background color value
 CreatedAtUtc | datetime2 | - | UTC date and time when the tenant was created
 IsActive | bit | 1 | Active or inactive status of the tenant
 ```
@@ -88,7 +94,7 @@ SortOrder | int | 10 | Display order within the tier mapping
 Field Names | Datatype | Length | Description
 Id | uniqueidentifier | 36 | Primary key of the user account
 TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`; platform superadmins use the reserved platform tenant
-Email | nvarchar | 256 | Login email address of the user
+Email | nvarchar | 50 | Login email address of the user
 PasswordHash | nvarchar | 512 | Hashed password value
 FullName | nvarchar | 200 | Full name of the user
 IsActive | bit | 1 | Active or inactive status of the account
@@ -118,7 +124,8 @@ AssignedAtUtc | datetime2 | - | UTC date and time when the role was assigned
 ```text
 Field Names | Datatype | Length | Description
 Id | uniqueidentifier | 36 | Primary key of the refresh session
-UserId | uniqueidentifier | 36 | Foreign key to `Users.Id`
+UserId | uniqueidentifier | 36 | Optional foreign key to `Users.Id`
+CustomerId | uniqueidentifier | 36 | Optional foreign key to `Customers.Id`
 Surface | nvarchar | 50 | Client surface such as web or desktop
 RememberMe | bit | 1 | Indicates whether a persistent session was requested
 RefreshTokenHash | nvarchar | 128 | Unique hash of the refresh token
@@ -165,6 +172,8 @@ Tables primarily handled by this user:
 - `ServiceRequests`
 - `StatusLogs`
 - `Assignments`
+- `AssignmentEvents`
+- `AssignmentEvidence`
 - `Invoices`
 - `InvoiceLines`
 - `MicroLoans`
@@ -179,7 +188,7 @@ Tables primarily handled by this user:
 Field Names | Datatype | Length | Description
 Id | uniqueidentifier | 36 | Primary key of the tenant user account
 TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
-Email | nvarchar | 256 | Login email address of the tenant user
+Email | nvarchar | 50 | Login email address of the tenant user
 PasswordHash | nvarchar | 512 | Hashed password value
 FullName | nvarchar | 200 | Full name of the operator
 IsActive | bit | 1 | Active or inactive status of the account
@@ -213,7 +222,8 @@ TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
 CustomerCode | nvarchar | 50 | Unique customer code within the tenant
 FullName | nvarchar | 200 | Full name of the customer
 MobileNumber | nvarchar | 50 | Mobile or contact number
-Email | nvarchar | 256 | Customer email address
+Email | nvarchar | 50 | Customer email address
+PasswordHash | nvarchar | 512 | Hashed customer password value
 Address | nvarchar | 500 | Customer address
 CreatedAtUtc | datetime2 | - | UTC date and time when the customer was registered
 ```
@@ -231,6 +241,8 @@ IssueDescription | nvarchar | 1000 | Customer-reported issue or complaint
 RequestedServiceDate | datetime2 | - | Requested service schedule, if provided
 Priority | nvarchar | 50 | Priority level of the request
 CurrentStatus | nvarchar | 50 | Current workflow status of the request
+Rating | int | 10 | Optional customer rating from 1 to 5
+FeedbackComments | nvarchar | 1000 | Optional customer feedback comments after service
 CreatedByUserId | uniqueidentifier | 36 | Foreign key to `Users.Id` for the creator
 CreatedAtUtc | datetime2 | - | UTC date and time when the request was created
 ```
@@ -260,6 +272,40 @@ ScheduledEndUtc | datetime2 | - | Planned end date and time
 AssignmentStatus | nvarchar | 50 | Current status of the assignment
 CreatedAtUtc | datetime2 | - | UTC date and time when the assignment was created
 ```
+### [AssignmentEvents] table
+
+```text
+Field Names | Datatype | Length | Description
+Id | uniqueidentifier | 36 | Primary key of the assignment event row
+TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
+AssignmentId | uniqueidentifier | 36 | Foreign key to `Assignments.Id`
+EventType | nvarchar | 50 | Event category such as Assigned, Rescheduled, or HandedOver
+PreviousAssignedUserId | uniqueidentifier | 36 | Optional foreign key to `Users.Id` for the previous assignee
+AssignedUserId | uniqueidentifier | 36 | Foreign key to `Users.Id` for the current assignee
+PreviousScheduledStartUtc | datetime2 | - | Optional previous planned start date and time
+PreviousScheduledEndUtc | datetime2 | - | Optional previous planned end date and time
+ScheduledStartUtc | datetime2 | - | Optional current planned start date and time
+ScheduledEndUtc | datetime2 | - | Optional current planned end date and time
+AssignmentStatus | nvarchar | 50 | Assignment status recorded for the event
+Remarks | nvarchar | 1000 | Notes explaining the assignment change
+ChangedByUserId | uniqueidentifier | 36 | Foreign key to `Users.Id` for the actor who changed the assignment
+CreatedAtUtc | datetime2 | - | UTC date and time when the event was logged
+```
+### [AssignmentEvidence] table
+
+```text
+Field Names | Datatype | Length | Description
+Id | uniqueidentifier | 36 | Primary key of the assignment evidence row
+TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
+AssignmentId | uniqueidentifier | 36 | Foreign key to `Assignments.Id`
+SubmittedByUserId | uniqueidentifier | 36 | Foreign key to `Users.Id` for the uploader
+Note | nvarchar | 2000 | Evidence note or submission remark
+OriginalFileName | nvarchar | 260 | Optional original file name supplied by the client
+StoredFileName | nvarchar | 260 | Optional stored file name used by the system
+ContentType | nvarchar | 120 | Optional uploaded file content type
+RelativeUrl | nvarchar | 500 | Optional relative path or URL to the uploaded evidence
+CreatedAtUtc | datetime2 | - | UTC date and time when the evidence was submitted
+```
 ### [Invoices] table
 
 ```text
@@ -270,11 +316,11 @@ CustomerId | uniqueidentifier | 36 | Foreign key to `Customers.Id`
 ServiceRequestId | uniqueidentifier | 36 | Optional foreign key to `ServiceRequests.Id`
 InvoiceNumber | nvarchar | 50 | Unique invoice number within the tenant
 InvoiceDateUtc | datetime2 | - | UTC date and time of invoice issuance
-SubtotalAmount | decimal | 18,2 | Sum of invoice line amounts before discount and loan handling
-InterestableAmount | decimal | 18,2 | Amount eligible for financing or interest
-DiscountAmount | decimal | 18,2 | Discount amount applied to the invoice
-TotalAmount | decimal | 18,2 | Final total amount due
-OutstandingAmount | decimal | 18,2 | Remaining unpaid amount
+SubtotalAmount | decimal | 12,2 | Sum of invoice line amounts before discount and loan handling
+InterestableAmount | decimal | 12,2 | Amount eligible for financing or interest
+DiscountAmount | decimal | 12,2 | Discount amount applied to the invoice
+TotalAmount | decimal | 12,2 | Final total amount due
+OutstandingAmount | decimal | 12,2 | Remaining unpaid amount
 InvoiceStatus | nvarchar | 50 | Status of the invoice, such as Open or Paid
 ```
 ### [InvoiceLines] table
@@ -285,9 +331,9 @@ Id | uniqueidentifier | 36 | Primary key of the invoice line
 TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
 InvoiceId | uniqueidentifier | 36 | Foreign key to `Invoices.Id`
 Description | nvarchar | 500 | Description of the billed item or service
-Quantity | decimal | 18,4 | Quantity billed on the line
-UnitPrice | decimal | 18,2 | Unit price of the line item
-LineTotal | decimal | 18,2 | Extended amount of the line item
+Quantity | decimal | 10,2 | Quantity billed on the line
+UnitPrice | decimal | 12,2 | Unit price of the line item
+LineTotal | decimal | 12,2 | Extended amount of the line item
 ```
 ### [MicroLoans] table
 
@@ -295,14 +341,14 @@ LineTotal | decimal | 18,2 | Extended amount of the line item
 Field Names | Datatype | Length | Description
 Id | uniqueidentifier | 36 | Primary key of the micro-loan
 TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
-InvoiceId | uniqueidentifier | 36 | Foreign key to `Invoices.Id`; one invoice can produce at most one loan
+InvoiceId | uniqueidentifier | 36 | Optional foreign key to `Invoices.Id`; one invoice can produce at most one loan when present
 CustomerId | uniqueidentifier | 36 | Foreign key to `Customers.Id`
-PrincipalAmount | decimal | 18,2 | Loan principal amount
-AnnualInterestRate | decimal | 9,4 | Annual interest rate used for computation
+PrincipalAmount | decimal | 12,2 | Loan principal amount
+AnnualInterestRate | decimal | 6,2 | Annual interest rate used for computation
 TermMonths | int | 10 | Loan term in months
-MonthlyInstallment | decimal | 18,2 | Fixed installment amount per month
-TotalInterestAmount | decimal | 18,2 | Total interest for the whole loan
-TotalRepayableAmount | decimal | 18,2 | Total amount to be repaid
+MonthlyInstallment | decimal | 12,2 | Fixed installment amount per month
+TotalInterestAmount | decimal | 12,2 | Total interest for the whole loan
+TotalRepayableAmount | decimal | 12,2 | Total amount to be repaid
 LoanStartDate | datetime2 | - | Start date of the loan
 MaturityDate | datetime2 | - | Final due date of the loan
 LoanStatus | nvarchar | 50 | Current status of the loan
@@ -318,12 +364,12 @@ TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
 MicroLoanId | uniqueidentifier | 36 | Foreign key to `MicroLoans.Id`
 InstallmentNumber | int | 10 | Sequence number of the installment
 DueDate | datetime2 | - | Due date of the installment
-BeginningBalance | decimal | 18,2 | Loan balance before the installment
-PrincipalPortion | decimal | 18,2 | Principal amount included in the installment
-InterestPortion | decimal | 18,2 | Interest amount included in the installment
-InstallmentAmount | decimal | 18,2 | Total installment amount due
-EndingBalance | decimal | 18,2 | Balance after the installment
-PaidAmount | decimal | 18,2 | Amount already paid against the installment
+BeginningBalance | decimal | 12,2 | Loan balance before the installment
+PrincipalPortion | decimal | 12,2 | Principal amount included in the installment
+InterestPortion | decimal | 12,2 | Interest amount included in the installment
+InstallmentAmount | decimal | 12,2 | Total installment amount due
+EndingBalance | decimal | 12,2 | Balance after the installment
+PaidAmount | decimal | 12,2 | Amount already paid against the installment
 InstallmentStatus | nvarchar | 50 | Status of the installment, such as Unpaid, Partial, or Paid
 ```
 ### [Transactions] table
@@ -339,9 +385,9 @@ AmortizationScheduleId | uniqueidentifier | 36 | Optional foreign key to `Amorti
 TransactionDateUtc | datetime2 | - | UTC date and time of the ledger event
 TransactionType | nvarchar | 50 | Type of ledger event, such as Invoice, Loan, or Payment
 ReferenceNumber | nvarchar | 100 | Human-readable transaction reference
-DebitAmount | decimal | 18,2 | Debit amount recorded in the ledger
-CreditAmount | decimal | 18,2 | Credit amount recorded in the ledger
-RunningBalance | decimal | 18,2 | Balance after the transaction posting
+DebitAmount | decimal | 12,2 | Debit amount recorded in the ledger
+CreditAmount | decimal | 12,2 | Credit amount recorded in the ledger
+RunningBalance | decimal | 12,2 | Balance after the transaction posting
 Remarks | nvarchar | 1000 | Transaction remarks or explanation
 CreatedByUserId | uniqueidentifier | 36 | Foreign key to `Users.Id` for the creating operator
 ```
@@ -391,7 +437,8 @@ TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
 CustomerCode | nvarchar | 50 | Unique customer code within the tenant
 FullName | nvarchar | 200 | Customer full name
 MobileNumber | nvarchar | 50 | Contact number used for service coordination
-Email | nvarchar | 256 | Customer email address
+Email | nvarchar | 50 | Customer email address
+PasswordHash | nvarchar | 512 | Hashed customer password value
 Address | nvarchar | 500 | Customer address
 CreatedAtUtc | datetime2 | - | UTC date and time when the customer was added
 ```
@@ -409,6 +456,8 @@ IssueDescription | nvarchar | 1000 | Reported issue of the item
 RequestedServiceDate | datetime2 | - | Requested schedule of service
 Priority | nvarchar | 50 | Request priority
 CurrentStatus | nvarchar | 50 | Current work status
+Rating | int | 10 | Optional customer rating from 1 to 5
+FeedbackComments | nvarchar | 1000 | Optional customer feedback comments after service
 CreatedByUserId | uniqueidentifier | 36 | User who created the request
 CreatedAtUtc | datetime2 | - | UTC date and time when the request was created
 ```
@@ -485,7 +534,8 @@ TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
 CustomerCode | nvarchar | 50 | Unique customer code used in finance and service flows
 FullName | nvarchar | 200 | Customer full name
 MobileNumber | nvarchar | 50 | Contact number
-Email | nvarchar | 256 | Customer email address
+Email | nvarchar | 50 | Customer email address
+PasswordHash | nvarchar | 512 | Hashed customer password value
 Address | nvarchar | 500 | Customer address
 CreatedAtUtc | datetime2 | - | UTC date and time when the customer was created
 ```
@@ -499,11 +549,11 @@ CustomerId | uniqueidentifier | 36 | Foreign key to `Customers.Id`
 ServiceRequestId | uniqueidentifier | 36 | Optional source service request
 InvoiceNumber | nvarchar | 50 | Unique invoice number
 InvoiceDateUtc | datetime2 | - | Invoice issue date and time
-SubtotalAmount | decimal | 18,2 | Total before discounts
-InterestableAmount | decimal | 18,2 | Amount eligible for financing
-DiscountAmount | decimal | 18,2 | Discount applied to the invoice
-TotalAmount | decimal | 18,2 | Final billed amount
-OutstandingAmount | decimal | 18,2 | Remaining unpaid balance
+SubtotalAmount | decimal | 12,2 | Total before discounts
+InterestableAmount | decimal | 12,2 | Amount eligible for financing
+DiscountAmount | decimal | 12,2 | Discount applied to the invoice
+TotalAmount | decimal | 12,2 | Final billed amount
+OutstandingAmount | decimal | 12,2 | Remaining unpaid balance
 InvoiceStatus | nvarchar | 50 | Current invoice status
 ```
 ### [InvoiceLines] table
@@ -514,9 +564,9 @@ Id | uniqueidentifier | 36 | Primary key of the invoice line
 TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
 InvoiceId | uniqueidentifier | 36 | Foreign key to `Invoices.Id`
 Description | nvarchar | 500 | Billed service or item description
-Quantity | decimal | 18,4 | Quantity billed
-UnitPrice | decimal | 18,2 | Unit price
-LineTotal | decimal | 18,2 | Total amount of the line
+Quantity | decimal | 10,2 | Quantity billed
+UnitPrice | decimal | 12,2 | Unit price
+LineTotal | decimal | 12,2 | Total amount of the line
 ```
 ### [MicroLoans] table
 
@@ -524,14 +574,14 @@ LineTotal | decimal | 18,2 | Total amount of the line
 Field Names | Datatype | Length | Description
 Id | uniqueidentifier | 36 | Primary key of the micro-loan
 TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
-InvoiceId | uniqueidentifier | 36 | Source invoice converted into a loan
+InvoiceId | uniqueidentifier | 36 | Optional source invoice converted into a loan
 CustomerId | uniqueidentifier | 36 | Foreign key to `Customers.Id`
-PrincipalAmount | decimal | 18,2 | Loan principal
-AnnualInterestRate | decimal | 9,4 | Annual interest rate
+PrincipalAmount | decimal | 12,2 | Loan principal
+AnnualInterestRate | decimal | 6,2 | Annual interest rate
 TermMonths | int | 10 | Repayment term in months
-MonthlyInstallment | decimal | 18,2 | Monthly amortization amount
-TotalInterestAmount | decimal | 18,2 | Total interest value
-TotalRepayableAmount | decimal | 18,2 | Principal plus total interest
+MonthlyInstallment | decimal | 12,2 | Monthly amortization amount
+TotalInterestAmount | decimal | 12,2 | Total interest value
+TotalRepayableAmount | decimal | 12,2 | Principal plus total interest
 LoanStartDate | datetime2 | - | Loan start date
 MaturityDate | datetime2 | - | Final due date
 LoanStatus | nvarchar | 50 | Loan lifecycle status
@@ -547,12 +597,12 @@ TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
 MicroLoanId | uniqueidentifier | 36 | Foreign key to `MicroLoans.Id`
 InstallmentNumber | int | 10 | Installment sequence number
 DueDate | datetime2 | - | Installment due date
-BeginningBalance | decimal | 18,2 | Balance before the installment
-PrincipalPortion | decimal | 18,2 | Principal component of the installment
-InterestPortion | decimal | 18,2 | Interest component of the installment
-InstallmentAmount | decimal | 18,2 | Total installment amount
-EndingBalance | decimal | 18,2 | Balance after the installment
-PaidAmount | decimal | 18,2 | Amount already paid against the row
+BeginningBalance | decimal | 12,2 | Balance before the installment
+PrincipalPortion | decimal | 12,2 | Principal component of the installment
+InterestPortion | decimal | 12,2 | Interest component of the installment
+InstallmentAmount | decimal | 12,2 | Total installment amount
+EndingBalance | decimal | 12,2 | Balance after the installment
+PaidAmount | decimal | 12,2 | Amount already paid against the row
 InstallmentStatus | nvarchar | 50 | Status of the installment
 ```
 ### [Transactions] table
@@ -568,9 +618,9 @@ AmortizationScheduleId | uniqueidentifier | 36 | Optional schedule reference
 TransactionDateUtc | datetime2 | - | Date and time of the ledger posting
 TransactionType | nvarchar | 50 | Kind of financial transaction
 ReferenceNumber | nvarchar | 100 | Receipt number or ledger reference
-DebitAmount | decimal | 18,2 | Debit amount
-CreditAmount | decimal | 18,2 | Credit amount
-RunningBalance | decimal | 18,2 | Balance after posting
+DebitAmount | decimal | 12,2 | Debit amount
+CreditAmount | decimal | 12,2 | Credit amount
+RunningBalance | decimal | 12,2 | Balance after posting
 Remarks | nvarchar | 1000 | Notes about the posting
 CreatedByUserId | uniqueidentifier | 36 | User who created the transaction
 ```
@@ -606,7 +656,8 @@ TenantId | uniqueidentifier | 36 | Foreign key to `Tenants.Id`
 CustomerCode | nvarchar | 50 | Unique customer code
 FullName | nvarchar | 200 | Customer full name
 MobileNumber | nvarchar | 50 | Customer contact number
-Email | nvarchar | 256 | Customer email address
+Email | nvarchar | 50 | Customer email address
+PasswordHash | nvarchar | 512 | Hashed customer password value
 Address | nvarchar | 500 | Customer address
 CreatedAtUtc | datetime2 | - | UTC date and time when the customer profile was created
 ```
@@ -624,6 +675,8 @@ IssueDescription | nvarchar | 1000 | Reported problem
 RequestedServiceDate | datetime2 | - | Requested service date
 Priority | nvarchar | 50 | Priority category
 CurrentStatus | nvarchar | 50 | Current service status visible to the customer
+Rating | int | 10 | Optional customer rating from 1 to 5
+FeedbackComments | nvarchar | 1000 | Optional customer feedback comments after service
 CreatedByUserId | uniqueidentifier | 36 | User who registered the request
 CreatedAtUtc | datetime2 | - | UTC date and time when the request was created
 ```
@@ -637,11 +690,11 @@ CustomerId | uniqueidentifier | 36 | Foreign key to `Customers.Id`
 ServiceRequestId | uniqueidentifier | 36 | Related service request when applicable
 InvoiceNumber | nvarchar | 50 | Invoice number given to the customer
 InvoiceDateUtc | datetime2 | - | Invoice issue date
-SubtotalAmount | decimal | 18,2 | Amount before discount
-InterestableAmount | decimal | 18,2 | Amount that may be financed
-DiscountAmount | decimal | 18,2 | Discount amount
-TotalAmount | decimal | 18,2 | Final amount due
-OutstandingAmount | decimal | 18,2 | Remaining amount not yet paid
+SubtotalAmount | decimal | 12,2 | Amount before discount
+InterestableAmount | decimal | 12,2 | Amount that may be financed
+DiscountAmount | decimal | 12,2 | Discount amount
+TotalAmount | decimal | 12,2 | Final amount due
+OutstandingAmount | decimal | 12,2 | Remaining amount not yet paid
 InvoiceStatus | nvarchar | 50 | Invoice payment status
 ```
 ### [CustomerFeedback] table (Future addition)
@@ -659,6 +712,6 @@ Status | nvarchar | 50 | Review or follow-up status
 ```
 ## Notes
 
-- Implemented tables in the current codebase: `Tenants`, `SubscriptionTiers`, `ModuleCatalog`, `SubscriptionTierModules`, `Users`, `Roles`, `UserRoles`, `RefreshSessions`, `Customers`, `ServiceRequests`, `StatusLogs`, `Assignments`, `Invoices`, `InvoiceLines`, `MicroLoans`, `AmortizationSchedules`, `Transactions`.
+- Implemented tables in the current codebase: `Tenants`, `SubscriptionTiers`, `ModuleCatalog`, `SubscriptionTierModules`, `Users`, `Roles`, `UserRoles`, `RefreshSessions`, `Customers`, `ServiceRequests`, `StatusLogs`, `Assignments`, `AssignmentEvents`, `AssignmentEvidence`, `Invoices`, `InvoiceLines`, `MicroLoans`, `AmortizationSchedules`, `Transactions`.
 - Assumed future tables from existing docs: `TenantModuleEntitlements`, `AuditLogs`, `CustomerFeedback`, `ServiceRequestPhotos`.
 - `Collections Queue` and reporting screens are currently better modeled as derived queries, dashboards, or views from `MicroLoans`, `AmortizationSchedules`, and `Transactions`, not as standalone base tables.
