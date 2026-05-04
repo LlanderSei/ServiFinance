@@ -173,17 +173,17 @@ export function TenantBillingPage() {
 
       <RecordScrollRegion>
         <WorkspaceScrollStack className="p-0">
-          <WorkspacePanel className="overflow-hidden border-base-300/20 bg-[radial-gradient(circle_at_top_left,rgba(86,146,255,0.12),transparent_32%),linear-gradient(180deg,rgba(18,28,46,0.98),rgba(9,15,27,0.98))] text-white">
+          <section className="overflow-hidden rounded-box border border-base-300/70 bg-[radial-gradient(circle_at_top_left,rgba(86,146,255,0.16),transparent_34%),linear-gradient(180deg,var(--color-base-100),var(--color-base-200))] p-4 text-base-content shadow-sm">
             <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
               <div className="max-w-[58rem]">
-                <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.12em] text-white/56">Commercial workspace</p>
-                <h2 className="mt-2 text-[clamp(1.85rem,3vw,2.8rem)] font-bold tracking-[-0.05em] text-white">
+                <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.12em] text-base-content/60">Commercial workspace</p>
+                <h2 className="mt-2 text-[clamp(1.85rem,3vw,2.8rem)] font-bold tracking-[-0.05em] text-base-content">
                   {buildHeroHeadline(
                     billingQuery.data?.plan.subscriptionPlan,
                     billingQuery.data?.standing.accountStanding
                   )}
                 </h2>
-                <p className="mt-3 text-[0.98rem] leading-7 text-white/74">
+                <p className="mt-3 text-[0.98rem] leading-7 text-base-content/72">
                   {billingQuery.isLoading
                     ? "Pulling the tenant subscription brief, module coverage, and billing history..."
                     : billingQuery.data?.plan.planSummary ??
@@ -209,7 +209,7 @@ export function TenantBillingPage() {
                 />
               </div>
             </div>
-          </WorkspacePanel>
+          </section>
 
           <WorkspaceMetricGrid className="2xl:grid-cols-5">
             <MetricCard
@@ -535,10 +535,10 @@ function HeroStat({
   description: string;
 }) {
   return (
-    <article className="rounded-[1.4rem] border border-white/12 bg-white/8 px-4 py-4 backdrop-blur-sm">
-      <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.1em] text-white/56">{label}</p>
-      <strong className="mt-2 block text-[1.5rem] tracking-[-0.05em] text-white">{value}</strong>
-      <p className="mt-1 text-sm leading-6 text-white/65">{description}</p>
+    <article className="rounded-[1.4rem] border border-base-300/65 bg-base-100/80 px-4 py-4 backdrop-blur-sm">
+      <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.1em] text-base-content/60">{label}</p>
+      <strong className="mt-2 block text-[1.5rem] tracking-[-0.05em] text-base-content">{value}</strong>
+      <p className="mt-1 text-sm leading-6 text-base-content/65">{description}</p>
     </article>
   );
 }

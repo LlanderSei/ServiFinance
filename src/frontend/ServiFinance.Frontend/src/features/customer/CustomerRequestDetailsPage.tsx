@@ -54,6 +54,10 @@ function statusTone(status: string) {
   return "bg-slate-100 text-slate-700";
 }
 
+function isFeedbackExpired(feedbackExpiresAtUtc?: string | null) {
+  return Boolean(feedbackExpiresAtUtc && new Date(feedbackExpiresAtUtc).getTime() < Date.now());
+}
+
 export function CustomerRequestDetailsPage() {
   const { requestId = "", tenantDomainSlug = "" } = useParams();
   const detailsQuery = useCustomerRequestDetails(requestId || null);
@@ -88,7 +92,7 @@ export function CustomerRequestDetailsPage() {
     );
   }
 
-  const { request, timeline, assignments } = detailsQuery.data;
+  const { request, timeline, assignments, attachments } = detailsQuery.data;
   const invoice = request.invoice;
 
   return (
@@ -131,6 +135,53 @@ export function CustomerRequestDetailsPage() {
         <div className="grid gap-5">
           <Panel title="Issue summary" eyebrow="Intake">
             <p className="text-sm leading-7 text-slate-700">{request.issueDescription}</p>
+          </Panel>
+
+          <Panel title="Customer pictures" eyebrow="Intake evidence">
+            {attachments.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {attachments.map((attachment) => (
+                  <a
+                    key={attachment.id}
+                    href={attachment.relativeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white no-underline shadow-[0_10px_24px_rgba(35,46,76,0.05)]"
+                  >
+                    <img
+                      src={attachment.relativeUrl}
+                      alt={attachment.originalFileName}
+                      className="h-40 w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                    />
+                    <div className="px-4 py-3">
+                      <p className="truncate text-sm font-semibold text-slate-950">{attachment.originalFileName}</p>
+                      <p className="mt-1 text-xs text-slate-500">{formatDateTime(attachment.createdAtUtc)}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <EmptyState message="No customer pictures were uploaded for this request." />
+            )}
+          </Panel>
+
+          <Panel title="Feedback window" eyebrow="Post-service">
+            {request.rating != null ? (
+              <div className="rounded-[1.4rem] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-6 text-emerald-800">
+                <strong>You rated this service {request.rating}/5.</strong>
+                {request.feedbackSuggestionCategory && <p className="mt-1">Suggestion: {request.feedbackSuggestionCategory}</p>}
+                {request.feedbackComments && <p className="mt-1">{request.feedbackComments}</p>}
+                {request.feedbackSubmittedAtUtc && <p className="mt-2 text-emerald-700">Submitted {formatDateTime(request.feedbackSubmittedAtUtc)}</p>}
+              </div>
+            ) : request.feedbackExpiresAtUtc ? (
+              <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-700">
+                {isFeedbackExpired(request.feedbackExpiresAtUtc)
+                  ? `Feedback expired on ${formatDateTime(request.feedbackExpiresAtUtc)}.`
+                  : `Feedback is open until ${formatDateTime(request.feedbackExpiresAtUtc)}.`}
+              </div>
+            ) : (
+              <EmptyState message="Feedback opens after the tenant marks this service request as completed." />
+            )}
           </Panel>
 
           <Panel title="Service timeline" eyebrow="Status history">

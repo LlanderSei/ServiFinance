@@ -17,7 +17,7 @@ internal static class RejectAssignment {
             [FromBody] RejectAssignmentRequest request,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
             CancellationToken cancellationToken) => {
-              if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) return Results.Forbid();
+              if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) return Results.Forbid();
               if (!TryGetCurrentUserId(httpContext.User, out var currentUserId)) return Results.Unauthorized();
 
               var assignment = await dbContext.Assignments

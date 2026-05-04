@@ -16,7 +16,7 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
         string tenantDomainSlug,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+          if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
             return Results.Forbid();
           }
 
@@ -36,7 +36,17 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             entity.Priority,
             entity.CurrentStatus,
             entity.CreatedAtUtc,
-            CreatedByUserName = entity.CreatedByUser!.FullName,
+            CreatedByUserName = entity.CreatedByUser != null
+                ? entity.CreatedByUser.FullName
+                : entity.CreatedByCustomer != null
+                    ? entity.CreatedByCustomer.FullName
+                    : "Customer portal",
+            entity.Rating,
+            entity.FeedbackComments,
+            entity.FeedbackSuggestionCategory,
+            entity.CompletedAtUtc,
+            entity.FeedbackSubmittedAtUtc,
+            entity.FeedbackExpiresAtUtc,
             InvoiceId = entity.Invoices
                   .OrderByDescending(invoice => invoice.InvoiceDateUtc)
                   .Select(invoice => (Guid?)invoice.Id)
@@ -79,6 +89,12 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           entity.CurrentStatus,
           entity.CreatedAtUtc,
           entity.CreatedByUserName,
+          entity.Rating,
+          entity.FeedbackComments,
+          entity.FeedbackSuggestionCategory,
+          entity.CompletedAtUtc,
+          entity.FeedbackSubmittedAtUtc,
+          entity.FeedbackExpiresAtUtc,
           entity.InvoiceId,
           entity.InvoiceNumber,
           entity.InvoiceStatus,
@@ -93,7 +109,7 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
         Guid serviceRequestId,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+          if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
             return Results.Forbid();
           }
 
@@ -113,7 +129,17 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             entity.Priority,
             entity.CurrentStatus,
             entity.CreatedAtUtc,
-            CreatedByUserName = entity.CreatedByUser!.FullName,
+            CreatedByUserName = entity.CreatedByUser != null
+                ? entity.CreatedByUser.FullName
+                : entity.CreatedByCustomer != null
+                    ? entity.CreatedByCustomer.FullName
+                    : "Customer portal",
+            entity.Rating,
+            entity.FeedbackComments,
+            entity.FeedbackSuggestionCategory,
+            entity.CompletedAtUtc,
+            entity.FeedbackSubmittedAtUtc,
+            entity.FeedbackExpiresAtUtc,
             InvoiceId = entity.Invoices
                   .OrderByDescending(invoice => invoice.InvoiceDateUtc)
                   .Select(invoice => (Guid?)invoice.Id)
@@ -153,8 +179,25 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               entity.Id,
               entity.Status,
               entity.Remarks,
-              entity.ChangedByUser!.FullName,
+              entity.ChangedByUser != null
+                  ? entity.ChangedByUser.FullName
+                  : entity.ChangedByCustomer != null
+                      ? entity.ChangedByCustomer.FullName
+                      : "Customer portal",
               entity.ChangedAtUtc))
+          .ToListAsync(cancellationToken);
+
+          var attachments = await dbContext.ServiceRequestAttachments
+          .AsNoTracking()
+          .Where(entity => entity.ServiceRequestId == serviceRequestId)
+          .OrderByDescending(entity => entity.CreatedAtUtc)
+          .Select(entity => new TenantServiceRequestAttachmentRowResponse(
+              entity.Id,
+              entity.OriginalFileName,
+              entity.ContentType,
+              entity.RelativeUrl,
+              entity.SubmittedByCustomer!.FullName,
+              entity.CreatedAtUtc))
           .ToListAsync(cancellationToken);
 
           return Results.Ok(new TenantServiceRequestDetailResponse(
@@ -172,6 +215,12 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               serviceRequest.CurrentStatus,
               serviceRequest.CreatedAtUtc,
               serviceRequest.CreatedByUserName,
+              serviceRequest.Rating,
+              serviceRequest.FeedbackComments,
+              serviceRequest.FeedbackSuggestionCategory,
+              serviceRequest.CompletedAtUtc,
+              serviceRequest.FeedbackSubmittedAtUtc,
+              serviceRequest.FeedbackExpiresAtUtc,
               serviceRequest.InvoiceId,
               serviceRequest.InvoiceNumber,
               serviceRequest.InvoiceStatus,
@@ -179,7 +228,8 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               serviceRequest.InvoiceOutstandingAmount,
               serviceRequest.InterestableAmount,
               serviceRequest.HasMicroLoan),
-          auditTrail));
+          auditTrail,
+          attachments));
         });
     tenantApi.MapPost("/sms/service-requests", async Task<IResult> (
         HttpContext httpContext,
@@ -187,7 +237,7 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
         [FromBody] CreateServiceRequestRecordRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+          if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
             return Results.Forbid();
           }
 
@@ -259,16 +309,22 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           null,
           null,
           null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
           false));
         });
-    tenantApi.MapPost("/sms/service-requests/{serviceRequestId:guid}/finalize-invoice", [Authorize(Roles = "Administrator", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+    tenantApi.MapPost("/sms/service-requests/{serviceRequestId:guid}/finalize-invoice", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
         Guid serviceRequestId,
         [FromBody] FinalizeTenantServiceInvoiceRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+          if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
             return Results.Forbid();
           }
 
@@ -290,6 +346,8 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
 
           var serviceRequest = await dbContext.ServiceRequests
           .Include(entity => entity.Customer)
+          .Include(entity => entity.CreatedByUser)
+          .Include(entity => entity.CreatedByCustomer)
           .Include(entity => entity.Invoices)
               .ThenInclude(entity => entity.MicroLoan)
           .SingleOrDefaultAsync(entity => entity.Id == serviceRequestId, cancellationToken);
@@ -305,12 +363,16 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             return Results.BadRequest(new { error = "This service request already has a finalized invoice." });
           }
 
+          var finalizedAtUtc = DateTime.UtcNow;
+          serviceRequest.CompletedAtUtc ??= finalizedAtUtc;
+          serviceRequest.FeedbackExpiresAtUtc ??= serviceRequest.CompletedAtUtc.Value.AddDays(7);
+
           var totalAmount = Math.Max(request.SubtotalAmount - request.DiscountAmount, 0m);
           var invoice = new ServiFinance.Domain.Invoice {
             CustomerId = serviceRequest.CustomerId,
             ServiceRequestId = serviceRequest.Id,
             InvoiceNumber = GenerateReferenceCode("INV"),
-            InvoiceDateUtc = DateTime.UtcNow,
+            InvoiceDateUtc = finalizedAtUtc,
             SubtotalAmount = request.SubtotalAmount,
             InterestableAmount = request.InterestableAmount,
             DiscountAmount = request.DiscountAmount,
@@ -336,7 +398,7 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             Status = serviceRequest.CurrentStatus,
             Remarks = $"Invoice {invoice.InvoiceNumber} finalized for service handoff.",
             ChangedByUserId = currentUserId,
-            ChangedAtUtc = DateTime.UtcNow
+            ChangedAtUtc = finalizedAtUtc
           });
 
           await dbContext.SaveChangesAsync(cancellationToken);
@@ -349,8 +411,25 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               entity.Id,
               entity.Status,
               entity.Remarks,
-              entity.ChangedByUser!.FullName,
+              entity.ChangedByUser != null
+                  ? entity.ChangedByUser.FullName
+                  : entity.ChangedByCustomer != null
+                      ? entity.ChangedByCustomer.FullName
+                      : "Customer portal",
               entity.ChangedAtUtc))
+          .ToListAsync(cancellationToken);
+
+          var attachments = await dbContext.ServiceRequestAttachments
+          .AsNoTracking()
+          .Where(entity => entity.ServiceRequestId == serviceRequestId)
+          .OrderByDescending(entity => entity.CreatedAtUtc)
+          .Select(entity => new TenantServiceRequestAttachmentRowResponse(
+              entity.Id,
+              entity.OriginalFileName,
+              entity.ContentType,
+              entity.RelativeUrl,
+              entity.SubmittedByCustomer!.FullName,
+              entity.CreatedAtUtc))
           .ToListAsync(cancellationToken);
 
           return Results.Ok(new TenantServiceRequestDetailResponse(
@@ -367,10 +446,15 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               serviceRequest.Priority,
               serviceRequest.CurrentStatus,
               serviceRequest.CreatedAtUtc,
-              await dbContext.Users
-                  .Where(entity => entity.Id == serviceRequest.CreatedByUserId)
-                  .Select(entity => entity.FullName)
-                  .SingleAsync(cancellationToken),
+              serviceRequest.CreatedByUser?.FullName
+                  ?? serviceRequest.CreatedByCustomer?.FullName
+                  ?? "Customer portal",
+              serviceRequest.Rating,
+              serviceRequest.FeedbackComments,
+              serviceRequest.FeedbackSuggestionCategory,
+              serviceRequest.CompletedAtUtc,
+              serviceRequest.FeedbackSubmittedAtUtc,
+              serviceRequest.FeedbackExpiresAtUtc,
               invoice.Id,
               invoice.InvoiceNumber,
               invoice.InvoiceStatus,
@@ -378,7 +462,8 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               invoice.OutstandingAmount,
               invoice.InterestableAmount,
               false),
-          auditTrail));
+          auditTrail,
+          attachments));
         });
 
     return tenantApi;

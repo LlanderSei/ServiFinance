@@ -13,7 +13,8 @@ internal static class TenantSmsApiEndpointMappings {
       AuthenticationSchemes = ApiAuthenticationSchemes
     });
 
-    tenantApi.MapTenantSmsUsersEndpoints();
+    tenantApi.MapTenantPlatformUsersEndpoints();
+    tenantApi.MapTenantRolePermissionEndpoints();
     tenantApi.MapTenantSmsCustomersEndpoints();
     tenantApi.MapTenantSmsServiceRequestsEndpoints();
     tenantApi.MapTenantSmsDispatchEndpoints();

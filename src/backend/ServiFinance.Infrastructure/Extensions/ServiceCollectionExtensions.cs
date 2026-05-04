@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions {
     services.AddScoped<IUserAuthenticationService, UserAuthenticationService>();
     services.AddScoped<ICustomerAuthenticationService, CustomerAuthenticationService>();
     services.AddScoped<IUserManagementService, UserManagementService>();
+    services.AddScoped<IRolePermissionManagementService, RolePermissionManagementService>();
     services.AddScoped<IAuditLogService, AuditLogService>();
     services.AddScoped<IPlatformTenantOnboardingService, StripePlatformTenantOnboardingService>();
     services.AddScoped<ISubscriptionTierCatalogService, SubscriptionTierCatalogService>();

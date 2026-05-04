@@ -59,13 +59,18 @@ internal static class ProgramEndpointSupport {
         : fallbackPath;
   }
 
-  internal static async Task SignInUserAsync(HttpContext httpContext, AuthenticatedUser user, bool isPersistent = false) {
+  internal static async Task SignInUserAsync(
+      HttpContext httpContext,
+      AuthenticatedUser user,
+      AuthenticationSurface surface,
+      bool isPersistent = false) {
     var claims = new List<Claim> {
       new(ClaimTypes.NameIdentifier, user.UserId.ToString()),
       new(ClaimTypes.Name, user.FullName),
       new(ClaimTypes.Email, user.Email),
       new("tenant_id", user.TenantId.ToString()),
-      new("tenant_domain_slug", user.TenantDomainSlug)
+      new("tenant_domain_slug", user.TenantDomainSlug),
+      new("surface", surface.ToString())
   };
 
     claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
@@ -96,11 +101,23 @@ internal static class ProgramEndpointSupport {
         ? refreshToken
         : null;
 
-  internal static bool IsTenantRouteAllowed(ClaimsPrincipal principal, string tenantDomainSlug) =>
-    string.Equals(principal.FindFirstValue("tenant_domain_slug"), tenantDomainSlug, StringComparison.OrdinalIgnoreCase);
+  internal static bool IsTenantRouteAllowed(ClaimsPrincipal principal, string tenantDomainSlug) {
+    if (!string.Equals(principal.FindFirstValue("tenant_domain_slug"), tenantDomainSlug, StringComparison.OrdinalIgnoreCase)) {
+      return false;
+    }
+
+    var surfaceText = principal.FindFirstValue("surface");
+    return string.Equals(surfaceText, AuthenticationSurface.TenantWeb.ToString(), StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(surfaceText, AuthenticationSurface.TenantDesktop.ToString(), StringComparison.OrdinalIgnoreCase);
+  }
+
+  internal static bool IsTenantSmsRouteAllowed(ClaimsPrincipal principal, string tenantDomainSlug) =>
+    IsTenantRouteAllowed(principal, tenantDomainSlug) &&
+    string.Equals(principal.FindFirstValue("surface"), AuthenticationSurface.TenantWeb.ToString(), StringComparison.OrdinalIgnoreCase);
 
   internal static bool IsTenantAdministrator(ClaimsPrincipal principal) =>
-    principal.IsInRole("Administrator");
+    principal.IsInRole(PlatformRolePolicy.AdministratorRole) ||
+    principal.IsInRole(PlatformRolePolicy.OwnerRole);
 
   internal static bool TryGetCurrentUserId(ClaimsPrincipal principal, out Guid userId) =>
     Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
@@ -237,6 +254,12 @@ internal static class ProgramEndpointSupport {
     string currentStatus,
     DateTime createdAtUtc,
     string createdByUserName,
+    int? rating,
+    string? feedbackComments,
+    string? feedbackSuggestionCategory,
+    DateTime? completedAtUtc,
+    DateTime? feedbackSubmittedAtUtc,
+    DateTime? feedbackExpiresAtUtc,
     Guid? invoiceId,
     string? invoiceNumber,
     string? invoiceStatus,
@@ -259,6 +282,12 @@ internal static class ProgramEndpointSupport {
         currentStatus,
         createdAtUtc,
         createdByUserName,
+        rating,
+        feedbackComments,
+        feedbackSuggestionCategory,
+        completedAtUtc,
+        feedbackSubmittedAtUtc,
+        feedbackExpiresAtUtc,
         invoiceId,
         invoiceNumber,
         invoiceStatus,

@@ -6,24 +6,26 @@ import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
-import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { RecordContentStack, RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import {
   WorkspaceEmptyState,
+  WorkspaceKpiRailLayout,
   WorkspaceMetricGrid,
   WorkspacePanel,
   WorkspacePanelGrid,
   WorkspacePanelHeader,
-  WorkspaceScrollStack,
   WorkspaceSubtable,
-  WorkspaceSubtableShell
+  WorkspaceSubtableShell,
+  WorkspaceToolbar
 } from "@/shared/records/WorkspacePanel";
 import {
   WorkspaceActionButton,
   WorkspaceField,
-  WorkspaceFieldGrid,
   WorkspaceInput,
+  WorkspaceInlineNote,
   WorkspaceNotice,
-  WorkspaceSelect
+  WorkspaceToggleButton,
+  WorkspaceToggleGroup
 } from "@/shared/records/WorkspaceControls";
 
 type ReportRangePreset = "7d" | "30d" | "90d" | "365d" | "custom";
@@ -245,7 +247,7 @@ export function MlsReportsPage() {
         title="Finance reports"
         description="Review collections, corrections, disbursement, portfolio exposure, overdue aging, and export-ready MLS finance snapshots from one desktop reporting workspace."
       >
-        <WorkspaceScrollStack>
+        <RecordContentStack className="overflow-hidden">
           {isWindowInvalid ? (
             <WorkspaceNotice tone="error">
               Report end date must be on or after the start date.
@@ -258,198 +260,225 @@ export function MlsReportsPage() {
             </WorkspaceNotice>
           ) : null}
 
-          <WorkspaceMetricGrid>
-            <MetricCard label="Active loans" value={String(reportsQuery.data?.summary.activeLoans ?? 0)} description="Current loan accounts still carrying unpaid balances." />
-            <MetricCard label="Portfolio outstanding" value={formatCurrency(reportsQuery.data?.summary.outstandingPortfolioBalance ?? 0)} description="Remaining repayable balance across the active MLS loan portfolio." />
-            <MetricCard label="Net collections in window" value={formatCurrency(reportsQuery.data?.summary.collectionsInWindow ?? 0)} description="Loan payments minus posted reversals during the selected reporting range." />
-            <MetricCard label="Disbursed in window" value={formatCurrency(reportsQuery.data?.summary.loanDisbursedInWindow ?? 0)} description="Loan principal released through invoice and standalone onboarding in the selected range." />
-            <MetricCard label="Overdue balance" value={formatCurrency(reportsQuery.data?.summary.overdueBalance ?? 0)} description="Current unpaid installment value already past due across the tenant portfolio." />
-          </WorkspaceMetricGrid>
+          <WorkspaceKpiRailLayout
+            contentClassName="overflow-hidden"
+            kpis={(
+              <>
+                <MetricCard label="Active loans" value={String(reportsQuery.data?.summary.activeLoans ?? 0)} description="Current loan accounts still carrying unpaid balances." />
+                <MetricCard label="Portfolio outstanding" value={formatCurrency(reportsQuery.data?.summary.outstandingPortfolioBalance ?? 0)} description="Remaining repayable balance across the active MLS loan portfolio." />
+                <MetricCard label="Net collections in window" value={formatCurrency(reportsQuery.data?.summary.collectionsInWindow ?? 0)} description="Loan payments minus posted reversals during the selected reporting range." />
+                <MetricCard label="Disbursed in window" value={formatCurrency(reportsQuery.data?.summary.loanDisbursedInWindow ?? 0)} description="Loan principal released through invoice and standalone onboarding in the selected range." />
+                <MetricCard label="Overdue balance" value={formatCurrency(reportsQuery.data?.summary.overdueBalance ?? 0)} description="Current unpaid installment value already past due across the tenant portfolio." />
+              </>
+            )}
+          >
+            <WorkspacePanel className="shrink-0">
+              <WorkspacePanelHeader
+                eyebrow="Filters"
+                title="Reporting window"
+                actions={(
+                  <>
+                    <WorkspaceActionButton onClick={handleResetToThirtyDays}>
+                      Reset to 30 days
+                    </WorkspaceActionButton>
+                    <WorkspaceActionButton onClick={handleExportCsv} disabled={!reportsQuery.data || isWindowInvalid}>
+                      Export CSV
+                    </WorkspaceActionButton>
+                    <WorkspaceActionButton onClick={handlePrintPacket} disabled={!reportsQuery.data || isWindowInvalid}>
+                      Print packet
+                    </WorkspaceActionButton>
+                  </>
+                )}
+              />
 
-          <WorkspacePanel>
-            <WorkspacePanelHeader
-              eyebrow="Filters"
-              title="Reporting window"
-              actions={(
-                <>
-                  <WorkspaceActionButton onClick={handleResetToThirtyDays}>
-                    Reset to 30 days
-                  </WorkspaceActionButton>
-                  <WorkspaceActionButton onClick={handleExportCsv} disabled={!reportsQuery.data || isWindowInvalid}>
-                    Export CSV
-                  </WorkspaceActionButton>
-                  <WorkspaceActionButton onClick={handlePrintPacket} disabled={!reportsQuery.data || isWindowInvalid}>
-                    Print packet
-                  </WorkspaceActionButton>
-                </>
-              )}
-            />
+              <WorkspaceToolbar className="flex-nowrap overflow-x-auto pb-1">
+                <div className="grid shrink-0 gap-1.5">
+                  <span className="text-[0.76rem] font-bold uppercase tracking-[0.06em] text-base-content/60">Range</span>
+                  <WorkspaceToggleGroup className="whitespace-nowrap">
+                    <WorkspaceToggleButton active={preset === "7d"} onClick={() => handlePresetChange("7d")}>
+                      Last 7 days
+                    </WorkspaceToggleButton>
+                    <WorkspaceToggleButton active={preset === "30d"} onClick={() => handlePresetChange("30d")}>
+                      Last 30 days
+                    </WorkspaceToggleButton>
+                    <WorkspaceToggleButton active={preset === "90d"} onClick={() => handlePresetChange("90d")}>
+                      Last 90 days
+                    </WorkspaceToggleButton>
+                    <WorkspaceToggleButton active={preset === "365d"} onClick={() => handlePresetChange("365d")}>
+                      Last 365 days
+                    </WorkspaceToggleButton>
+                    <WorkspaceToggleButton active={preset === "custom"} onClick={() => handlePresetChange("custom")}>
+                      Custom
+                    </WorkspaceToggleButton>
+                  </WorkspaceToggleGroup>
+                </div>
 
-            <WorkspaceFieldGrid>
-              <WorkspaceField label="Range preset">
-                <WorkspaceSelect value={preset} onChange={(event) => handlePresetChange(event.target.value as ReportRangePreset)}>
-                  <option value="7d">Last 7 days</option>
-                  <option value="30d">Last 30 days</option>
-                  <option value="90d">Last 90 days</option>
-                  <option value="365d">Last 365 days</option>
-                  <option value="custom">Custom range</option>
-                </WorkspaceSelect>
-              </WorkspaceField>
-              <WorkspaceField label="Date from">
-                <WorkspaceInput
-                  type="date"
-                  value={dateFrom}
-                  onChange={(event) => {
-                    setPreset("custom");
-                    setDateFrom(event.target.value);
-                  }}
-                />
-              </WorkspaceField>
-              <WorkspaceField label="Date to">
-                <WorkspaceInput
-                  type="date"
-                  value={dateTo}
-                  onChange={(event) => {
-                    setPreset("custom");
-                    setDateTo(event.target.value);
-                  }}
-                />
-              </WorkspaceField>
-              <WorkspaceField label="Loaded window">
-                <WorkspaceInput
-                  readOnly
-                  value={reportsQuery.data
-                    ? `${formatDateOnly(reportsQuery.data.window.dateFromUtc)} to ${formatDateOnly(reportsQuery.data.window.dateToUtc)}`
-                    : "Waiting for report window"}
-                />
-              </WorkspaceField>
-            </WorkspaceFieldGrid>
-          </WorkspacePanel>
+                <div className="w-40 shrink-0">
+                  <WorkspaceField label="Date from">
+                    <WorkspaceInput
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo}
+                      onChange={(event) => {
+                        setPreset("custom");
+                        setDateFrom(event.target.value);
+                      }}
+                    />
+                  </WorkspaceField>
+                </div>
 
-          <WorkspacePanelGrid>
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Aging" title="Overdue bucket mix" />
+                <div className="w-40 shrink-0">
+                  <WorkspaceField label="Date to">
+                    <WorkspaceInput
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom}
+                      max={defaultDateTo}
+                      onChange={(event) => {
+                        setPreset("custom");
+                        setDateTo(event.target.value);
+                      }}
+                    />
+                  </WorkspaceField>
+                </div>
+              </WorkspaceToolbar>
 
-              {reportsQuery.data?.agingBuckets.length ? (
-                <WorkspaceSubtableShell>
-                  <WorkspaceSubtable>
-                    <thead>
-                      <tr>
-                        <th>Bucket</th>
-                        <th>Loans</th>
-                        <th>Installments</th>
-                        <th>Outstanding</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportsQuery.data.agingBuckets.map((bucket) => (
-                        <tr key={bucket.label}>
-                          <td>{bucket.label}</td>
-                          <td>{bucket.loanCount}</td>
-                          <td>{bucket.installmentCount}</td>
-                          <td>{formatCurrency(bucket.outstandingAmount)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </WorkspaceSubtable>
-                </WorkspaceSubtableShell>
-              ) : (
-                <WorkspaceEmptyState>No aging data is available for the selected MLS report window.</WorkspaceEmptyState>
-              )}
+              <WorkspaceInlineNote className="block leading-6">
+                {reportsQuery.data
+                  ? `Loaded window: ${formatDateOnly(reportsQuery.data.window.dateFromUtc)} to ${formatDateOnly(reportsQuery.data.window.dateToUtc)}.`
+                  : "Select a reporting window to load the current MLS finance snapshot."}
+              </WorkspaceInlineNote>
             </WorkspacePanel>
 
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Mix" title="Transaction composition" />
+            <RecordScrollRegion>
+              <div className="grid gap-4">
+                <WorkspacePanelGrid>
+                  <WorkspacePanel>
+                    <WorkspacePanelHeader eyebrow="Aging" title="Overdue bucket mix" />
 
-              {reportsQuery.data?.transactionMix.length ? (
-                <WorkspaceSubtableShell>
-                  <WorkspaceSubtable>
-                    <thead>
-                      <tr>
-                        <th>Type</th>
-                        <th>Count</th>
-                        <th>Total amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportsQuery.data.transactionMix.map((row) => (
-                        <tr key={row.transactionType}>
-                          <td>{row.transactionType}</td>
-                          <td>{row.count}</td>
-                          <td>{formatCurrency(row.totalAmount)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </WorkspaceSubtable>
-                </WorkspaceSubtableShell>
-              ) : (
-                <WorkspaceEmptyState>No MLS transactions were posted during the selected reporting range.</WorkspaceEmptyState>
-              )}
-            </WorkspacePanel>
-          </WorkspacePanelGrid>
+                    {reportsQuery.data?.agingBuckets.length ? (
+                      <WorkspaceSubtableShell>
+                        <WorkspaceSubtable>
+                          <thead>
+                            <tr>
+                              <th>Bucket</th>
+                              <th>Loans</th>
+                              <th>Installments</th>
+                              <th>Outstanding</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reportsQuery.data.agingBuckets.map((bucket) => (
+                              <tr key={bucket.label}>
+                                <td>{bucket.label}</td>
+                                <td>{bucket.loanCount}</td>
+                                <td>{bucket.installmentCount}</td>
+                                <td>{formatCurrency(bucket.outstandingAmount)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </WorkspaceSubtable>
+                      </WorkspaceSubtableShell>
+                    ) : (
+                      <WorkspaceEmptyState>No aging data is available for the selected MLS report window.</WorkspaceEmptyState>
+                    )}
+                  </WorkspacePanel>
 
-          <WorkspacePanelGrid>
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Collections" title="Collection trend" />
+                  <WorkspacePanel>
+                    <WorkspacePanelHeader eyebrow="Mix" title="Transaction composition" />
 
-              {reportsQuery.data?.collectionTrend.length ? (
-                <WorkspaceSubtableShell>
-                  <WorkspaceSubtable>
-                    <thead>
-                      <tr>
-                        <th>Period</th>
-                        <th>Payments</th>
-                        <th>Collected</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportsQuery.data.collectionTrend.map((row) => (
-                        <tr key={row.periodLabel}>
-                          <td>{row.periodLabel}</td>
-                          <td>{row.paymentCount}</td>
-                          <td>{formatCurrency(row.collectedAmount)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </WorkspaceSubtable>
-                </WorkspaceSubtableShell>
-              ) : (
-                <WorkspaceEmptyState>No loan payment or correction activity was posted in the selected reporting range.</WorkspaceEmptyState>
-              )}
-            </WorkspacePanel>
+                    {reportsQuery.data?.transactionMix.length ? (
+                      <WorkspaceSubtableShell>
+                        <WorkspaceSubtable>
+                          <thead>
+                            <tr>
+                              <th>Type</th>
+                              <th>Count</th>
+                              <th>Total amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reportsQuery.data.transactionMix.map((row) => (
+                              <tr key={row.transactionType}>
+                                <td>{row.transactionType}</td>
+                                <td>{row.count}</td>
+                                <td>{formatCurrency(row.totalAmount)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </WorkspaceSubtable>
+                      </WorkspaceSubtableShell>
+                    ) : (
+                      <WorkspaceEmptyState>No MLS transactions were posted during the selected reporting range.</WorkspaceEmptyState>
+                    )}
+                  </WorkspacePanel>
+                </WorkspacePanelGrid>
 
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Exposure" title="Top borrower balances" />
+                <WorkspacePanelGrid>
+                  <WorkspacePanel>
+                    <WorkspacePanelHeader eyebrow="Collections" title="Collection trend" />
 
-              {reportsQuery.data?.topBorrowers.length ? (
-                <WorkspaceSubtableShell>
-                  <WorkspaceSubtable>
-                    <thead>
-                      <tr>
-                        <th>Borrower</th>
-                        <th>Active loans</th>
-                        <th>Outstanding</th>
-                        <th>Next due</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportsQuery.data.topBorrowers.map((borrower) => (
-                        <tr key={borrower.customerId}>
-                          <td>{borrower.customerName}</td>
-                          <td>{borrower.activeLoanCount}</td>
-                          <td>{formatCurrency(borrower.outstandingBalance)}</td>
-                          <td>{borrower.nextDueDate ?? "No pending due date"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </WorkspaceSubtable>
-                </WorkspaceSubtableShell>
-              ) : (
-                <WorkspaceEmptyState>No active borrower exposure is available yet.</WorkspaceEmptyState>
-              )}
-            </WorkspacePanel>
-          </WorkspacePanelGrid>
-        </WorkspaceScrollStack>
+                    {reportsQuery.data?.collectionTrend.length ? (
+                      <WorkspaceSubtableShell>
+                        <WorkspaceSubtable>
+                          <thead>
+                            <tr>
+                              <th>Period</th>
+                              <th>Payments</th>
+                              <th>Collected</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reportsQuery.data.collectionTrend.map((row) => (
+                              <tr key={row.periodLabel}>
+                                <td>{row.periodLabel}</td>
+                                <td>{row.paymentCount}</td>
+                                <td>{formatCurrency(row.collectedAmount)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </WorkspaceSubtable>
+                      </WorkspaceSubtableShell>
+                    ) : (
+                      <WorkspaceEmptyState>No loan payment or correction activity was posted in the selected reporting range.</WorkspaceEmptyState>
+                    )}
+                  </WorkspacePanel>
+
+                  <WorkspacePanel>
+                    <WorkspacePanelHeader eyebrow="Exposure" title="Top borrower balances" />
+
+                    {reportsQuery.data?.topBorrowers.length ? (
+                      <WorkspaceSubtableShell>
+                        <WorkspaceSubtable>
+                          <thead>
+                            <tr>
+                              <th>Borrower</th>
+                              <th>Active loans</th>
+                              <th>Outstanding</th>
+                              <th>Next due</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reportsQuery.data.topBorrowers.map((borrower) => (
+                              <tr key={borrower.customerId}>
+                                <td>{borrower.customerName}</td>
+                                <td>{borrower.activeLoanCount}</td>
+                                <td>{formatCurrency(borrower.outstandingBalance)}</td>
+                                <td>{borrower.nextDueDate ?? "No pending due date"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </WorkspaceSubtable>
+                      </WorkspaceSubtableShell>
+                    ) : (
+                      <WorkspaceEmptyState>No active borrower exposure is available yet.</WorkspaceEmptyState>
+                    )}
+                  </WorkspacePanel>
+                </WorkspacePanelGrid>
+              </div>
+            </RecordScrollRegion>
+          </WorkspaceKpiRailLayout>
+        </RecordContentStack>
       </RecordWorkspace>
     </ProtectedRoute>
   );

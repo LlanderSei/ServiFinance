@@ -26,9 +26,11 @@ const RegisterPage = lazyPage(() => import("@/features/public/RegisterPage"), "R
 const DashboardPage = lazyPage(() => import("@/features/superadmin/DashboardPage"), "DashboardPage");
 const SystemHealthPage = lazyPage(() => import("@/features/superadmin/SystemHealthPage"), "SystemHealthPage");
 const TenantsPage = lazyPage(() => import("@/features/superadmin/TenantsPage"), "TenantsPage");
+const RootUsersPage = lazyPage(() => import("@/features/superadmin/RootUsersPage"), "RootUsersPage");
 const SubscriptionsPage = lazyPage(() => import("@/features/superadmin/SubscriptionsPage"), "SubscriptionsPage");
 const ModulesPage = lazyPage(() => import("@/features/superadmin/ModulesPage"), "ModulesPage");
 const PlatformAuditsPage = lazyPage(() => import("@/features/administration/audits/AuditsPage"), "PlatformAuditsPage");
+const PlatformRolesPermissionsPage = lazyPage(() => import("@/features/administration/roles-permissions/RolesPermissionsPage"), "PlatformRolesPermissionsPage");
 const TenantLandingPage = lazyPage(() => import("@/features/tenant/TenantLandingPage"), "TenantLandingPage");
 const TenantBillingPage = lazyPage(() => import("@/features/tenant/TenantBillingPage"), "TenantBillingPage");
 const CustomerLoginPage = lazyPage(() => import("@/features/customer/CustomerLoginPage"), "CustomerLoginPage");
@@ -46,13 +48,16 @@ const SmsDispatchPage = lazyPage(() => import("@/features/tenant/sms/SmsDispatch
 const SmsReportsPage = lazyPage(() => import("@/features/tenant/sms/SmsReportsPage"), "SmsReportsPage");
 const SmsUsersPage = lazyPage(() => import("@/features/tenant/sms/SmsUsersPage"), "SmsUsersPage");
 const TenantSmsAuditsPage = lazyPage(() => import("@/features/administration/audits/AuditsPage"), "TenantSmsAuditsPage");
+const TenantSmsRolesPermissionsPage = lazyPage(() => import("@/features/administration/roles-permissions/RolesPermissionsPage"), "TenantSmsRolesPermissionsPage");
 const MlsDashboardPage = lazyPage(() => import("@/features/tenant/mls/MlsDashboardPage"), "MlsDashboardPage");
 const MlsCustomerFinancePage = lazyPage(() => import("@/features/tenant/mls/MlsCustomerFinancePage"), "MlsCustomerFinancePage");
 const MlsLoanConversionPage = lazyPage(() => import("@/features/tenant/mls/MlsLoanConversionPage"), "MlsLoanConversionPage");
 const MlsStandaloneLoanPage = lazyPage(() => import("@/features/tenant/mls/MlsStandaloneLoanPage"), "MlsStandaloneLoanPage");
 const MlsLoanAccountsPage = lazyPage(() => import("@/features/tenant/mls/MlsLoanAccountsPage"), "MlsLoanAccountsPage");
 const MlsCollectionsPage = lazyPage(() => import("@/features/tenant/mls/MlsCollectionsPage"), "MlsCollectionsPage");
+const MlsPlatformUsersPage = lazyPage(() => import("@/features/tenant/mls/MlsPlatformUsersPage"), "MlsPlatformUsersPage");
 const MlsAuditPage = lazyPage(() => import("@/features/tenant/mls/MlsAuditPage"), "MlsAuditPage");
+const MlsRolesPermissionsPage = lazyPage(() => import("@/features/tenant/mls/MlsRolesPermissionsPage"), "MlsRolesPermissionsPage");
 const MlsReportsPage = lazyPage(() => import("@/features/tenant/mls/MlsReportsPage"), "MlsReportsPage");
 const MlsLedgerPage = lazyPage(() => import("@/features/tenant/mls/MlsLedgerPage"), "MlsLedgerPage");
 const DesktopRequiredPage = lazyPage(() => import("@/features/system/DesktopRequiredPage"), "DesktopRequiredPage");
@@ -73,8 +78,10 @@ const browserRoutes = [
           { path: "dashboard", element: <DashboardPage /> },
           { path: "system-health", element: <SystemHealthPage /> },
           { path: "tenants", element: <TenantsPage /> },
+          { path: "root-users", element: <RootUsersPage /> },
           { path: "subscriptions", element: <SubscriptionsPage /> },
           { path: "modules", element: <ModulesPage /> },
+          { path: "roles-permissions", element: <PlatformRolesPermissionsPage /> },
           { path: "audits", element: <PlatformAuditsPage /> }
         ]
       },
@@ -124,6 +131,7 @@ const browserRoutes = [
             children: [
               { path: "billing", element: <TenantBillingPage /> },
               { path: "sms/audits", element: <TenantSmsAuditsPage /> },
+              { path: "sms/roles-permissions", element: <TenantSmsRolesPermissionsPage /> },
               { path: "sms/users", element: <SmsUsersPage /> }
             ]
           },
@@ -149,8 +157,10 @@ const desktopRoutes = [
           { path: "dashboard", element: <DashboardPage /> },
           { path: "system-health", element: <SystemHealthPage /> },
           { path: "tenants", element: <TenantsPage /> },
+          { path: "root-users", element: <RootUsersPage /> },
           { path: "subscriptions", element: <SubscriptionsPage /> },
           { path: "modules", element: <ModulesPage /> },
+          { path: "roles-permissions", element: <PlatformRolesPermissionsPage /> },
           { path: "audits", element: <PlatformAuditsPage /> }
         ]
       },
@@ -165,6 +175,8 @@ const desktopRoutes = [
       { path: "t/mls/standalone-loans", element: <MlsStandaloneLoanPage /> },
       { path: "t/mls/loans", element: <MlsLoanAccountsPage /> },
       { path: "t/mls/collections", element: <MlsCollectionsPage /> },
+      { path: "t/mls/users", element: <MlsPlatformUsersPage /> },
+      { path: "t/mls/roles-permissions", element: <MlsRolesPermissionsPage /> },
       { path: "t/mls/audit", element: <MlsAuditPage /> },
       { path: "t/mls/reports", element: <MlsReportsPage /> },
       { path: "t/mls/ledger", element: <MlsLedgerPage /> },
@@ -208,6 +220,7 @@ const desktopRoutes = [
             children: [
               { path: "billing", element: <TenantBillingPage /> },
               { path: "sms/audits", element: <TenantSmsAuditsPage /> },
+              { path: "sms/roles-permissions", element: <TenantSmsRolesPermissionsPage /> },
               { path: "sms/users", element: <SmsUsersPage /> }
             ]
           },
@@ -221,17 +234,17 @@ const desktopRoutes = [
 ];
 
 function SuperadminProtectedLayout() {
-  return <ProtectedRoute requireRole="SuperAdmin" />;
+  return <ProtectedRoute requireSurface="Root" requireRole="SuperAdmin" />;
 }
 
 function TenantSmsProtectedLayout() {
   const { tenantDomainSlug = "" } = useParams();
-  return <ProtectedRoute tenantSlug={tenantDomainSlug} />;
+  return <ProtectedRoute tenantSlug={tenantDomainSlug} requireSurface="TenantWeb" />;
 }
 
 function TenantAdminProtectedLayout() {
   const { tenantDomainSlug = "" } = useParams();
-  return <ProtectedRoute tenantSlug={tenantDomainSlug} requireRole="Administrator" />;
+  return <ProtectedRoute tenantSlug={tenantDomainSlug} requireSurface="TenantWeb" requireAnyRole={["Administrator", "Owner"]} />;
 }
 
 function TenantRootRedirect() {

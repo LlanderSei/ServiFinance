@@ -63,6 +63,10 @@ export function SmsDashboardPage() {
   const inProgressAssignments = dashboardQuery.data?.technicianWorkload.reduce((sum, row) => sum + row.activeAssignments, 0) ?? 0;
   const completedWindowRequests = dashboardQuery.data?.windowedActivity.completedRequests ?? 0;
   const intakeWindowRequests = dashboardQuery.data?.windowedActivity.newRequests ?? 0;
+  const feedbackSummary = dashboardQuery.data?.feedbackSummary;
+  const feedbackHighlights = dashboardQuery.data?.feedbackHighlights ?? [];
+  const suggestionThemes = dashboardQuery.data?.suggestionThemes ?? [];
+  const averageRatingLabel = feedbackSummary?.averageRating == null ? "No data" : `${feedbackSummary.averageRating.toFixed(1)}/5`;
 
   return (
     <RecordWorkspace
@@ -80,14 +84,14 @@ export function SmsDashboardPage() {
 
       <RecordScrollRegion>
         <WorkspaceScrollStack className="p-0">
-          <WorkspacePanel className="overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(86,146,255,0.12),transparent_32%),linear-gradient(180deg,rgba(18,28,46,0.98),rgba(10,16,28,0.98))] text-white border-base-300/25">
+          <section className="overflow-hidden rounded-box border border-base-300/70 bg-[radial-gradient(circle_at_top_left,rgba(86,146,255,0.16),transparent_34%),linear-gradient(180deg,var(--color-base-100),var(--color-base-200))] p-4 text-base-content shadow-sm">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
               <div className="max-w-[58rem]">
-                <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.12em] text-white/56">Control tower</p>
-                <h2 className="mt-2 text-[clamp(1.9rem,3vw,2.8rem)] font-bold tracking-[-0.05em] text-white">
+                <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.12em] text-base-content/60">Control tower</p>
+                <h2 className="mt-2 text-[clamp(1.9rem,3vw,2.8rem)] font-bold tracking-[-0.05em] text-base-content">
                   {buildDashboardHeadline(activeAssignments, overdueRequests, intakeWindowRequests)}
                 </h2>
-                <p className="mt-3 text-[0.98rem] leading-7 text-white/74">
+                <p className="mt-3 text-[0.98rem] leading-7 text-base-content/72">
                   {dashboardQuery.isLoading
                     ? "Pulling tenant service activity, dispatch load, and reporting movement..."
                     : `Current window: ${reportWindowLabel}. The dashboard blends live intake, request execution, and reporting cues so the tenant team can see what is moving and what needs intervention first.`}
@@ -112,7 +116,7 @@ export function SmsDashboardPage() {
                 />
               </div>
             </div>
-          </WorkspacePanel>
+          </section>
 
           <WorkspaceMetricGrid className="2xl:grid-cols-5">
             <MetricCard
@@ -139,6 +143,29 @@ export function SmsDashboardPage() {
               label="Invoices finalized"
               value={dashboardQuery.data?.windowedActivity.invoicesFinalized ?? 0}
               description="Finance-ready invoices created in the active reporting window."
+            />
+          </WorkspaceMetricGrid>
+
+          <WorkspaceMetricGrid className="2xl:grid-cols-4">
+            <MetricCard
+              label="Average rating"
+              value={averageRatingLabel}
+              description="Average customer rating submitted inside the active reporting window."
+            />
+            <MetricCard
+              label="Pending feedback"
+              value={feedbackSummary?.pendingFeedback ?? 0}
+              description="Completed jobs still inside the 7-day customer feedback window."
+            />
+            <MetricCard
+              label="Low-rating services"
+              value={feedbackSummary?.lowRatingCount ?? 0}
+              description="Submitted ratings at 2 stars or below that should be reviewed."
+            />
+            <MetricCard
+              label="Suggestion themes"
+              value={feedbackSummary?.suggestionsCount ?? 0}
+              description="Submitted feedback entries carrying a customer suggestion category."
             />
           </WorkspaceMetricGrid>
 
@@ -255,6 +282,76 @@ export function SmsDashboardPage() {
           <WorkspacePanelGrid>
             <WorkspacePanel>
               <WorkspacePanelHeader
+                eyebrow="Customer care"
+                title="Feedback that needs follow-up"
+                actions={<WorkspaceActionLink to={`/t/${tenantDomainSlug}/sms/reports`}>Open CRM reports</WorkspaceActionLink>}
+              />
+
+              <WorkspaceSubtableShell>
+                <WorkspaceSubtable>
+                  <thead>
+                    <tr>
+                      <th>Request</th>
+                      <th>Rating</th>
+                      <th>Signal</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboardQuery.isLoading ? (
+                      <RecordTableStateRow colSpan={4}>Loading customer feedback...</RecordTableStateRow>
+                    ) : null}
+
+                    {!dashboardQuery.isLoading && !feedbackHighlights.length ? (
+                      <RecordTableStateRow colSpan={4}>No submitted customer feedback in this window yet.</RecordTableStateRow>
+                    ) : null}
+
+                    {feedbackHighlights.slice(0, 5).map((row) => (
+                      <tr key={row.serviceRequestId}>
+                        <td>
+                          <WorkspaceTenantCell title={row.requestNumber} subtitle={row.customerName} />
+                        </td>
+                        <td>{row.rating == null ? "Pending" : `${row.rating}/5`}</td>
+                        <td>{row.suggestionCategory ?? row.feedbackComments ?? "Rating only"}</td>
+                        <td>{row.feedbackSubmittedAtUtc ? formatDateOnly(row.feedbackSubmittedAtUtc) : "Not submitted"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </WorkspaceSubtable>
+              </WorkspaceSubtableShell>
+            </WorkspacePanel>
+
+            <WorkspacePanel>
+              <WorkspacePanelHeader eyebrow="Suggestions" title="Recurring customer themes" />
+
+              <div className="grid gap-4">
+                {dashboardQuery.isLoading ? (
+                  <WorkspaceEmptyState>
+                    <WorkspaceInlineNote>Loading suggestion themes...</WorkspaceInlineNote>
+                  </WorkspaceEmptyState>
+                ) : null}
+
+                {!dashboardQuery.isLoading && !suggestionThemes.length ? (
+                  <WorkspaceEmptyState>
+                    <WorkspaceInlineNote>No categorized customer suggestions have been submitted in this window.</WorkspaceInlineNote>
+                  </WorkspaceEmptyState>
+                ) : null}
+
+                {suggestionThemes.map((row) => (
+                  <WorkspaceDistributionRow
+                    key={row.category}
+                    label={`${row.category} (${row.averageRating.toFixed(1)}/5 avg)`}
+                    value={row.count}
+                    percentage={feedbackSummary?.suggestionsCount ? (row.count / feedbackSummary.suggestionsCount) * 100 : 0}
+                  />
+                ))}
+              </div>
+            </WorkspacePanel>
+          </WorkspacePanelGrid>
+
+          <WorkspacePanelGrid>
+            <WorkspacePanel>
+              <WorkspacePanelHeader
                 eyebrow="Comparison"
                 title="Window momentum"
                 actions={<WorkspaceActionLink to={`/t/${tenantDomainSlug}/sms/reports`}>Open full reports</WorkspaceActionLink>}
@@ -343,10 +440,10 @@ export function SmsDashboardPage() {
 
 function HeroStat({ label, value, description }: { label: string; value: number; description: string }) {
   return (
-    <article className="rounded-[1.4rem] border border-white/12 bg-white/8 px-4 py-4 backdrop-blur-sm">
-      <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.1em] text-white/56">{label}</p>
-      <strong className="mt-2 block text-[2rem] tracking-[-0.05em] text-white">{value}</strong>
-      <p className="mt-1 text-sm leading-6 text-white/65">{description}</p>
+    <article className="rounded-[1.4rem] border border-base-300/65 bg-base-100/80 px-4 py-4 backdrop-blur-sm">
+      <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.1em] text-base-content/60">{label}</p>
+      <strong className="mt-2 block text-[2rem] tracking-[-0.05em] text-base-content">{value}</strong>
+      <p className="mt-1 text-sm leading-6 text-base-content/65">{description}</p>
     </article>
   );
 }

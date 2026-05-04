@@ -857,10 +857,24 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<bool>("IsPermissionSetLocked")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSystemRole")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PlatformScope")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
@@ -872,7 +886,41 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.HasIndex("TenantId", "Name")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "PlatformScope", "Rank");
+
                     b.ToTable("Roles", (string)null);
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.RolePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("GrantedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PermissionKey")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "RoleId", "PermissionKey")
+                        .IsUnique();
+
+                    b.ToTable("RolePermissions", (string)null);
                 });
 
             modelBuilder.Entity("ServiFinance.Domain.ServiceRequest", b =>
@@ -881,10 +929,16 @@ namespace ServiFinance.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("CreatedByUserId")
+                    b.Property<Guid?>("CreatedByCustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CurrentStatus")
@@ -898,6 +952,16 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Property<string>("FeedbackComments")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("FeedbackExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FeedbackSubmittedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FeedbackSuggestionCategory")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("IssueDescription")
                         .IsRequired()
@@ -935,16 +999,71 @@ namespace ServiFinance.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedByCustomerId");
+
                     b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("TenantId");
 
+                    b.HasIndex("TenantId", "CompletedAtUtc");
+
+                    b.HasIndex("TenantId", "FeedbackSubmittedAtUtc");
+
                     b.HasIndex("TenantId", "RequestNumber")
                         .IsUnique();
 
                     b.ToTable("ServiceRequests", (string)null);
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.ServiceRequestAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("RelativeUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("ServiceRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<Guid>("SubmittedByCustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceRequestId");
+
+                    b.HasIndex("SubmittedByCustomerId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("ServiceRequestAttachments", (string)null);
                 });
 
             modelBuilder.Entity("ServiFinance.Domain.StatusLog", b =>
@@ -956,7 +1075,10 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Property<DateTime>("ChangedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("ChangedByUserId")
+                    b.Property<Guid?>("ChangedByCustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ChangedByUserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Remarks")
@@ -976,6 +1098,8 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ChangedByCustomerId");
 
                     b.HasIndex("ChangedByUserId");
 
@@ -1598,13 +1722,28 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("ServiFinance.Domain.RolePermission", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.Role", "Role")
+                        .WithMany("Permissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("ServiFinance.Domain.ServiceRequest", b =>
                 {
+                    b.HasOne("ServiFinance.Domain.Customer", "CreatedByCustomer")
+                        .WithMany("CreatedServiceRequests")
+                        .HasForeignKey("CreatedByCustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ServiFinance.Domain.AppUser", "CreatedByUser")
                         .WithMany("CreatedServiceRequests")
                         .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ServiFinance.Domain.Customer", "Customer")
                         .WithMany("ServiceRequests")
@@ -1612,24 +1751,51 @@ namespace ServiFinance.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("CreatedByCustomer");
+
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("Customer");
                 });
 
+            modelBuilder.Entity("ServiFinance.Domain.ServiceRequestAttachment", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.ServiceRequest", "ServiceRequest")
+                        .WithMany("Attachments")
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ServiFinance.Domain.Customer", "SubmittedByCustomer")
+                        .WithMany()
+                        .HasForeignKey("SubmittedByCustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ServiceRequest");
+
+                    b.Navigation("SubmittedByCustomer");
+                });
+
             modelBuilder.Entity("ServiFinance.Domain.StatusLog", b =>
                 {
+                    b.HasOne("ServiFinance.Domain.Customer", "ChangedByCustomer")
+                        .WithMany("StatusLogs")
+                        .HasForeignKey("ChangedByCustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ServiFinance.Domain.AppUser", "ChangedByUser")
                         .WithMany("StatusLogs")
                         .HasForeignKey("ChangedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ServiFinance.Domain.ServiceRequest", "ServiceRequest")
                         .WithMany("StatusLogs")
                         .HasForeignKey("ServiceRequestId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("ChangedByCustomer");
 
                     b.Navigation("ChangedByUser");
 
@@ -1743,11 +1909,15 @@ namespace ServiFinance.Infrastructure.Migrations
 
             modelBuilder.Entity("ServiFinance.Domain.Customer", b =>
                 {
+                    b.Navigation("CreatedServiceRequests");
+
                     b.Navigation("Invoices");
 
                     b.Navigation("MicroLoans");
 
                     b.Navigation("ServiceRequests");
+
+                    b.Navigation("StatusLogs");
 
                     b.Navigation("Transactions");
                 });
@@ -1775,12 +1945,16 @@ namespace ServiFinance.Infrastructure.Migrations
 
             modelBuilder.Entity("ServiFinance.Domain.Role", b =>
                 {
+                    b.Navigation("Permissions");
+
                     b.Navigation("UserRoles");
                 });
 
             modelBuilder.Entity("ServiFinance.Domain.ServiceRequest", b =>
                 {
                     b.Navigation("Assignments");
+
+                    b.Navigation("Attachments");
 
                     b.Navigation("Invoices");
 

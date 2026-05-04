@@ -3,6 +3,7 @@ namespace ServiFinance.Api.Endpoints.TenantMls;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Auditing;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
@@ -95,6 +96,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
         Guid loanId,
         [FromBody] PostTenantMlsLoanPaymentRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        IAuditLogService auditLogService,
         CancellationToken cancellationToken) => {
           var accessResult = await RequireTenantMlsAccessAsync(
               httpContext,
@@ -183,7 +185,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               .Select(entity => entity.RunningBalance)
               .FirstOrDefaultAsync(cancellationToken);
 
-          dbContext.Transactions.Add(new LedgerTransaction {
+          var paymentTransaction = new LedgerTransaction {
             Id = Guid.NewGuid(),
             CustomerId = loan.CustomerId,
             InvoiceId = loan.InvoiceId,
@@ -201,9 +203,21 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               ? $"Payment posted for loan {loanLabel}"
               : request.Remarks.Trim(),
             CreatedByUserId = currentUserId
-          });
+          };
+
+          dbContext.Transactions.Add(paymentTransaction);
 
           await dbContext.SaveChangesAsync(cancellationToken);
+          await TenantMlsAuditLogging.WriteSystemAuditAsync(
+              auditLogService,
+              httpContext,
+              loan.TenantId,
+              "LoanPayment",
+              "Posted",
+              "LedgerTransaction",
+              paymentTransaction.Id,
+              paymentTransaction.ReferenceNumber,
+              $"Posted {amountToApply:F2} against {loanLabel} for {loan.Customer!.FullName}.");
 
           return Results.Ok(new TenantMlsLoanPaymentPostedResponse(
               loan.Id,
@@ -220,6 +234,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
         Guid transactionId,
         [FromBody] PostTenantMlsLoanPaymentReversalRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        IAuditLogService auditLogService,
         CancellationToken cancellationToken) => {
           var accessResult = await RequireTenantMlsAccessAsync(
               httpContext,
@@ -276,6 +291,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
           var orderedSchedules = loan.AmortizationSchedules
               .OrderBy(entity => entity.InstallmentNumber)
               .ToList();
+          var loanLabel = loan.Invoice?.InvoiceNumber ?? "standalone loan";
           var amountToReverse = RoundCurrency(transaction.CreditAmount);
           if (!TryReversePaymentAcrossSchedules(orderedSchedules, amountToReverse)) {
             return Results.BadRequest(new {
@@ -317,6 +333,16 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
 
           dbContext.Transactions.Add(reversalTransaction);
           await dbContext.SaveChangesAsync(cancellationToken);
+          await TenantMlsAuditLogging.WriteSystemAuditAsync(
+              auditLogService,
+              httpContext,
+              loan.TenantId,
+              "LoanPaymentReversal",
+              "Reversed",
+              "LedgerTransaction",
+              reversalTransaction.Id,
+              reversalTransaction.ReferenceNumber,
+              $"Reversed {amountToReverse:F2} on {loanLabel} for {loan.Customer!.FullName}. Original payment reference: {transaction.ReferenceNumber}.");
 
           return Results.Ok(new TenantMlsLoanPaymentReversedResponse(
               loan.Id,

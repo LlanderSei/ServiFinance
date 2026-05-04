@@ -10,6 +10,14 @@ type WorkspaceMetricGridProps = {
   className?: string;
 };
 
+type WorkspaceKpiRailLayoutProps = {
+  kpis: ReactNode;
+  children: ReactNode;
+  className?: string;
+  railClassName?: string;
+  contentClassName?: string;
+};
+
 type WorkspacePanelGridProps = {
   children: ReactNode;
   className?: string;
@@ -100,6 +108,38 @@ export function WorkspaceMetricGrid({ children, className }: WorkspaceMetricGrid
     <section className={joinClasses("grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5", className)}>
       {children}
     </section>
+  );
+}
+
+export function WorkspaceKpiRailLayout({
+  kpis,
+  children,
+  className,
+  railClassName,
+  contentClassName
+}: WorkspaceKpiRailLayoutProps) {
+  return (
+    <div
+      className={joinClasses(
+        "grid h-full min-h-0 flex-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)]",
+        className
+      )}
+    >
+      <aside
+        className={joinClasses(
+          "min-h-0 max-h-72 overflow-y-auto overscroll-contain rounded-box border border-base-300/65 bg-base-200/35 p-3 [contain:layout_paint] lg:max-h-none",
+          railClassName
+        )}
+      >
+        <div className="grid gap-3">
+          {kpis}
+        </div>
+      </aside>
+
+      <section className={joinClasses("min-h-0 flex flex-col gap-4", contentClassName)}>
+        {children}
+      </section>
+    </div>
   );
 }
 

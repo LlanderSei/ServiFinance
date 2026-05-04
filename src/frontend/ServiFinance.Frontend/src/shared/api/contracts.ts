@@ -188,6 +188,12 @@ export type TenantServiceRequestRow = {
   currentStatus: string;
   createdAtUtc: string;
   createdByUserName: string;
+  rating: number | null;
+  feedbackComments: string | null;
+  feedbackSuggestionCategory: string | null;
+  completedAtUtc: string | null;
+  feedbackSubmittedAtUtc: string | null;
+  feedbackExpiresAtUtc: string | null;
   invoiceId: string | null;
   invoiceNumber: string | null;
   invoiceStatus: string | null;
@@ -224,9 +230,19 @@ export type TenantServiceRequestAuditRow = {
   changedAtUtc: string;
 };
 
+export type TenantServiceRequestAttachmentRow = {
+  id: string;
+  originalFileName: string;
+  contentType: string;
+  relativeUrl: string;
+  submittedByCustomerName: string;
+  createdAtUtc: string;
+};
+
 export type TenantServiceRequestDetailResponse = {
   serviceRequest: TenantServiceRequestRow;
   auditTrail: TenantServiceRequestAuditRow[];
+  attachments: TenantServiceRequestAttachmentRow[];
 };
 
 export type TenantDispatchAssignmentRow = {
@@ -406,6 +422,34 @@ export type TenantReportTurnaround = {
   overdueOpenRequests: number;
 };
 
+export type TenantFeedbackSummary = {
+  averageRating: number | null;
+  ratedRequests: number;
+  pendingFeedback: number;
+  expiredFeedback: number;
+  lowRatingCount: number;
+  suggestionsCount: number;
+};
+
+export type TenantFeedbackHighlight = {
+  serviceRequestId: string;
+  requestNumber: string;
+  customerName: string;
+  currentStatus: string;
+  rating: number | null;
+  feedbackComments: string | null;
+  suggestionCategory: string | null;
+  completedAtUtc: string | null;
+  feedbackSubmittedAtUtc: string | null;
+  feedbackExpiresAtUtc: string | null;
+};
+
+export type TenantSuggestionTheme = {
+  category: string;
+  count: number;
+  averageRating: number;
+};
+
 export type TenantOperationalReportsResponse = {
   catalog: TenantReportCatalogRow[];
   dailyActivity: TenantDailyActivitySummary;
@@ -415,6 +459,9 @@ export type TenantOperationalReportsResponse = {
   windowedActivity: TenantReportWindowActivity;
   comparison: TenantReportComparisonMetric[];
   turnaround: TenantReportTurnaround;
+  feedbackSummary: TenantFeedbackSummary;
+  feedbackHighlights: TenantFeedbackHighlight[];
+  suggestionThemes: TenantSuggestionTheme[];
   totals: {
     customers: number;
     serviceRequests: number;
@@ -743,6 +790,62 @@ export type AuditEventRow = {
 export type AuditWorkspaceResponse = {
   summary: AuditSummary;
   events: AuditEventRow[];
+};
+
+export type RolePermissionDefinition = {
+  key: string;
+  name: string;
+  category: string;
+  description: string;
+  scope: string;
+};
+
+export type RolePermissionRoleRow = {
+  id: string;
+  name: string;
+  description: string;
+  platformScope: string;
+  rank: number;
+  isSystemRole: boolean;
+  isPermissionSetLocked: boolean;
+  assignedUserCount: number;
+  permissionKeys: string[];
+  canEditPermissions: boolean;
+};
+
+export type RolePermissionWorkspaceResponse = {
+  scope: string;
+  scopeLabel: string;
+  roles: RolePermissionRoleRow[];
+  permissions: RolePermissionDefinition[];
+  rankPolicy: string;
+};
+
+export type UpdateRolePermissionSetRequest = {
+  permissionKeys: string[];
+};
+
+export type CreateRoleRequest = {
+  name: string;
+  description: string;
+  platformScope: string;
+  rank: number;
+};
+
+export type UpdateRoleRequest = CreateRoleRequest;
+
+export type RoleUserListItem = {
+  id: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  createdAtUtc: string;
+};
+
+export type RoleUsersResponse = {
+  roleId: string;
+  roleName: string;
+  users: RoleUserListItem[];
 };
 
 export type TenantMlsStandaloneLoanCustomer = {

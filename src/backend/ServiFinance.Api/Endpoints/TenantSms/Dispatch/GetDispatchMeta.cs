@@ -10,12 +10,12 @@ using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class GetDispatchMeta {
     public static void MapGetDispatchMeta(this RouteGroupBuilder tenantApi) {
-        tenantApi.MapGet("/sms/dispatch/meta", [Authorize(Roles = "Administrator", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        tenantApi.MapGet("/sms/dispatch/meta", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
             HttpContext httpContext,
             string tenantDomainSlug,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
             CancellationToken cancellationToken) => {
-              if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+              if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
                 return Results.Forbid();
               }
 

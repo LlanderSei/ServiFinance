@@ -43,10 +43,24 @@ public sealed partial class ServiFinanceDbContext {
     ConfigureTenantOwned(role);
     role.Property(entity => entity.Name).HasMaxLength(100);
     role.Property(entity => entity.Description).HasMaxLength(256);
+    role.Property(entity => entity.PlatformScope).HasMaxLength(30);
     role.HasIndex(entity => new { entity.TenantId, entity.Name }).IsUnique();
+    role.HasIndex(entity => new { entity.TenantId, entity.PlatformScope, entity.Rank });
     role.HasOne(entity => entity.Tenant)
         .WithMany(entity => entity.Roles)
         .HasForeignKey(entity => entity.TenantId)
+        .OnDelete(DeleteBehavior.Restrict);
+  }
+
+  private void ConfigureRolePermissions(ModelBuilder modelBuilder) {
+    var rolePermission = modelBuilder.Entity<RolePermission>();
+    rolePermission.ToTable("RolePermissions");
+    ConfigureTenantOwned(rolePermission);
+    rolePermission.Property(entity => entity.PermissionKey).HasMaxLength(160);
+    rolePermission.HasIndex(entity => new { entity.TenantId, entity.RoleId, entity.PermissionKey }).IsUnique();
+    rolePermission.HasOne(entity => entity.Role)
+        .WithMany(entity => entity.Permissions)
+        .HasForeignKey(entity => entity.RoleId)
         .OnDelete(DeleteBehavior.Restrict);
   }
 

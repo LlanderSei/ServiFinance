@@ -2,5 +2,10 @@ export type CreateUserRequest = {
   fullName: string;
   email: string;
   password: string;
-  roleId: string;
+  roleIds: string[];
+};
+
+export type UpdateUserRequest = {
+  fullName: string;
+  roleIds: string[];
 };

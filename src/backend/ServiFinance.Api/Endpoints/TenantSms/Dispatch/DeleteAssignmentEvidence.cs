@@ -18,7 +18,7 @@ internal static class DeleteAssignmentEvidence {
             IWebHostEnvironment environment,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
             CancellationToken cancellationToken) => {
-              if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+              if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
                 return Results.Forbid();
               }
 

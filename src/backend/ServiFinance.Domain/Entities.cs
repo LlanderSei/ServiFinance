@@ -166,9 +166,22 @@ public sealed class AppUser : TenantEntity {
 public sealed class Role : TenantEntity {
   public string Name { get; set; } = string.Empty;
   public string Description { get; set; } = string.Empty;
+  public string PlatformScope { get; set; } = string.Empty;
+  public int Rank { get; set; } = 100;
+  public bool IsSystemRole { get; set; }
+  public bool IsPermissionSetLocked { get; set; }
 
   public Tenant? Tenant { get; set; }
   public ICollection<UserRole> UserRoles { get; set; } = [];
+  public ICollection<RolePermission> Permissions { get; set; } = [];
+}
+
+public sealed class RolePermission : TenantEntity {
+  public Guid RoleId { get; set; }
+  public string PermissionKey { get; set; } = string.Empty;
+  public DateTime GrantedAtUtc { get; set; } = DateTime.UtcNow;
+
+  public Role? Role { get; set; }
 }
 
 public sealed class UserRole : TenantEntity {
@@ -191,6 +204,8 @@ public sealed class Customer : TenantEntity {
 
   public Tenant? Tenant { get; set; }
   public ICollection<ServiceRequest> ServiceRequests { get; set; } = [];
+  public ICollection<ServiceRequest> CreatedServiceRequests { get; set; } = [];
+  public ICollection<StatusLog> StatusLogs { get; set; } = [];
   public ICollection<Invoice> Invoices { get; set; } = [];
   public ICollection<MicroLoan> MicroLoans { get; set; } = [];
   public ICollection<LedgerTransaction> Transactions { get; set; } = [];
@@ -207,25 +222,47 @@ public sealed class ServiceRequest : TenantEntity {
   public string CurrentStatus { get; set; } = string.Empty;
   public int? Rating { get; set; }
   public string? FeedbackComments { get; set; }
-  public Guid CreatedByUserId { get; set; }
+  public string? FeedbackSuggestionCategory { get; set; }
+  public DateTime? CompletedAtUtc { get; set; }
+  public DateTime? FeedbackSubmittedAtUtc { get; set; }
+  public DateTime? FeedbackExpiresAtUtc { get; set; }
+  public Guid? CreatedByUserId { get; set; }
+  public Guid? CreatedByCustomerId { get; set; }
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
   public Customer? Customer { get; set; }
   public AppUser? CreatedByUser { get; set; }
+  public Customer? CreatedByCustomer { get; set; }
   public ICollection<StatusLog> StatusLogs { get; set; } = [];
   public ICollection<Assignment> Assignments { get; set; } = [];
   public ICollection<Invoice> Invoices { get; set; } = [];
+  public ICollection<ServiceRequestAttachment> Attachments { get; set; } = [];
+}
+
+public sealed class ServiceRequestAttachment : TenantEntity {
+  public Guid ServiceRequestId { get; set; }
+  public Guid SubmittedByCustomerId { get; set; }
+  public string OriginalFileName { get; set; } = string.Empty;
+  public string StoredFileName { get; set; } = string.Empty;
+  public string ContentType { get; set; } = string.Empty;
+  public string RelativeUrl { get; set; } = string.Empty;
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+  public ServiceRequest? ServiceRequest { get; set; }
+  public Customer? SubmittedByCustomer { get; set; }
 }
 
 public sealed class StatusLog : TenantEntity {
   public Guid ServiceRequestId { get; set; }
   public string Status { get; set; } = string.Empty;
   public string Remarks { get; set; } = string.Empty;
-  public Guid ChangedByUserId { get; set; }
+  public Guid? ChangedByUserId { get; set; }
+  public Guid? ChangedByCustomerId { get; set; }
   public DateTime ChangedAtUtc { get; set; } = DateTime.UtcNow;
 
   public ServiceRequest? ServiceRequest { get; set; }
   public AppUser? ChangedByUser { get; set; }
+  public Customer? ChangedByCustomer { get; set; }
 }
 
 public sealed class Assignment : TenantEntity {

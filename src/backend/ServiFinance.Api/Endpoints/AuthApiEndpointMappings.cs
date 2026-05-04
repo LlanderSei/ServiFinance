@@ -45,7 +45,7 @@ internal static class AuthApiEndpointMappings {
 
           var tokens = await sessionTokenService.CreateSessionAsync(user, AuthenticationSurface.Root, request.RememberMe, httpContext.RequestAborted);
           if (request.UseCookieSession) {
-            await SignInUserAsync(httpContext, user, request.RememberMe);
+            await SignInUserAsync(httpContext, user, AuthenticationSurface.Root, request.RememberMe);
             WriteRefreshTokenCookie(httpContext, tokens.RefreshToken, request.RememberMe ? TimeSpan.FromDays(sessionTokenOptions.PersistentRefreshTokenDays) : null);
           }
 
@@ -124,7 +124,7 @@ internal static class AuthApiEndpointMappings {
 
           var tokens = await sessionTokenService.CreateSessionAsync(user, surface, cancellationToken: httpContext.RequestAborted);
           if (request.UseCookieSession) {
-            await SignInUserAsync(httpContext, user);
+            await SignInUserAsync(httpContext, user, surface);
             WriteRefreshTokenCookie(httpContext, tokens.RefreshToken);
           }
 
@@ -180,7 +180,7 @@ internal static class AuthApiEndpointMappings {
           var surface = AuthenticationSurface.CustomerWeb;
           var tokens = await sessionTokenService.CreateSessionAsync(user, surface, cancellationToken: httpContext.RequestAborted);
           if (request.UseCookieSession) {
-            await SignInUserAsync(httpContext, user);
+            await SignInUserAsync(httpContext, user, surface);
             WriteRefreshTokenCookie(httpContext, tokens.RefreshToken);
           }
 
@@ -215,7 +215,7 @@ internal static class AuthApiEndpointMappings {
             var surface = AuthenticationSurface.CustomerWeb;
             var tokens = await sessionTokenService.CreateSessionAsync(user, surface, cancellationToken: httpContext.RequestAborted);
             if (request.UseCookieSession) {
-              await SignInUserAsync(httpContext, user);
+              await SignInUserAsync(httpContext, user, surface);
               WriteRefreshTokenCookie(httpContext, tokens.RefreshToken);
             }
 

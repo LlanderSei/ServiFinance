@@ -92,10 +92,12 @@ public sealed class UserAuthenticationService(
       AuthenticationSurface.TenantWeb =>
           tenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
           !string.IsNullOrWhiteSpace(request.TenantDomainSlug) &&
-          string.Equals(tenantDomainSlug, request.TenantDomainSlug, StringComparison.OrdinalIgnoreCase),
+          string.Equals(tenantDomainSlug, request.TenantDomainSlug, StringComparison.OrdinalIgnoreCase) &&
+          PlatformRolePolicy.HasTenantWebAccess(roles),
       AuthenticationSurface.TenantDesktop =>
           tenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
-          !string.IsNullOrWhiteSpace(tenantDomainSlug),
+          !string.IsNullOrWhiteSpace(tenantDomainSlug) &&
+          PlatformRolePolicy.HasTenantDesktopAccess(roles),
       _ => false
     };
   }

@@ -26,7 +26,7 @@ internal static class WebAccountEndpointMappings {
             return Results.LocalRedirect($"/?error=Invalid%20superadmin%20email%20or%20password&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
           }
 
-          await SignInUserAsync(httpContext, user, request.RememberMe);
+          await SignInUserAsync(httpContext, user, AuthenticationSurface.Root, request.RememberMe);
 
           return Results.LocalRedirect(returnUrl);
         });
@@ -68,7 +68,7 @@ internal static class WebAccountEndpointMappings {
             }
           }
 
-          await SignInUserAsync(httpContext, user);
+          await SignInUserAsync(httpContext, user, surface);
           return Results.LocalRedirect(returnUrl);
         });
     app.MapPost("/account/logout", async Task<IResult> (HttpContext httpContext, [FromForm] string? returnUrl) => {

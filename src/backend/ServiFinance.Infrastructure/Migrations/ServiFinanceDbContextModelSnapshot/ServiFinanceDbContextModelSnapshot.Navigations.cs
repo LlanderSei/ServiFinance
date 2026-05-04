@@ -45,11 +45,15 @@ namespace ServiFinance.Infrastructure.Migrations {
 
     modelBuilder.Entity("ServiFinance.Domain.Customer", b =>
         {
+            b.Navigation("CreatedServiceRequests");
+
             b.Navigation("Invoices");
 
             b.Navigation("MicroLoans");
 
             b.Navigation("ServiceRequests");
+
+            b.Navigation("StatusLogs");
 
             b.Navigation("Transactions");
         });
@@ -83,6 +87,8 @@ namespace ServiFinance.Infrastructure.Migrations {
     modelBuilder.Entity("ServiFinance.Domain.ServiceRequest", b =>
         {
             b.Navigation("Assignments");
+
+            b.Navigation("Attachments");
 
             b.Navigation("Invoices");
 

@@ -244,11 +244,15 @@ namespace ServiFinance.Infrastructure.Migrations {
 
     modelBuilder.Entity("ServiFinance.Domain.ServiceRequest", b =>
         {
+            b.HasOne("ServiFinance.Domain.Customer", "CreatedByCustomer")
+                .WithMany("CreatedServiceRequests")
+                .HasForeignKey("CreatedByCustomerId")
+                .OnDelete(DeleteBehavior.Restrict);
+
             b.HasOne("ServiFinance.Domain.AppUser", "CreatedByUser")
                 .WithMany("CreatedServiceRequests")
                 .HasForeignKey("CreatedByUserId")
-                .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired();
+                .OnDelete(DeleteBehavior.Restrict);
 
             b.HasOne("ServiFinance.Domain.Customer", "Customer")
                 .WithMany("ServiceRequests")
@@ -256,24 +260,51 @@ namespace ServiFinance.Infrastructure.Migrations {
                 .OnDelete(DeleteBehavior.Restrict)
                 .IsRequired();
 
+            b.Navigation("CreatedByCustomer");
+
             b.Navigation("CreatedByUser");
 
             b.Navigation("Customer");
         });
 
+    modelBuilder.Entity("ServiFinance.Domain.ServiceRequestAttachment", b =>
+        {
+            b.HasOne("ServiFinance.Domain.ServiceRequest", "ServiceRequest")
+                .WithMany("Attachments")
+                .HasForeignKey("ServiceRequestId")
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+
+            b.HasOne("ServiFinance.Domain.Customer", "SubmittedByCustomer")
+                .WithMany()
+                .HasForeignKey("SubmittedByCustomerId")
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired();
+
+            b.Navigation("ServiceRequest");
+
+            b.Navigation("SubmittedByCustomer");
+        });
+
     modelBuilder.Entity("ServiFinance.Domain.StatusLog", b =>
         {
+            b.HasOne("ServiFinance.Domain.Customer", "ChangedByCustomer")
+                .WithMany("StatusLogs")
+                .HasForeignKey("ChangedByCustomerId")
+                .OnDelete(DeleteBehavior.Restrict);
+
             b.HasOne("ServiFinance.Domain.AppUser", "ChangedByUser")
                 .WithMany("StatusLogs")
                 .HasForeignKey("ChangedByUserId")
-                .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired();
+                .OnDelete(DeleteBehavior.Restrict);
 
             b.HasOne("ServiFinance.Domain.ServiceRequest", "ServiceRequest")
                 .WithMany("StatusLogs")
                 .HasForeignKey("ServiceRequestId")
                 .OnDelete(DeleteBehavior.Cascade)
                 .IsRequired();
+
+            b.Navigation("ChangedByCustomer");
 
             b.Navigation("ChangedByUser");
 

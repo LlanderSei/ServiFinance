@@ -35,9 +35,11 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   public DbSet<SubscriptionTierModule> SubscriptionTierModules => Set<SubscriptionTierModule>();
   public DbSet<AppUser> Users => Set<AppUser>();
   public DbSet<Role> Roles => Set<Role>();
+  public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
   public DbSet<UserRole> UserRoles => Set<UserRole>();
   public DbSet<Customer> Customers => Set<Customer>();
   public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+  public DbSet<ServiceRequestAttachment> ServiceRequestAttachments => Set<ServiceRequestAttachment>();
   public DbSet<StatusLog> StatusLogs => Set<StatusLog>();
   public DbSet<Assignment> Assignments => Set<Assignment>();
   public DbSet<AssignmentEvent> AssignmentEvents => Set<AssignmentEvent>();
@@ -60,9 +62,11 @@ public sealed partial class ServiFinanceDbContext : DbContext {
     ConfigureSubscriptionTierModules(modelBuilder);
     ConfigureUsers(modelBuilder);
     ConfigureRoles(modelBuilder);
+    ConfigureRolePermissions(modelBuilder);
     ConfigureUserRoles(modelBuilder);
     ConfigureCustomers(modelBuilder);
     ConfigureServiceRequests(modelBuilder);
+    ConfigureServiceRequestAttachments(modelBuilder);
     ConfigureStatusLogs(modelBuilder);
     ConfigureAssignments(modelBuilder);
     ConfigureAssignmentEvents(modelBuilder);

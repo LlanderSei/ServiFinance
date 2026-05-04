@@ -21,7 +21,7 @@ public sealed record AuthenticatedUser(
     string FullName,
     IReadOnlyList<string> Roles);
 
-public sealed record AvailableRole(Guid Id, string Name);
+public sealed record AvailableRole(Guid Id, string Name, string PlatformScope);
 
 public sealed record UserListItem(
     Guid Id,
@@ -29,10 +29,17 @@ public sealed record UserListItem(
     string Email,
     bool IsActive,
     DateTime CreatedAtUtc,
-    IReadOnlyList<string> Roles);
+    IReadOnlyList<string> Roles,
+    IReadOnlyList<string> PlatformScopes);
 
 public sealed record CreateUserRequest(
     string FullName,
     string Email,
     string Password,
-    Guid RoleId);
+    IReadOnlyList<Guid>? RoleIds = null,
+    Guid? RoleId = null);
+
+public sealed record UpdateUserRequest(
+    string FullName,
+    IReadOnlyList<Guid>? RoleIds = null,
+    Guid? RoleId = null);

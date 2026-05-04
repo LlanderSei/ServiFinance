@@ -17,3 +17,9 @@ E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\verify-api-build\api\ServiFinance.Application.deps.json
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\verify-api-build\api\ServiFinance.Application.dll
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\verify-api-build\api\ServiFinance.Application.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-verify\ServiFinance.Application.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-verify\ServiFinance.Application.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-verify\ServiFinance.Application.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-auth-verify\ServiFinance.Application.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-auth-verify\ServiFinance.Application.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-auth-verify\ServiFinance.Application.pdb

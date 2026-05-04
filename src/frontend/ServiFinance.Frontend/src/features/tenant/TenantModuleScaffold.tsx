@@ -30,7 +30,7 @@ export function TenantModuleScaffold({
   requireRole
 }: TenantModuleScaffoldProps) {
   return (
-    <ProtectedRoute tenantSlug={tenantSlug} requireRole={requireRole}>
+    <ProtectedRoute tenantSlug={tenantSlug} requireSurface="TenantWeb" requireRole={requireRole}>
       <RecordWorkspace
         breadcrumbs={breadcrumbs}
         title={title}

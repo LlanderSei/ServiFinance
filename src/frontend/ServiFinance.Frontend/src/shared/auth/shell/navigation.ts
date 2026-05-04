@@ -32,7 +32,7 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
   const tenantBase = `/t/${user.tenantDomainSlug}`;
   const mlsBase = "/t/mls";
   const isSuperAdmin = user.roles.includes("SuperAdmin");
-  const isTenantAdmin = user.roles.includes("Administrator");
+  const isTenantAdmin = user.roles.includes("Administrator") || user.roles.includes("Owner");
   const isTenantDesktop = user.surface === "TenantDesktop";
 
   if (isSuperAdmin) {
@@ -56,6 +56,8 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
         key: "administration",
         title: "Administration",
         items: [
+          { to: "/root-users", label: "Root Users", icon: "users" },
+          { to: "/roles-permissions", label: "Roles & Permissions", icon: "users" },
           { to: "/audits", label: "Audits", icon: "audits" }
         ]
       },
@@ -86,13 +88,19 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
           { to: `${mlsBase}/ledger`, label: "Ledger", icon: "dashboard" }
         ]
       },
-      {
-        key: "administration",
-        title: "Administration",
-        items: [
-          { to: `${mlsBase}/audit`, label: "Audits", icon: "audits" }
-        ]
-      },
+      ...(isTenantAdmin
+        ? [
+            {
+              key: "administration",
+              title: "Administration",
+              items: [
+                { to: `${mlsBase}/users`, label: "Platform Users", icon: "users" as const },
+                { to: `${mlsBase}/roles-permissions`, label: "Roles & Permissions", icon: "users" as const },
+                { to: `${mlsBase}/audit`, label: "Audits", icon: "audits" as const }
+              ]
+            }
+          ]
+        : []),
       {
         key: "web-entry",
         title: "",
@@ -126,7 +134,8 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
             title: "Administration",
             items: [
               { to: `${tenantBase}/sms/audits`, label: "Audits", icon: "audits" as const },
-              { to: `${tenantBase}/sms/users`, label: "SMS Users", icon: "users" as const }
+              { to: `${tenantBase}/sms/users`, label: "Platform Users", icon: "users" as const },
+              { to: `${tenantBase}/sms/roles-permissions`, label: "Roles & Permissions", icon: "users" as const }
             ]
           },
           {

@@ -1,6 +1,6 @@
 # ServiFinance Implementation Status
 
-Last updated: 2026-04-08
+Last updated: 2026-05-04
 
 ## What Has Been Implemented
 
@@ -58,6 +58,24 @@ Last updated: 2026-04-08
   - enabling or disabling a user
   - resetting a user's password
 
+### Role and Permission Administration
+
+- Scoped Roles & Permissions administration now exists for:
+  - Superadmin root website
+  - Tenant SMS web workspace
+  - Tenant MLS desktop workspace
+- Roles now store platform scope, rank, system-role state, and locked permission-set state.
+- The `RolePermissions` table now stores granted permission keys per role.
+- SuperAdmin and tenant Owner/Admin roles are locked authority roles.
+- Operational roles such as SMS Staff, SMS Dispatcher, SMS Technician, MLS Staff, and MLS Cashier can carry dedicated permission sets.
+- Roles & Permissions now has `Roles`, `Permissions`, and `Matrix` tabs wired to independent interfaces.
+- The `Roles` table now exposes actions for editing editable roles and viewing users assigned to each role.
+- Editable roles can update name, description, platform scope, and rank through the role modal.
+- Changing an editable tenant role between SMS and MLS retargets the permission matrix to the selected scope and clears out-of-scope permission keys.
+- The Add Role floating action is available across the Roles & Permissions workspace.
+- Role rank uniqueness is guarded within the tenant/root role catalog so two roles cannot share the same rank in the same management boundary.
+- The permission matrix is intentionally not enforced across the whole website yet; current enforcement remains route and owner/admin guard based.
+
 ### Initial Authenticated UI
 
 - A protected dashboard page exists at:
@@ -85,8 +103,8 @@ Last updated: 2026-04-08
 - Authentication is only implemented for the web application so far.
 - There is no full registration workflow yet.
 - There is no self-service password reset or email flow.
-- Role management is limited to using roles that already exist in the database.
-- Permissions are still role-name based; there is no fine-grained permission matrix yet.
+- Custom role creation is now implemented for mutable role scopes; locked authority roles remain system-defined.
+- A fine-grained permission matrix now exists, but website-wide action enforcement has not been wired to it yet.
 - MSME segment and subscription-based module entitlement enforcement is not implemented yet.
 - Audit logging for login activity, password changes, and user admin actions is not implemented yet.
 - The legacy template pages still exist and are not yet fully replaced by service-specific modules.
@@ -107,8 +125,8 @@ Reference:
 
 ### User Administration Expansion
 
-- Add role management screens.
-- Add the ability to reassign roles for existing users.
+- Add role assignment editing for existing users.
+- Add website-wide action enforcement from the persisted permission matrix.
 - Add user profile editing.
 - Add tenant-specific admin onboarding flows.
 

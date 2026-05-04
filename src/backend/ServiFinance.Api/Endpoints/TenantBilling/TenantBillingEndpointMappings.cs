@@ -12,7 +12,7 @@ using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantBillingEndpointMappings {
   public static RouteGroupBuilder MapTenantBillingEndpoints(this RouteGroupBuilder tenantApi) {
-    tenantApi.MapGet("/billing/overview", [Authorize(Roles = "Administrator", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+    tenantApi.MapGet("/billing/overview", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
         IPlatformTenantOnboardingService onboardingService,
@@ -81,7 +81,7 @@ internal static class TenantBillingEndpointMappings {
               standing,
               history));
         });
-    tenantApi.MapPost("/billing/portal-session", [Authorize(Roles = "Administrator", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+    tenantApi.MapPost("/billing/portal-session", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
         IPlatformTenantOnboardingService onboardingService,
@@ -107,7 +107,7 @@ internal static class TenantBillingEndpointMappings {
           }
         });
 
-    tenantApi.MapPost("/billing/submissions", [Authorize(Roles = "Administrator", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+    tenantApi.MapPost("/billing/submissions", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
         [FromForm] SubmitTenantBillingProofRequest request,

@@ -9,6 +9,8 @@ using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class UpdateAssignmentStatus {
+  private const int FeedbackWindowDays = 7;
+
     public static void MapUpdateAssignmentStatus(this RouteGroupBuilder tenantApi) {
         tenantApi.MapPost("/sms/dispatch/{assignmentId:guid}/status", async Task<IResult> (
             HttpContext httpContext,
@@ -17,7 +19,7 @@ internal static class UpdateAssignmentStatus {
             [FromBody] UpdateTenantAssignmentStatusRequest request,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
             CancellationToken cancellationToken) => {
-              if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+              if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
                 return Results.Forbid();
               }
 
@@ -65,8 +67,14 @@ internal static class UpdateAssignmentStatus {
                 });
               }
 
+              var changedAtUtc = DateTime.UtcNow;
               assignment.AssignmentStatus = assignmentStatus;
               assignment.ServiceRequest!.CurrentStatus = serviceStatus;
+              if (IsFeedbackEligibleStatus(serviceStatus) && assignment.ServiceRequest.CompletedAtUtc is null) {
+                assignment.ServiceRequest.CompletedAtUtc = changedAtUtc;
+                assignment.ServiceRequest.FeedbackExpiresAtUtc = changedAtUtc.AddDays(FeedbackWindowDays);
+              }
+
               dbContext.AssignmentEvents.Add(new ServiFinance.Domain.AssignmentEvent {
                 AssignmentId = assignment.Id,
                 EventType = "StatusUpdated",
@@ -81,7 +89,7 @@ internal static class UpdateAssignmentStatus {
                   ? $"Assignment moved to {assignmentStatus}."
                   : request.Remarks.Trim(),
                 ChangedByUserId = currentUserId,
-                CreatedAtUtc = DateTime.UtcNow
+                CreatedAtUtc = changedAtUtc
               });
               dbContext.StatusLogs.Add(new ServiFinance.Domain.StatusLog {
                 ServiceRequestId = assignment.ServiceRequestId,
@@ -90,7 +98,7 @@ internal static class UpdateAssignmentStatus {
                   ? $"Assignment moved to {assignmentStatus}."
                   : request.Remarks.Trim(),
                 ChangedByUserId = currentUserId,
-                ChangedAtUtc = DateTime.UtcNow
+                ChangedAtUtc = changedAtUtc
               });
               await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -130,4 +138,8 @@ internal static class UpdateAssignmentStatus {
               assignment.ServiceRequest.Invoices.Any(invoice => invoice.MicroLoan != null)));
             });
     }
+
+  private static bool IsFeedbackEligibleStatus(string status) =>
+    string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase);
 }

@@ -75,13 +75,13 @@ select {
 [data-platform="web"] .authed-workspace__metric,
 [data-platform="web"] .authed-workspace__table-shell,
 [data-platform="web"] .authed-workspace__subtable-shell {
-  background: oklch(var(--b1)) !important;
+  background: var(--color-base-100) !important;
 }
 
 [data-platform="web"] .authed-workspace__table thead th,
 [data-platform="web"] .authed-workspace__subtable thead th {
   position: static !important;
-  background: oklch(var(--b2)) !important;
+  background: var(--color-base-200) !important;
 }
 
 [data-platform="web"] .authed-workspace__table-shell,

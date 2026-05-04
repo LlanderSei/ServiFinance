@@ -7,8 +7,15 @@ export function CustomerFeedbackPage() {
   const session = getCurrentCustomerSession();
 
   const requestsNeedingFeedback = requests?.filter(
-    r => (r.currentStatus === "Completed" || r.currentStatus === "Closed") && r.rating == null
+    r => (r.currentStatus === "Completed" || r.currentStatus === "Closed") &&
+      r.rating == null &&
+      !isFeedbackExpired(r.feedbackExpiresAtUtc)
   ) || [];
+  const expiredFeedbackCount = requests?.filter(
+    r => (r.currentStatus === "Completed" || r.currentStatus === "Closed") &&
+      r.rating == null &&
+      isFeedbackExpired(r.feedbackExpiresAtUtc)
+  ).length ?? 0;
 
   return (
     <div className="grid gap-5">
@@ -29,6 +36,11 @@ export function CustomerFeedbackPage() {
           <p className="mx-auto mt-3 max-w-[34rem] text-sm leading-6 text-slate-600">
             You don't have any completed service requests awaiting feedback.
           </p>
+          {expiredFeedbackCount > 0 && (
+            <p className="mx-auto mt-3 max-w-[34rem] text-sm leading-6 text-slate-500">
+              {expiredFeedbackCount} completed request{expiredFeedbackCount === 1 ? "" : "s"} already passed the 7-day feedback window.
+            </p>
+          )}
         </section>
       ) : (
         <section className="grid gap-4">
@@ -48,4 +60,8 @@ export function CustomerFeedbackPage() {
       )}
     </div>
   );
+}
+
+function isFeedbackExpired(feedbackExpiresAtUtc?: string | null) {
+  return Boolean(feedbackExpiresAtUtc && new Date(feedbackExpiresAtUtc).getTime() < Date.now());
 }

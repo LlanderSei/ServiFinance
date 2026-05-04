@@ -9,14 +9,16 @@ using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class CreateAssignment {
+  private const int FeedbackWindowDays = 7;
+
     public static void MapCreateAssignment(this RouteGroupBuilder tenantApi) {
-        tenantApi.MapPost("/sms/dispatch", [Authorize(Roles = "Administrator", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        tenantApi.MapPost("/sms/dispatch", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
             HttpContext httpContext,
             string tenantDomainSlug,
             [FromBody] CreateTenantAssignmentRequest request,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
             CancellationToken cancellationToken) => {
-              if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+              if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
                 return Results.Forbid();
               }
 
@@ -67,6 +69,7 @@ internal static class CreateAssignment {
                   error = "The selected technician already has an overlapping scheduled or in-progress assignment in that time window."
                 });
               }
+              var changedAtUtc = DateTime.UtcNow;
               var assignment = new ServiFinance.Domain.Assignment {
                 ServiceRequestId = request.ServiceRequestId,
                 AssignedUserId = request.AssignedUserId,
@@ -74,7 +77,7 @@ internal static class CreateAssignment {
                 ScheduledStartUtc = request.ScheduledStartUtc,
                 ScheduledEndUtc = request.ScheduledEndUtc,
                 AssignmentStatus = assignmentStatus,
-                CreatedAtUtc = DateTime.UtcNow
+                CreatedAtUtc = changedAtUtc
               };
 
               dbContext.Assignments.Add(assignment);
@@ -87,15 +90,20 @@ internal static class CreateAssignment {
                 AssignmentStatus = assignment.AssignmentStatus,
                 Remarks = $"Assignment created for {assignedUser.FullName}.",
                 ChangedByUserId = assignedByUserId,
-                CreatedAtUtc = DateTime.UtcNow
+                CreatedAtUtc = changedAtUtc
               });
               serviceRequest.CurrentStatus = serviceStatus;
+              if (IsFeedbackEligibleStatus(serviceStatus) && serviceRequest.CompletedAtUtc is null) {
+                serviceRequest.CompletedAtUtc = changedAtUtc;
+                serviceRequest.FeedbackExpiresAtUtc = changedAtUtc.AddDays(FeedbackWindowDays);
+              }
+
               dbContext.StatusLogs.Add(new ServiFinance.Domain.StatusLog {
                 ServiceRequestId = serviceRequest.Id,
                 Status = serviceStatus,
                 Remarks = $"Assignment scheduled for {assignedUser.FullName}.",
                 ChangedByUserId = assignedByUserId,
-                ChangedAtUtc = DateTime.UtcNow
+                ChangedAtUtc = changedAtUtc
               });
               await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -128,4 +136,8 @@ internal static class CreateAssignment {
               false));
             });
     }
+
+  private static bool IsFeedbackEligibleStatus(string status) =>
+    string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase);
 }

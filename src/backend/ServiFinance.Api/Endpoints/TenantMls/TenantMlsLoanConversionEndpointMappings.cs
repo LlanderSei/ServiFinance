@@ -4,6 +4,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Auditing;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
@@ -78,6 +79,7 @@ internal static class TenantMlsLoanConversionEndpointMappings {
         string tenantDomainSlug,
         [FromBody] CreateTenantMlsLoanConversionRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        IAuditLogService auditLogService,
         CancellationToken cancellationToken) => {
           var accessResult = await RequireTenantMlsAccessAsync(
               httpContext,
@@ -151,7 +153,7 @@ internal static class TenantMlsLoanConversionEndpointMappings {
             });
           }
 
-          dbContext.Transactions.Add(new LedgerTransaction {
+          var loanTransaction = new LedgerTransaction {
             Id = Guid.NewGuid(),
             CustomerId = invoice.CustomerId,
             InvoiceId = invoice.Id,
@@ -164,9 +166,21 @@ internal static class TenantMlsLoanConversionEndpointMappings {
             RunningBalance = TenantMlsLoanMath.RoundCurrency(runningBalance + preview.Summary.PrincipalAmount),
             Remarks = $"Loan created from invoice {invoice.InvoiceNumber}",
             CreatedByUserId = currentUserId
-          });
+          };
+
+          dbContext.Transactions.Add(loanTransaction);
 
           await dbContext.SaveChangesAsync(cancellationToken);
+          await TenantMlsAuditLogging.WriteSystemAuditAsync(
+              auditLogService,
+              httpContext,
+              invoice.TenantId,
+              "LoanCreation",
+              "Created",
+              "MicroLoan",
+              microLoanId,
+              invoice.InvoiceNumber,
+              $"Created a loan for {invoice.Customer!.FullName} from invoice {invoice.InvoiceNumber}.");
 
           return Results.Ok(new TenantMlsLoanCreatedResponse(
               microLoanId,

@@ -3,7 +3,7 @@ import { useState } from "react";
 export type WorkspaceFabAction = {
   key: string;
   label: string;
-  icon: "plus" | "refresh" | "users" | "request" | "calendar" | "download" | "print";
+  icon: "plus" | "refresh" | "users" | "request" | "calendar" | "download" | "print" | "layers";
   onClick: () => void;
   disabled?: boolean;
 };
@@ -58,7 +58,7 @@ export function WorkspaceFabDock({ actions }: WorkspaceFabDockProps) {
 }
 
 type WorkspaceFabIconProps = {
-  name: "plus" | "refresh" | "users" | "request" | "calendar" | "download" | "print" | "toggle";
+  name: "plus" | "refresh" | "users" | "request" | "calendar" | "download" | "print" | "layers" | "toggle";
 };
 
 function WorkspaceFabIcon({ name }: WorkspaceFabIconProps) {
@@ -133,6 +133,14 @@ function WorkspaceFabIcon({ name }: WorkspaceFabIconProps) {
           <path d="M6 11H5a2 2 0 0 0-2 2v2" />
           <path d="M18 11h1a2 2 0 0 1 2 2v2" />
           <path d="M8 17h8" />
+        </svg>
+      );
+    case "layers":
+      return (
+        <svg {...common}>
+          <path d="m12 3 8 4.5-8 4.5-8-4.5 8-4.5Z" />
+          <path d="m4 12 8 4.5 8-4.5" />
+          <path d="m4 16.5 8 4.5 8-4.5" />
         </svg>
       );
     case "toggle":

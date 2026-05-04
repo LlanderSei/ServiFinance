@@ -212,6 +212,64 @@ export function SmsServiceRequestsPage() {
         ]
       },
       {
+        title: "Customer feedback",
+        items: [
+          {
+            label: "Rating",
+            value: activeRequest.rating !== null ? `${activeRequest.rating}/5` : "No rating submitted"
+          },
+          {
+            label: "Suggestion",
+            value: activeRequest.feedbackSuggestionCategory ?? "No suggestion category"
+          },
+          {
+            label: "Comments",
+            value: activeRequest.feedbackComments ?? "No feedback comments"
+          },
+          {
+            label: "Feedback window",
+            value: activeRequest.feedbackSubmittedAtUtc
+              ? `Submitted ${formatDateTime(activeRequest.feedbackSubmittedAtUtc)}`
+              : activeRequest.feedbackExpiresAtUtc
+                ? `Open until ${formatDateTime(activeRequest.feedbackExpiresAtUtc)}`
+                : "Opens after completion"
+          }
+        ]
+      },
+      {
+        title: "Customer pictures",
+        items: [
+          {
+            label: "Attachments",
+            value: requestDetailQuery.data?.attachments.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {requestDetailQuery.data.attachments.map((attachment) => (
+                  <a
+                    key={attachment.id}
+                    href={attachment.relativeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group overflow-hidden rounded-2xl border border-base-300/70 bg-base-200/40 no-underline"
+                  >
+                    <img
+                      src={attachment.relativeUrl}
+                      alt={attachment.originalFileName}
+                      className="h-32 w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                    />
+                    <div className="grid gap-1 px-3 py-3">
+                      <strong className="truncate text-sm text-base-content">{attachment.originalFileName}</strong>
+                      <span className="text-xs text-base-content/60">
+                        {attachment.submittedByCustomerName} - {formatDateTime(attachment.createdAtUtc)}
+                      </span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : requestDetailQuery.isLoading ? "Loading customer pictures..." : "No customer pictures uploaded."
+          }
+        ]
+      },
+      {
         title: "Audit trail",
         items: [
           {
@@ -299,23 +357,24 @@ export function SmsServiceRequestsPage() {
                     <th>Priority</th>
                     <th>Status</th>
                     <th>Finance</th>
+                    <th>Feedback</th>
                     <th>Requested Date</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {requestsQuery.isLoading ? (
-                    <RecordTableStateRow colSpan={8}>Loading service requests...</RecordTableStateRow>
+                    <RecordTableStateRow colSpan={9}>Loading service requests...</RecordTableStateRow>
                   ) : null}
 
                   {requestsQuery.isError ? (
-                    <RecordTableStateRow colSpan={8} tone="error">
+                    <RecordTableStateRow colSpan={9} tone="error">
                       Unable to load service requests.
                     </RecordTableStateRow>
                   ) : null}
 
                   {!requestsQuery.isLoading && !requestsQuery.isError && !requestsQuery.data?.length ? (
-                    <RecordTableStateRow colSpan={8}>No service requests yet.</RecordTableStateRow>
+                    <RecordTableStateRow colSpan={9}>No service requests yet.</RecordTableStateRow>
                   ) : null}
 
                   {requestsQuery.data?.map((serviceRequest) => (
@@ -332,6 +391,7 @@ export function SmsServiceRequestsPage() {
                           {serviceRequest.financeHandoffStatus}
                         </WorkspaceStatusPill>
                       </td>
+                      <td>{formatFeedbackCell(serviceRequest)}</td>
                       <td>
                         {serviceRequest.requestedServiceDate
                           ? new Date(serviceRequest.requestedServiceDate).toLocaleDateString("en-PH")
@@ -547,6 +607,28 @@ export function SmsServiceRequestsPage() {
 
 function formatMoney(amount: number) {
   return currencyFormatter.format(amount);
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function formatFeedbackCell(serviceRequest: TenantServiceRequestRow) {
+  if (serviceRequest.rating !== null) {
+    return `${serviceRequest.rating}/5`;
+  }
+
+  if (serviceRequest.feedbackExpiresAtUtc) {
+    return new Date(serviceRequest.feedbackExpiresAtUtc).getTime() < Date.now() ? "Expired" : "Pending";
+  }
+
+  return "-";
 }
 
 function getFinanceTone(status: string) {

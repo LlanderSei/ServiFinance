@@ -13,6 +13,7 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
   private const string DefaultWebApiBaseUrl = "http://127.0.0.1:5228";
   private const string ApiAssemblyFileName = "ServiFinance.Api.dll";
   private const string ApiProjectFileName = "ServiFinance.Api.csproj";
+  private const int OwnedBackendOutputTailLimit = 20;
   private static readonly TimeSpan HealthCheckTimeout = TimeSpan.FromSeconds(90);
   private static readonly TimeSpan HealthProbeDelay = TimeSpan.FromMilliseconds(500);
   private static readonly string DesktopRuntimeRoot = Path.Combine(
@@ -22,6 +23,8 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
 
   private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(2) };
   private readonly SemaphoreSlim _lock = new(1, 1);
+  private readonly object _ownedBackendOutputLock = new();
+  private readonly Queue<string> _ownedBackendOutputTail = new();
   private readonly string? _configuredApiBaseUrl;
 
   private Task<string>? _availabilityTask;
@@ -158,22 +161,25 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
         EnableRaisingEvents = true
     };
     _ownedBackendReadySource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    ResetOwnedBackendOutputTail();
 
     process.OutputDataReceived += (_, eventArgs) => {
       if (!string.IsNullOrWhiteSpace(eventArgs.Data)) {
+        RecordOwnedBackendOutput(eventArgs.Data);
         TrySignalBackendReady(eventArgs.Data, apiBaseUrl);
         Debug.WriteLine($"[ServiFinance.Api] {eventArgs.Data}");
       }
     };
     process.ErrorDataReceived += (_, eventArgs) => {
       if (!string.IsNullOrWhiteSpace(eventArgs.Data)) {
+        RecordOwnedBackendOutput(eventArgs.Data);
         TrySignalBackendReady(eventArgs.Data, apiBaseUrl);
         Debug.WriteLine($"[ServiFinance.Api] {eventArgs.Data}");
       }
     };
     process.Exited += (_, _) => {
       if (_ownedBackendReadySource is { Task.IsCompleted: false } readinessSource) {
-        readinessSource.TrySetException(new InvalidOperationException("Owned ServiFinance backend exited before becoming ready."));
+        readinessSource.TrySetException(CreateOwnedBackendExitException(process));
       }
     };
 
@@ -213,10 +219,67 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
     }
 
     var processStartInfo = CreateHiddenStartInfo("dotnet", $"\"{shadowDll}\" --urls \"{apiBaseUrl}\"", _shadowRuntimeDirectory);
+    ApplyEnvironmentFileVariables(processStartInfo, webProjectDirectory);
     processStartInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
     processStartInfo.Environment["DisableServiFinanceFrontendBuild"] = "true";
     processStartInfo.Environment["SERVIFINANCE_OWNED_API"] = "1";
     return processStartInfo;
+  }
+
+  private static void ApplyEnvironmentFileVariables(ProcessStartInfo processStartInfo, string webProjectDirectory) {
+    var environmentFile = TryFindEnvironmentFile(webProjectDirectory);
+    if (environmentFile is null) {
+      return;
+    }
+
+    foreach (var rawLine in File.ReadLines(environmentFile)) {
+      var line = rawLine.Trim();
+      if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#')) {
+        continue;
+      }
+
+      var separatorIndex = line.IndexOf('=');
+      if (separatorIndex <= 0) {
+        continue;
+      }
+
+      var key = line[..separatorIndex].Trim();
+      if (string.IsNullOrWhiteSpace(key)) {
+        continue;
+      }
+
+      if (processStartInfo.Environment.TryGetValue(key, out var currentValue) &&
+          !string.IsNullOrWhiteSpace(currentValue)) {
+        continue;
+      }
+
+      var value = UnquoteEnvironmentValue(line[(separatorIndex + 1)..].Trim());
+      processStartInfo.Environment[key] = value;
+    }
+  }
+
+  private static string? TryFindEnvironmentFile(string startDirectory, string fileName = ".env") {
+    var currentDirectory = new DirectoryInfo(startDirectory);
+    while (currentDirectory is not null) {
+      var candidatePath = Path.Combine(currentDirectory.FullName, fileName);
+      if (File.Exists(candidatePath)) {
+        return candidatePath;
+      }
+
+      currentDirectory = currentDirectory.Parent;
+    }
+
+    return null;
+  }
+
+  private static string UnquoteEnvironmentValue(string value) {
+    if (value.Length < 2) {
+      return value;
+    }
+
+    return value[0] == value[^1] && (value[0] == '"' || value[0] == '\'')
+        ? value[1..^1]
+        : value;
   }
 
   private static ProcessStartInfo CreateHiddenStartInfo(string fileName, string arguments, string workingDirectory) =>
@@ -309,6 +372,47 @@ public sealed class DesktopApiBootstrapper : IDesktopApiBootstrapper {
       } catch {
         // Best-effort cleanup only.
       }
+    }
+  }
+
+  private void ResetOwnedBackendOutputTail() {
+    lock (_ownedBackendOutputLock) {
+      _ownedBackendOutputTail.Clear();
+    }
+  }
+
+  private void RecordOwnedBackendOutput(string outputLine) {
+    lock (_ownedBackendOutputLock) {
+      if (_ownedBackendOutputTail.Count >= OwnedBackendOutputTailLimit) {
+        _ownedBackendOutputTail.Dequeue();
+      }
+
+      _ownedBackendOutputTail.Enqueue(outputLine);
+    }
+  }
+
+  private InvalidOperationException CreateOwnedBackendExitException(Process process) {
+    var exitCode = TryGetExitCode(process);
+    var outputTail = GetOwnedBackendOutputTail();
+    var message = $"Owned ServiFinance backend exited before becoming ready. Exit code: {exitCode}.";
+    if (outputTail.Length > 0) {
+      message = $"{message}{Environment.NewLine}Recent backend output:{Environment.NewLine}{string.Join(Environment.NewLine, outputTail)}";
+    }
+
+    return new InvalidOperationException(message);
+  }
+
+  private string[] GetOwnedBackendOutputTail() {
+    lock (_ownedBackendOutputLock) {
+      return _ownedBackendOutputTail.ToArray();
+    }
+  }
+
+  private static string TryGetExitCode(Process process) {
+    try {
+      return process.HasExited ? process.ExitCode.ToString() : "unknown";
+    } catch {
+      return "unknown";
     }
   }
 

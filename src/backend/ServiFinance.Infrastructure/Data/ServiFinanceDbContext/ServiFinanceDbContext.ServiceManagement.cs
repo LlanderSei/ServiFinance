@@ -32,7 +32,10 @@ public sealed partial class ServiFinanceDbContext {
     serviceRequest.Property(entity => entity.Priority).HasMaxLength(50);
     serviceRequest.Property(entity => entity.CurrentStatus).HasMaxLength(50);
     serviceRequest.Property(entity => entity.FeedbackComments).HasMaxLength(FeedbackCommentsMaxLength);
+    serviceRequest.Property(entity => entity.FeedbackSuggestionCategory).HasMaxLength(80);
     serviceRequest.HasIndex(entity => new { entity.TenantId, entity.RequestNumber }).IsUnique();
+    serviceRequest.HasIndex(entity => new { entity.TenantId, entity.CompletedAtUtc });
+    serviceRequest.HasIndex(entity => new { entity.TenantId, entity.FeedbackSubmittedAtUtc });
     serviceRequest.HasOne(entity => entity.Customer)
         .WithMany(entity => entity.ServiceRequests)
         .HasForeignKey(entity => entity.CustomerId)
@@ -40,6 +43,28 @@ public sealed partial class ServiFinanceDbContext {
     serviceRequest.HasOne(entity => entity.CreatedByUser)
         .WithMany(entity => entity.CreatedServiceRequests)
         .HasForeignKey(entity => entity.CreatedByUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+    serviceRequest.HasOne(entity => entity.CreatedByCustomer)
+        .WithMany(entity => entity.CreatedServiceRequests)
+        .HasForeignKey(entity => entity.CreatedByCustomerId)
+        .OnDelete(DeleteBehavior.Restrict);
+  }
+
+  private void ConfigureServiceRequestAttachments(ModelBuilder modelBuilder) {
+    var serviceRequestAttachment = modelBuilder.Entity<ServiceRequestAttachment>();
+    serviceRequestAttachment.ToTable("ServiceRequestAttachments");
+    ConfigureTenantOwned(serviceRequestAttachment);
+    serviceRequestAttachment.Property(entity => entity.OriginalFileName).HasMaxLength(260);
+    serviceRequestAttachment.Property(entity => entity.StoredFileName).HasMaxLength(260);
+    serviceRequestAttachment.Property(entity => entity.ContentType).HasMaxLength(120);
+    serviceRequestAttachment.Property(entity => entity.RelativeUrl).HasMaxLength(500);
+    serviceRequestAttachment.HasOne(entity => entity.ServiceRequest)
+        .WithMany(entity => entity.Attachments)
+        .HasForeignKey(entity => entity.ServiceRequestId)
+        .OnDelete(DeleteBehavior.Cascade);
+    serviceRequestAttachment.HasOne(entity => entity.SubmittedByCustomer)
+        .WithMany()
+        .HasForeignKey(entity => entity.SubmittedByCustomerId)
         .OnDelete(DeleteBehavior.Restrict);
   }
 
@@ -56,6 +81,10 @@ public sealed partial class ServiFinanceDbContext {
     statusLog.HasOne(entity => entity.ChangedByUser)
         .WithMany(entity => entity.StatusLogs)
         .HasForeignKey(entity => entity.ChangedByUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+    statusLog.HasOne(entity => entity.ChangedByCustomer)
+        .WithMany(entity => entity.StatusLogs)
+        .HasForeignKey(entity => entity.ChangedByCustomerId)
         .OnDelete(DeleteBehavior.Restrict);
   }
 

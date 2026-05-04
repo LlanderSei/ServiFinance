@@ -27,6 +27,7 @@ public static class ServiFinanceDatabaseDefaults {
   public static readonly Guid DefaultDevelopmentAdminUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
   public static readonly Guid DefaultDevelopmentAdminRoleId = Guid.Parse("33333333-3333-3333-3333-333333333333");
   public static readonly Guid DefaultDevelopmentStaffRoleId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+  public static readonly Guid DefaultDevelopmentMlsStaffRoleId = Guid.Parse("59595959-5959-5959-5959-595959595959");
   public static readonly Guid DefaultDevelopmentAdminUserRoleId = Guid.Parse("44444444-4444-4444-4444-444444444444");
   public const string PlatformTenantCode = "PLATFORM";
   public const string PlatformTenantDomainSlug = "platform";

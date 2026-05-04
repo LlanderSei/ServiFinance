@@ -229,8 +229,14 @@ namespace ServiFinance.Infrastructure.Migrations {
             b.Property<DateTime>("CreatedAtUtc")
                 .HasColumnType("datetime2");
 
-            b.Property<Guid>("CreatedByUserId")
+            b.Property<Guid?>("CreatedByCustomerId")
                 .HasColumnType("uniqueidentifier");
+
+            b.Property<Guid?>("CreatedByUserId")
+                .HasColumnType("uniqueidentifier");
+
+            b.Property<DateTime?>("CompletedAtUtc")
+                .HasColumnType("datetime2");
 
             b.Property<string>("CurrentStatus")
                 .IsRequired()
@@ -243,6 +249,16 @@ namespace ServiFinance.Infrastructure.Migrations {
             b.Property<string>("FeedbackComments")
                 .HasMaxLength(1000)
                 .HasColumnType("nvarchar(1000)");
+
+            b.Property<DateTime?>("FeedbackExpiresAtUtc")
+                .HasColumnType("datetime2");
+
+            b.Property<DateTime?>("FeedbackSubmittedAtUtc")
+                .HasColumnType("datetime2");
+
+            b.Property<string>("FeedbackSuggestionCategory")
+                .HasMaxLength(80)
+                .HasColumnType("nvarchar(80)");
 
             b.Property<string>("IssueDescription")
                 .IsRequired()
@@ -280,16 +296,71 @@ namespace ServiFinance.Infrastructure.Migrations {
 
             b.HasKey("Id");
 
+            b.HasIndex("CreatedByCustomerId");
+
             b.HasIndex("CreatedByUserId");
 
             b.HasIndex("CustomerId");
 
             b.HasIndex("TenantId");
 
+            b.HasIndex("TenantId", "CompletedAtUtc");
+
+            b.HasIndex("TenantId", "FeedbackSubmittedAtUtc");
+
             b.HasIndex("TenantId", "RequestNumber")
                 .IsUnique();
 
             b.ToTable("ServiceRequests", (string)null);
+        });
+
+    modelBuilder.Entity("ServiFinance.Domain.ServiceRequestAttachment", b =>
+        {
+            b.Property<Guid>("Id")
+                .ValueGeneratedOnAdd()
+                .HasColumnType("uniqueidentifier");
+
+            b.Property<string>("ContentType")
+                .IsRequired()
+                .HasMaxLength(120)
+                .HasColumnType("nvarchar(120)");
+
+            b.Property<DateTime>("CreatedAtUtc")
+                .HasColumnType("datetime2");
+
+            b.Property<string>("OriginalFileName")
+                .IsRequired()
+                .HasMaxLength(260)
+                .HasColumnType("nvarchar(260)");
+
+            b.Property<string>("RelativeUrl")
+                .IsRequired()
+                .HasMaxLength(500)
+                .HasColumnType("nvarchar(500)");
+
+            b.Property<Guid>("ServiceRequestId")
+                .HasColumnType("uniqueidentifier");
+
+            b.Property<string>("StoredFileName")
+                .IsRequired()
+                .HasMaxLength(260)
+                .HasColumnType("nvarchar(260)");
+
+            b.Property<Guid>("SubmittedByCustomerId")
+                .HasColumnType("uniqueidentifier");
+
+            b.Property<Guid>("TenantId")
+                .HasColumnType("uniqueidentifier");
+
+            b.HasKey("Id");
+
+            b.HasIndex("ServiceRequestId");
+
+            b.HasIndex("SubmittedByCustomerId");
+
+            b.HasIndex("TenantId");
+
+            b.ToTable("ServiceRequestAttachments", (string)null);
         });
 
     modelBuilder.Entity("ServiFinance.Domain.StatusLog", b =>
@@ -301,7 +372,10 @@ namespace ServiFinance.Infrastructure.Migrations {
             b.Property<DateTime>("ChangedAtUtc")
                 .HasColumnType("datetime2");
 
-            b.Property<Guid>("ChangedByUserId")
+            b.Property<Guid?>("ChangedByCustomerId")
+                .HasColumnType("uniqueidentifier");
+
+            b.Property<Guid?>("ChangedByUserId")
                 .HasColumnType("uniqueidentifier");
 
             b.Property<string>("Remarks")
@@ -321,6 +395,8 @@ namespace ServiFinance.Infrastructure.Migrations {
                 .HasColumnType("uniqueidentifier");
 
             b.HasKey("Id");
+
+            b.HasIndex("ChangedByCustomerId");
 
             b.HasIndex("ChangedByUserId");
 

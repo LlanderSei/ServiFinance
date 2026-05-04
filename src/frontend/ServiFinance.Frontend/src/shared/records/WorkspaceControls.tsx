@@ -16,6 +16,7 @@ type WorkspaceFormProps = {
 
 type WorkspaceFieldGridProps = {
   children: ReactNode;
+  className?: string;
 };
 
 type WorkspaceFieldProps = {
@@ -77,9 +78,9 @@ export function WorkspaceForm({ children, className, ...props }: WorkspaceFormPr
   );
 }
 
-export function WorkspaceFieldGrid({ children }: WorkspaceFieldGridProps) {
+export function WorkspaceFieldGrid({ children, className }: WorkspaceFieldGridProps) {
   return (
-    <div className="grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-2">
+    <div className={joinClasses("grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-2", className)}>
       {children}
     </div>
   );

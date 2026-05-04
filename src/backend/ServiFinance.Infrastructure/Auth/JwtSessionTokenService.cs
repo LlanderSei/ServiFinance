@@ -255,9 +255,14 @@ public sealed class JwtSessionTokenService(
       AuthenticationSurface.Root =>
           user.TenantId == ServiFinanceDatabaseDefaults.PlatformTenantId &&
           user.Roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase),
-      AuthenticationSurface.TenantWeb or AuthenticationSurface.TenantDesktop =>
+      AuthenticationSurface.TenantWeb =>
           user.TenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
-          !string.IsNullOrWhiteSpace(user.TenantDomainSlug),
+          !string.IsNullOrWhiteSpace(user.TenantDomainSlug) &&
+          PlatformRolePolicy.HasTenantWebAccess(user.Roles),
+      AuthenticationSurface.TenantDesktop =>
+          user.TenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
+          !string.IsNullOrWhiteSpace(user.TenantDomainSlug) &&
+          PlatformRolePolicy.HasTenantDesktopAccess(user.Roles),
       AuthenticationSurface.CustomerWeb =>
           user.Roles.Contains("Customer", StringComparer.OrdinalIgnoreCase),
       _ => false

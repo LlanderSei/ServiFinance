@@ -180,11 +180,14 @@ internal static class TenantMlsReportsEndpointMappings {
 
       if (daysPastDue <= 0) {
         current.Add(schedule);
-      } else if (daysPastDue <= 30) {
+      }
+      else if (daysPastDue <= 30) {
         oneToThirty.Add(schedule);
-      } else if (daysPastDue <= 60) {
+      }
+      else if (daysPastDue <= 60) {
         thirtyOneToSixty.Add(schedule);
-      } else {
+      }
+      else {
         sixtyOnePlus.Add(schedule);
       }
     }
@@ -215,24 +218,22 @@ internal static class TenantMlsReportsEndpointMappings {
         .ToArray();
 
     if (rangeDays <= 31) {
-      return paymentRows
+      return [.. paymentRows
           .GroupBy(entity => entity.TransactionDateUtc.Date)
           .OrderBy(group => group.Key)
           .Select(group => new TenantMlsReportsTrendRowResponse(
               group.Key.ToString("yyyy-MM-dd"),
               RoundCurrency(group.Sum(item => item.TransactionType == "LoanPayment" ? item.CreditAmount : -item.DebitAmount)),
-              group.Count(item => item.TransactionType == "LoanPayment")))
-          .ToArray();
+              group.Count(item => item.TransactionType == "LoanPayment")))];
     }
 
-    return paymentRows
+    return [.. paymentRows
         .GroupBy(entity => new DateTime(entity.TransactionDateUtc.Year, entity.TransactionDateUtc.Month, 1))
         .OrderBy(group => group.Key)
         .Select(group => new TenantMlsReportsTrendRowResponse(
             group.Key.ToString("yyyy-MM"),
             RoundCurrency(group.Sum(item => item.TransactionType == "LoanPayment" ? item.CreditAmount : -item.DebitAmount)),
-            group.Count(item => item.TransactionType == "LoanPayment")))
-        .ToArray();
+            group.Count(item => item.TransactionType == "LoanPayment")))];
   }
 
   private static decimal RoundCurrency(decimal value) =>

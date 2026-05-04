@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { MetricCard } from "@/shared/records/MetricCard";
-import { WorkspaceMetricGrid } from "@/shared/records/WorkspacePanel";
+import { WorkspaceKpiRailLayout } from "@/shared/records/WorkspacePanel";
 import { RecordTable, RecordTableActionButton, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
 import { WorkspaceStatusPill, WorkspaceActionButton } from "@/shared/records/WorkspaceControls";
 import type { TenantDispatchAssignmentRow } from "@/shared/api/contracts";
@@ -60,35 +60,37 @@ export function SmsDispatchOverview({
   }, [visibleAssignments]);
 
   return (
-    <>
-      <WorkspaceMetricGrid className="2xl:grid-cols-5">
-        <MetricCard
-          label="Pending acceptance"
-          value={summary.pendingAcceptance}
-          description="Handover assignments waiting for the assigned staff response."
-        />
-        <MetricCard
-          label="Scheduled"
-          value={summary.scheduled}
-          description="Assignments queued with a planned technician or staff owner."
-        />
-        <MetricCard
-          label="In progress"
-          value={summary.inProgress}
-          description="Jobs currently being worked from the tenant dispatch workflow."
-        />
-        <MetricCard
-          label="My tasks"
-          value={summary.mine}
-          description="Assignments currently owned by the signed-in operator."
-        />
-        <MetricCard
-          label="Conflicts"
-          value={summary.conflicts}
-          description="Active assignments with overlapping schedule visibility."
-        />
-      </WorkspaceMetricGrid>
-
+    <WorkspaceKpiRailLayout
+      kpis={(
+        <>
+          <MetricCard
+            label="Pending acceptance"
+            value={summary.pendingAcceptance}
+            description="Handover assignments waiting for the assigned staff response."
+          />
+          <MetricCard
+            label="Scheduled"
+            value={summary.scheduled}
+            description="Assignments queued with a planned technician or staff owner."
+          />
+          <MetricCard
+            label="In progress"
+            value={summary.inProgress}
+            description="Jobs currently being worked from the tenant dispatch workflow."
+          />
+          <MetricCard
+            label="My tasks"
+            value={summary.mine}
+            description="Assignments currently owned by the signed-in operator."
+          />
+          <MetricCard
+            label="Conflicts"
+            value={summary.conflicts}
+            description="Active assignments with overlapping schedule visibility."
+          />
+        </>
+      )}
+    >
       <RecordTableShell>
         <RecordTable>
           <thead>
@@ -141,7 +143,7 @@ export function SmsDispatchOverview({
                   </WorkspaceStatusPill>
                 </td>
                 <td>
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
                     <RecordTableActionButton onClick={() => onSelectAssignment(assignment)}>
                       View
                     </RecordTableActionButton>
@@ -176,6 +178,6 @@ export function SmsDispatchOverview({
           </tbody>
         </RecordTable>
       </RecordTableShell>
-    </>
+    </WorkspaceKpiRailLayout>
   );
 }

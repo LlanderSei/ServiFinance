@@ -16,6 +16,9 @@ internal static class SuperadminApiEndpointMappings {
       Roles = "SuperAdmin",
       AuthenticationSchemes = ApiAuthenticationSchemes
     });
+    superadminApi.MapSuperadminRootUsersEndpoints();
+    superadminApi.MapSuperadminRolePermissionEndpoints();
+
     superadminApi.MapGet("/overview", async Task<IResult> (
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {

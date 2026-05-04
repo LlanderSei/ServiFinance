@@ -20,7 +20,7 @@ internal static class GetAssignments {
             DateTime? dateTo,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
             CancellationToken cancellationToken) => {
-              if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+              if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
                 return Results.Forbid();
               }
 

@@ -18,7 +18,7 @@ internal static class TenantSmsCustomersEndpointMappings {
         string tenantDomainSlug,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+          if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
             return Results.Forbid();
           }
 
@@ -45,7 +45,7 @@ internal static class TenantSmsCustomersEndpointMappings {
         [FromBody] CreateCustomerRecordRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+          if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
             return Results.Forbid();
           }
 
@@ -86,7 +86,7 @@ internal static class TenantSmsCustomersEndpointMappings {
         [FromBody] CreateCustomerRecordRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+          if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
             return Results.Forbid();
           }
 

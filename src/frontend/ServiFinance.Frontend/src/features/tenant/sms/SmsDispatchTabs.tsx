@@ -634,7 +634,7 @@ function DispatchFilterPanel({
   isAdmin: boolean;
 }) {
   return (
-    <WorkspacePanel>
+    <WorkspacePanel className="shrink-0">
       <WorkspacePanelHeader
         eyebrow="Filters"
         title="Assignment register filters"
@@ -652,7 +652,7 @@ function DispatchFilterPanel({
           </WorkspaceActionButton>
         )}
       />
-      <WorkspaceFieldGrid>
+      <WorkspaceFieldGrid className="sm:grid-cols-2 lg:grid-cols-5">
         {isAdmin ? (
           <WorkspaceField label="Assigned staff">
             <WorkspaceSelect

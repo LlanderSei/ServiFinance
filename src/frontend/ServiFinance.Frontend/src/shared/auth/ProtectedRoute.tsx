@@ -9,6 +9,7 @@ import { AuthenticatedShell } from "./AuthenticatedShell";
 type Props = {
   children?: ReactNode;
   requireRole?: string;
+  requireAnyRole?: string[];
   tenantSlug?: string;
   requireSurface?: CurrentSessionUser["surface"];
   unauthenticatedRedirectTo?: string;
@@ -18,6 +19,7 @@ type Props = {
 export function ProtectedRoute({
   children,
   requireRole,
+  requireAnyRole,
   tenantSlug,
   requireSurface,
   unauthenticatedRedirectTo,
@@ -50,6 +52,10 @@ export function ProtectedRoute({
   }
 
   if (requireRole && !session.user.roles.includes(requireRole)) {
+    return <Navigate to={unauthorizedRedirectTo ?? getAuthenticatedHomeRoute(session.user)} replace />;
+  }
+
+  if (requireAnyRole && !requireAnyRole.some(role => session.user.roles.includes(role))) {
     return <Navigate to={unauthorizedRedirectTo ?? getAuthenticatedHomeRoute(session.user)} replace />;
   }
 

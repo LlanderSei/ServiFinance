@@ -3,6 +3,7 @@ namespace ServiFinance.Api.Endpoints.TenantMls;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Auditing;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
@@ -80,6 +81,7 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
         string tenantDomainSlug,
         [FromBody] CreateTenantMlsStandaloneLoanRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        IAuditLogService auditLogService,
         CancellationToken cancellationToken) => {
           var accessResult = await RequireTenantMlsAccessAsync(
               httpContext,
@@ -148,7 +150,7 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
             });
           }
 
-          dbContext.Transactions.Add(new LedgerTransaction {
+          var loanTransaction = new LedgerTransaction {
             Id = Guid.NewGuid(),
             CustomerId = customer.Id,
             InvoiceId = null,
@@ -165,9 +167,21 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
               ? $"Standalone loan created for {customer.FullName}"
               : request.Remarks.Trim(),
             CreatedByUserId = currentUserId
-          });
+          };
+
+          dbContext.Transactions.Add(loanTransaction);
 
           await dbContext.SaveChangesAsync(cancellationToken);
+          await TenantMlsAuditLogging.WriteSystemAuditAsync(
+              auditLogService,
+              httpContext,
+              customer.TenantId,
+              "StandaloneLoanCreation",
+              "Created",
+              "MicroLoan",
+              microLoanId,
+              customer.FullName,
+              $"Created a standalone loan for {customer.FullName}.");
 
           return Results.Ok(new TenantMlsStandaloneLoanCreatedResponse(
               microLoanId,

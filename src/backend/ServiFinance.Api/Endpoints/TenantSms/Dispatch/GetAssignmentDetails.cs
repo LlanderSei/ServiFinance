@@ -16,7 +16,7 @@ internal static class GetAssignmentDetails {
             Guid assignmentId,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
             CancellationToken cancellationToken) => {
-              if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+              if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
                 return Results.Forbid();
               }
 
@@ -51,7 +51,11 @@ internal static class GetAssignmentDetails {
                   entity.Id,
                   entity.Status,
                   entity.Remarks,
-                  entity.ChangedByUser!.FullName,
+                  entity.ChangedByUser != null
+                      ? entity.ChangedByUser.FullName
+                      : entity.ChangedByCustomer != null
+                          ? entity.ChangedByCustomer.FullName
+                          : "Customer portal",
                   entity.ChangedAtUtc))
               .ToListAsync(cancellationToken);
 

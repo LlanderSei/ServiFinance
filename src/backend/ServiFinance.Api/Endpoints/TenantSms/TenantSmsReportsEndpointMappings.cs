@@ -12,11 +12,12 @@ internal static class TenantSmsReportsEndpointMappings {
         DateTime? dateTo,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+          if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
             return Results.Forbid();
           }
 
-          var utcToday = DateTime.UtcNow.Date;
+          var utcNow = DateTime.UtcNow;
+          var utcToday = utcNow.Date;
           var utcTomorrow = utcToday.AddDays(1);
           var reportEndExclusive = (dateTo?.Date ?? utcToday).AddDays(1);
           var reportStartInclusive = dateFrom?.Date ?? reportEndExclusive.AddDays(-7);
@@ -92,9 +93,17 @@ internal static class TenantSmsReportsEndpointMappings {
               .AsNoTracking()
               .Select(entity => new ReportServiceRequest(
                   entity.Id,
+                  entity.RequestNumber,
+                  entity.Customer!.FullName,
                   entity.CreatedAtUtc,
                   entity.RequestedServiceDate,
-                  entity.CurrentStatus))
+                  entity.CurrentStatus,
+                  entity.Rating,
+                  entity.FeedbackComments,
+                  entity.FeedbackSuggestionCategory,
+                  entity.CompletedAtUtc,
+                  entity.FeedbackSubmittedAtUtc,
+                  entity.FeedbackExpiresAtUtc))
               .ToListAsync(cancellationToken);
 
           var assignments = await dbContext.Assignments
@@ -109,7 +118,7 @@ internal static class TenantSmsReportsEndpointMappings {
 
           var completedRequestLogs = await dbContext.StatusLogs
               .AsNoTracking()
-              .Where(entity => entity.Status == "Completed")
+              .Where(entity => entity.Status == "Completed" || entity.Status == "Closed")
               .GroupBy(entity => entity.ServiceRequestId)
               .Select(group => new CompletedRequestLog(
                   group.Key,
@@ -129,6 +138,82 @@ internal static class TenantSmsReportsEndpointMappings {
                   group => group.Key,
                   group => group.Min(entity => entity.ScheduledStartUtc!.Value));
           var completionLookup = completedRequestLogs.ToDictionary(entity => entity.ServiceRequestId, entity => entity.CompletedAtUtc);
+          var feedbackRows = serviceRequests
+              .Where(entity => IsFeedbackEligibleStatus(entity.CurrentStatus) ||
+                  entity.Rating.HasValue ||
+                  entity.FeedbackSubmittedAtUtc.HasValue)
+              .Select(entity => {
+                var completedAtUtc = entity.CompletedAtUtc ??
+                    (completionLookup.TryGetValue(entity.Id, out var loggedCompletedAtUtc)
+                        ? loggedCompletedAtUtc
+                        : (DateTime?)null);
+                return new FeedbackReportRow(
+                    entity.Id,
+                    entity.RequestNumber,
+                    entity.CustomerName,
+                    entity.CurrentStatus,
+                    entity.Rating,
+                    entity.FeedbackComments,
+                    entity.SuggestionCategory,
+                    completedAtUtc,
+                    entity.FeedbackSubmittedAtUtc,
+                    entity.FeedbackExpiresAtUtc ?? completedAtUtc?.AddDays(7));
+              })
+              .ToList();
+          var submittedFeedbackRows = feedbackRows
+              .Where(entity => entity.Rating.HasValue &&
+                  IsInsideWindow(entity.FeedbackSubmittedAtUtc ?? entity.CompletedAtUtc, reportStartInclusive, reportEndExclusive))
+              .ToList();
+          var pendingFeedbackCount = feedbackRows.Count(entity =>
+              !entity.Rating.HasValue &&
+              entity.FeedbackExpiresAtUtc.HasValue &&
+              entity.FeedbackExpiresAtUtc.Value >= utcNow);
+          var expiredFeedbackCount = feedbackRows.Count(entity =>
+              !entity.Rating.HasValue &&
+              entity.FeedbackExpiresAtUtc.HasValue &&
+              entity.FeedbackExpiresAtUtc.Value < utcNow);
+          var feedbackSummary = new {
+            AverageRating = submittedFeedbackRows.Count == 0
+                ? (double?)null
+                : Math.Round(submittedFeedbackRows.Average(entity => entity.Rating!.Value), 1),
+            RatedRequests = submittedFeedbackRows.Count,
+            PendingFeedback = pendingFeedbackCount,
+            ExpiredFeedback = expiredFeedbackCount,
+            LowRatingCount = submittedFeedbackRows.Count(entity => entity.Rating.HasValue && entity.Rating.Value <= 2),
+            SuggestionsCount = submittedFeedbackRows.Count(entity => !string.IsNullOrWhiteSpace(entity.SuggestionCategory))
+          };
+          var feedbackHighlights = submittedFeedbackRows
+              .Where(entity =>
+                  (entity.Rating.HasValue && entity.Rating.Value <= 3) ||
+                  !string.IsNullOrWhiteSpace(entity.FeedbackComments) ||
+                  !string.IsNullOrWhiteSpace(entity.SuggestionCategory))
+              .OrderBy(entity => entity.Rating ?? 6)
+              .ThenByDescending(entity => entity.FeedbackSubmittedAtUtc ?? entity.CompletedAtUtc ?? DateTime.MinValue)
+              .Take(10)
+              .Select(entity => new {
+                ServiceRequestId = entity.ServiceRequestId,
+                entity.RequestNumber,
+                entity.CustomerName,
+                entity.CurrentStatus,
+                entity.Rating,
+                entity.FeedbackComments,
+                SuggestionCategory = entity.SuggestionCategory,
+                entity.CompletedAtUtc,
+                entity.FeedbackSubmittedAtUtc,
+                entity.FeedbackExpiresAtUtc
+              })
+              .ToList();
+          var suggestionThemes = submittedFeedbackRows
+              .Where(entity => !string.IsNullOrWhiteSpace(entity.SuggestionCategory))
+              .GroupBy(entity => entity.SuggestionCategory!)
+              .Select(group => new {
+                Category = group.Key,
+                Count = group.Count(),
+                AverageRating = Math.Round(group.Average(entity => entity.Rating!.Value), 1)
+              })
+              .OrderByDescending(entity => entity.Count)
+              .ThenBy(entity => entity.Category)
+              .ToList();
 
           var currentWindowActivity = CreateWindowActivity(
               reportStartInclusive,
@@ -233,6 +318,14 @@ internal static class TenantSmsReportsEndpointMappings {
               Freshness = "Live",
               Owner = "Service operations",
               Description = "Measures completion pace, scheduling lead time, work duration, and overdue open requests."
+            },
+            new {
+              Key = "customer-feedback",
+              Title = "Customer Feedback and CRM Signals",
+              Scope = "Post-service ratings, comments, and suggestion themes",
+              Freshness = "Live",
+              Owner = "Customer care",
+              Description = "Summarizes submitted customer ratings, low-score follow-up needs, pending feedback windows, and recurring suggestion themes."
             }
           };
 
@@ -251,6 +344,9 @@ internal static class TenantSmsReportsEndpointMappings {
             WindowedActivity = currentWindowActivity,
             Comparison = comparison,
             Turnaround = turnaround,
+            FeedbackSummary = feedbackSummary,
+            FeedbackHighlights = feedbackHighlights,
+            SuggestionThemes = suggestionThemes,
             Totals = new {
               Customers = customerCount,
               ServiceRequests = serviceRequestCount,
@@ -316,13 +412,28 @@ internal static class TenantSmsReportsEndpointMappings {
     return durations.Count == 0 ? null : Math.Round(durations.Average(), 1);
   }
 
+  private static bool IsFeedbackEligibleStatus(string status) =>
+    string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase);
+
+  private static bool IsInsideWindow(DateTime? value, DateTime startInclusive, DateTime endExclusive) =>
+    value.HasValue && value.Value >= startInclusive && value.Value < endExclusive;
+
   private sealed record CustomerCreatedAt(DateTime CreatedAtUtc);
 
   private sealed record ReportServiceRequest(
       Guid Id,
+      string RequestNumber,
+      string CustomerName,
       DateTime CreatedAtUtc,
       DateTime? RequestedServiceDate,
-      string CurrentStatus);
+      string CurrentStatus,
+      int? Rating,
+      string? FeedbackComments,
+      string? SuggestionCategory,
+      DateTime? CompletedAtUtc,
+      DateTime? FeedbackSubmittedAtUtc,
+      DateTime? FeedbackExpiresAtUtc);
 
   private sealed record ReportAssignment(
       Guid ServiceRequestId,
@@ -339,6 +450,18 @@ internal static class TenantSmsReportsEndpointMappings {
       DateTime CreatedAtUtc,
       DateTime CompletedAtUtc,
       DateTime? FirstScheduledStartUtc);
+
+  private sealed record FeedbackReportRow(
+      Guid ServiceRequestId,
+      string RequestNumber,
+      string CustomerName,
+      string CurrentStatus,
+      int? Rating,
+      string? FeedbackComments,
+      string? SuggestionCategory,
+      DateTime? CompletedAtUtc,
+      DateTime? FeedbackSubmittedAtUtc,
+      DateTime? FeedbackExpiresAtUtc);
 
   private sealed record WindowActivity(
       int NewCustomers,

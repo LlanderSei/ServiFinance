@@ -87,6 +87,12 @@ internal sealed record TenantServiceRequestRowResponse(
     string CurrentStatus,
     DateTime CreatedAtUtc,
     string CreatedByUserName,
+    int? Rating,
+    string? FeedbackComments,
+    string? FeedbackSuggestionCategory,
+    DateTime? CompletedAtUtc,
+    DateTime? FeedbackSubmittedAtUtc,
+    DateTime? FeedbackExpiresAtUtc,
     Guid? InvoiceId,
     string? InvoiceNumber,
     string? InvoiceStatus,
@@ -103,9 +109,17 @@ internal sealed record TenantServiceRequestAuditRowResponse(
     string Remarks,
     string ChangedByUserName,
     DateTime ChangedAtUtc);
+internal sealed record TenantServiceRequestAttachmentRowResponse(
+    Guid Id,
+    string OriginalFileName,
+    string ContentType,
+    string RelativeUrl,
+    string SubmittedByCustomerName,
+    DateTime CreatedAtUtc);
 internal sealed record TenantServiceRequestDetailResponse(
     TenantServiceRequestRowResponse ServiceRequest,
-    IReadOnlyList<TenantServiceRequestAuditRowResponse> AuditTrail);
+    IReadOnlyList<TenantServiceRequestAuditRowResponse> AuditTrail,
+    IReadOnlyList<TenantServiceRequestAttachmentRowResponse> Attachments);
 internal sealed record TenantDispatchAssignmentRowResponse(
     Guid Id,
     Guid ServiceRequestId,

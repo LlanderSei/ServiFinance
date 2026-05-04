@@ -10,14 +10,14 @@ using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class RescheduleAssignment {
     public static void MapRescheduleAssignment(this RouteGroupBuilder tenantApi) {
-        tenantApi.MapPost("/sms/dispatch/{assignmentId:guid}/reschedule", [Authorize(Roles = "Administrator", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        tenantApi.MapPost("/sms/dispatch/{assignmentId:guid}/reschedule", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
             HttpContext httpContext,
             string tenantDomainSlug,
             Guid assignmentId,
             [FromBody] RescheduleTenantAssignmentRequest request,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
             CancellationToken cancellationToken) => {
-              if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+              if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
                 return Results.Forbid();
               }
 

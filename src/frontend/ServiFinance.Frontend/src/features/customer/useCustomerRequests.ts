@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { httpGet, httpPostJson } from "@/shared/api/http";
+import { httpGet, httpPostFormData, httpPostJson } from "@/shared/api/http";
 
 export type CustomerRequest = {
   id: string;
@@ -12,6 +12,10 @@ export type CustomerRequest = {
   createdAtUtc: string;
   rating?: number | null;
   feedbackComments?: string | null;
+  feedbackSuggestionCategory?: string | null;
+  completedAtUtc?: string | null;
+  feedbackSubmittedAtUtc?: string | null;
+  feedbackExpiresAtUtc?: string | null;
 };
 
 export type CustomerRequestInvoice = {
@@ -43,6 +47,14 @@ export type CustomerRequestAssignment = {
   assignedByUserName: string;
 };
 
+export type CustomerRequestAttachment = {
+  id: string;
+  originalFileName: string;
+  contentType: string;
+  relativeUrl: string;
+  createdAtUtc: string;
+};
+
 export type CustomerRequestDetailsResponse = {
   request: CustomerRequest & {
     requestedServiceDate?: string | null;
@@ -50,6 +62,7 @@ export type CustomerRequestDetailsResponse = {
   };
   timeline: CustomerRequestTimelineEntry[];
   assignments: CustomerRequestAssignment[];
+  attachments: CustomerRequestAttachment[];
 };
 
 export type CreateCustomerRequestPayload = {
@@ -88,14 +101,27 @@ export function useCreateCustomerRequest() {
   });
 }
 
+export function useUploadCustomerRequestAttachments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: FormData }) =>
+      httpPostFormData<CustomerRequestAttachment[]>(`/api/customer-portal/requests/${id}/attachments`, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["customer", "requests"] });
+      queryClient.invalidateQueries({ queryKey: ["customer", "requests", variables.id, "details"] });
+    }
+  });
+}
+
 export function useSubmitCustomerFeedback() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, rating, feedbackComments }: { id: string; rating: number; feedbackComments?: string }) =>
-      httpPostJson<void, { rating: number; feedbackComments?: string }>(
+    mutationFn: ({ id, rating, feedbackComments, suggestionCategory }: { id: string; rating: number; feedbackComments?: string; suggestionCategory?: string }) =>
+      httpPostJson<void, { rating: number; feedbackComments?: string; suggestionCategory?: string }>(
         `/api/customer-portal/requests/${id}/feedback`,
-        { rating, feedbackComments }
+        { rating, feedbackComments, suggestionCategory }
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer", "requests"] });

@@ -11,6 +11,7 @@ internal static class FrontendAppEndpointMappings {
 
     var assetsRoot = Path.Combine(distRoot, "assets");
     var brandingRoot = Path.Combine(distRoot, "branding");
+    var uploadsRoot = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "uploads");
     var desktopBridgeScript = Path.Combine(distRoot, "desktop-shell-bridge.js");
     var faviconSvg = Path.Combine(distRoot, "favicon.svg");
     var faviconIco = Path.Combine(distRoot, "favicon.ico");
@@ -20,6 +21,7 @@ internal static class FrontendAppEndpointMappings {
     app.MapGet("/register", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/dashboard", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/tenants", () => Results.File(indexHtml, "text/html"));
+    app.MapGet("/root-users", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/subscriptions", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/desktop-required", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/forbidden", () => Results.File(indexHtml, "text/html"));
@@ -62,6 +64,9 @@ internal static class FrontendAppEndpointMappings {
     });
     app.MapGet("/branding/{**assetPath}", (string assetPath) => {
       return TryServeStaticAsset(brandingRoot, assetPath);
+    });
+    app.MapGet("/uploads/{**assetPath}", (string assetPath) => {
+      return TryServeStaticAsset(uploadsRoot, assetPath);
     });
   }
 

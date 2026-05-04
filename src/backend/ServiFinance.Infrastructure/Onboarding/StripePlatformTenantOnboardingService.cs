@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Stripe;
 using Stripe.Checkout;
+using ServiFinance.Application.Auth;
 using ServiFinance.Application.Onboarding;
 using ServiFinance.Domain;
 using ServiFinance.Infrastructure.Configuration;
@@ -566,14 +567,22 @@ public sealed class StripePlatformTenantOnboardingService(
 
     var administratorRole = new Role {
       TenantId = tenant.Id,
-      Name = "Administrator",
+      Name = PlatformRolePolicy.AdministratorRole,
       Description = "Full-access tenant administrator role."
     };
-    var staffRole = new Role {
+    var smsStaffRole = new Role {
       TenantId = tenant.Id,
-      Name = "Staff",
-      Description = "Default staff role for service and finance users."
+      Name = PlatformRolePolicy.SmsStaffRole,
+      Description = "SMS workspace staff role for service management users."
     };
+    var mlsStaffRole = new Role {
+      TenantId = tenant.Id,
+      Name = PlatformRolePolicy.MlsStaffRole,
+      Description = "MLS desktop staff role for micro-lending users."
+    };
+    ApplyRoleMetadata(administratorRole);
+    ApplyRoleMetadata(smsStaffRole);
+    ApplyRoleMetadata(mlsStaffRole);
     var ownerUser = new AppUser {
       TenantId = tenant.Id,
       FullName = registration.OwnerFullName,
@@ -586,7 +595,8 @@ public sealed class StripePlatformTenantOnboardingService(
     dbContext.Tenants.Add(tenant);
     dbContext.TenantThemes.Add(tenantTheme);
     dbContext.Roles.Add(administratorRole);
-    dbContext.Roles.Add(staffRole);
+    dbContext.Roles.Add(smsStaffRole);
+    dbContext.Roles.Add(mlsStaffRole);
     dbContext.Users.Add(ownerUser);
     dbContext.UserRoles.Add(new UserRole {
       TenantId = tenant.Id,
@@ -602,6 +612,19 @@ public sealed class StripePlatformTenantOnboardingService(
     registration.FailureReason = null;
 
     await dbContext.SaveChangesAsync(cancellationToken);
+  }
+
+  private static void ApplyRoleMetadata(Role role) {
+    var definition = RolePermissionCatalog.FindDefaultRole(role.Name);
+    if (definition is null) {
+      return;
+    }
+
+    role.Description = definition.Description;
+    role.PlatformScope = definition.PlatformScope;
+    role.Rank = definition.Rank;
+    role.IsSystemRole = definition.IsSystemRole;
+    role.IsPermissionSetLocked = definition.IsPermissionSetLocked;
   }
 
   private async Task<Tenant?> ResolveTenantByInvoiceAsync(StripeInvoice invoice, CancellationToken cancellationToken) {
@@ -683,7 +706,7 @@ public sealed class StripePlatformTenantOnboardingService(
             link => link.RoleId,
             role => role.Id,
             (link, role) => new { link.Id, role.Name })
-        .Where(entity => entity.Name == "Administrator")
+        .Where(entity => entity.Name == PlatformRolePolicy.AdministratorRole)
         .Select(entity => entity.Id)
         .FirstOrDefaultAsync(cancellationToken);
     if (administratorUserId != Guid.Empty) {

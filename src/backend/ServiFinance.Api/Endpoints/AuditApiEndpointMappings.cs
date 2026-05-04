@@ -14,6 +14,7 @@ internal static class AuditApiEndpointMappings {
   private const string ScopeTenantMls = "TenantMls";
   private const string CategorySystem = "System";
   private const string CategorySecurity = "Security";
+  private static readonly string[] TenantMlsSyntheticActionTypes = ["LoanCreation", "StandaloneLoanCreation", "LoanPayment", "LoanPaymentReversal"];
 
   public static RouteGroupBuilder MapAuditApiEndpoints(this RouteGroupBuilder api) {
     api.MapGet("/platform/audits/system", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
@@ -212,6 +213,7 @@ internal static class AuditApiEndpointMappings {
         .AsNoTracking()
         .Include(entity => entity.ServiceRequest)
         .Include(entity => entity.ChangedByUser)
+        .Include(entity => entity.ChangedByCustomer)
         .OrderByDescending(entity => entity.ChangedAtUtc)
         .Take(100)
         .Select(entity => new AuditEventRowResponse(
@@ -221,8 +223,16 @@ internal static class AuditApiEndpointMappings {
             CategorySystem,
             "ServiceStatusChanged",
             entity.Status,
-            entity.ChangedByUser != null ? entity.ChangedByUser.FullName : "Unknown operator",
-            entity.ChangedByUser != null ? entity.ChangedByUser.Email : string.Empty,
+            entity.ChangedByUser != null
+                ? entity.ChangedByUser.FullName
+                : entity.ChangedByCustomer != null
+                    ? entity.ChangedByCustomer.FullName
+                    : "Unknown operator",
+            entity.ChangedByUser != null
+                ? entity.ChangedByUser.Email
+                : entity.ChangedByCustomer != null
+                    ? entity.ChangedByCustomer.Email
+                    : string.Empty,
             "ServiceRequest",
             entity.ServiceRequest != null ? entity.ServiceRequest.RequestNumber : entity.ServiceRequestId.ToString(),
             entity.Remarks,
@@ -282,8 +292,9 @@ internal static class AuditApiEndpointMappings {
       AuditQuery query,
       CancellationToken cancellationToken) {
     var storedEvents = await LoadStoredAuditRowsAsync(dbContext, tenantId, query, cancellationToken);
+    var storedEventKeys = await LoadTenantMlsStoredEventKeysAsync(dbContext, tenantId, cancellationToken);
 
-    var loanEvents = await dbContext.MicroLoans
+    var loanEvents = (await dbContext.MicroLoans
         .AsNoTracking()
         .Include(entity => entity.Customer)
         .Include(entity => entity.Invoice)
@@ -305,9 +316,11 @@ internal static class AuditApiEndpointMappings {
                 ? $"Loan account created for {entity.Customer.FullName}."
                 : "Loan account created.",
             null))
-        .ToListAsync(cancellationToken);
+        .ToListAsync(cancellationToken))
+        .Where(entity => !storedEventKeys.Contains(new TenantMlsStoredEventKey(entity.ActionType, "MicroLoan", entity.EventId)))
+        .ToList();
 
-    var ledgerEvents = await dbContext.Transactions
+    var ledgerEvents = (await dbContext.Transactions
         .AsNoTracking()
         .Include(entity => entity.Customer)
         .Include(entity => entity.Invoice)
@@ -328,9 +341,28 @@ internal static class AuditApiEndpointMappings {
             entity.ReferenceNumber,
             entity.Remarks != string.Empty ? entity.Remarks : "MLS ledger transaction posted.",
             null))
-        .ToListAsync(cancellationToken);
+        .ToListAsync(cancellationToken))
+        .Where(entity => !storedEventKeys.Contains(new TenantMlsStoredEventKey(entity.ActionType, "LedgerTransaction", entity.EventId)))
+        .ToList();
 
     return ApplyAuditFilters(storedEvents.Concat(loanEvents).Concat(ledgerEvents), query);
+  }
+
+  private static async Task<HashSet<TenantMlsStoredEventKey>> LoadTenantMlsStoredEventKeysAsync(
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      Guid tenantId,
+      CancellationToken cancellationToken) {
+    var keys = await dbContext.AuditEvents
+        .AsNoTracking()
+        .Where(entity => entity.TenantId == tenantId)
+        .Where(entity => entity.Scope == ScopeTenantMls)
+        .Where(entity => entity.Category == CategorySystem)
+        .Where(entity => TenantMlsSyntheticActionTypes.Contains(entity.ActionType))
+        .Where(entity => entity.SubjectId.HasValue)
+        .Select(entity => new TenantMlsStoredEventKey(entity.ActionType, entity.SubjectType, entity.SubjectId!.Value))
+        .ToListAsync(cancellationToken);
+
+    return [.. keys];
   }
 
   private static async Task<IReadOnlyList<AuditEventRowResponse>> LoadStoredAuditRowsAsync(
@@ -433,6 +465,11 @@ internal static class AuditApiEndpointMappings {
     public static TenantAuditAccess Forbidden() => Failed(Results.Forbid());
     public static TenantAuditAccess Unauthorized() => Failed(Results.Unauthorized());
   }
+
+  private readonly record struct TenantMlsStoredEventKey(
+      string ActionType,
+      string SubjectType,
+      Guid SubjectId);
 
   private readonly record struct AuditQuery(
       string Scope,

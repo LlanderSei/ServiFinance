@@ -213,6 +213,8 @@ Current implementation:
 - current-versus-previous comparison now quantifies delta values and percentage changes for the selected reporting window
 - turnaround metrics now show average intake-to-completion time, request-to-schedule lead time, scheduled work duration, and overdue open requests
 - CSV and print exports now include the selected reporting window, comparison results, and turnaround metrics
+- SMS service reporting now includes customer feedback/CRM signals: average rating, pending and expired feedback windows, low-rating count, service-linked feedback highlights, and grouped suggestion themes
+- the SMS dashboard and Service Requests register now surface customer ratings or pending/expired feedback state directly beside operational service records
 
 ## Phase 8: Customer Self-Service & Service Tracking
 **Status:** Implemented
@@ -257,6 +259,11 @@ Current implementation:
 - customer request tracking now includes a request-detail page with service timeline, dispatch assignment context, and invoice handoff visibility
 - customer invoices now expose settlement status, outstanding balances, and whether the invoice has already been converted into an MLS loan account
 - customer feedback and ratings now persist back to completed service requests through the portal
+- customer feedback is now lifecycle-bound to service completion with stored completion, submission, and 7-day expiry timestamps
+- customer feedback can now capture a suggestion category in addition to the 1-5 star rating and optional comments
+- expired feedback windows are now visible in the customer dashboard, customer feedback workspace, and request details
+- customers can now attach issue pictures to open service requests, stored as service-request intake attachments separate from technician completion evidence
+- customer-uploaded request pictures are visible from the customer request detail page and tenant SMS service request detail modal
 
 Deferred within or after this phase:
 
@@ -333,4 +340,21 @@ Implementation notes:
 
 Current implementation:
 
-- partially implemented through current admin-only guards and tenant route checks, but not yet modeled as a full SMS permission system
+- role and permission management is now implemented as a scoped administration surface instead of only implicit role-name assumptions
+- the backend role model now stores `PlatformScope`, numeric `Rank`, system-role state, and locked permission-set state
+- a persisted `RolePermissions` catalog now stores granted permission keys per role and tenant scope
+- default role catalogs now cover root `SuperAdmin`, tenant `Owner` / `Administrator`, SMS `SMS Staff` / `SMS Dispatcher` / `SMS Technician`, and MLS `MLS Staff` / `MLS Cashier`
+- `SuperAdmin` is locked to all root-side permissions and cannot be edited from the role-permission surface
+- tenant `Owner` and `Administrator` are locked to full SMS and MLS authority and cannot be edited from the role-permission surface
+- lower operational roles can carry dedicated permission sets, and role rank prevents same-rank or higher-rank edits
+- Roles & Permissions pages now exist for Superadmin, Tenant SMS, and Tenant MLS with independent `Roles`, `Permissions`, and `Matrix` tab interfaces
+- the `Roles` tab now supports adding mutable roles, editing editable role metadata, changing SMS/MLS scope targeting, and viewing users assigned to a role
+- role rank uniqueness is now guarded within the tenant/root role catalog so two roles cannot share the same rank in the same management boundary
+- sidebar navigation now exposes `Roles & Permissions` under Administration for all three scopes
+- the slice intentionally does not enforce the permission matrix across every website action yet; existing route guards and owner/admin checks remain the active enforcement baseline
+
+Remaining after this slice:
+
+- action-level enforcement still needs to consume the permission matrix across customer, request, dispatch, reporting, billing, and MLS actions
+- invoice-finalization still needs to be aligned to the intended dispatcher/service-completion role instead of staying only as an owner/admin operation
+- subscription/module entitlement checks still need to be merged with role permissions so enabled modules and granted permissions agree

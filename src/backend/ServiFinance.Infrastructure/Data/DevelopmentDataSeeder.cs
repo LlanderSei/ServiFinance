@@ -182,7 +182,7 @@ public sealed class DevelopmentDataSeeder(
     if (adminRole is null) {
       adminRole = new Role {
           Id = ServiFinanceDatabaseDefaults.DefaultDevelopmentAdminRoleId,
-          Name = "Administrator",
+          Name = PlatformRolePolicy.AdministratorRole,
           Description = "Full-access tenant administrator role."
       };
 
@@ -191,6 +191,8 @@ public sealed class DevelopmentDataSeeder(
     }
 
     adminRole.TenantId = options.TenantId;
+    adminRole.Name = PlatformRolePolicy.AdministratorRole;
+    adminRole.Description = "Full-access tenant administrator role.";
 
     var staffRole = await dbContext.Roles
         .IgnoreQueryFilters()
@@ -199,8 +201,8 @@ public sealed class DevelopmentDataSeeder(
     if (staffRole is null) {
       staffRole = new Role {
           Id = ServiFinanceDatabaseDefaults.DefaultDevelopmentStaffRoleId,
-          Name = "Staff",
-          Description = "Default staff role for service and finance users."
+          Name = PlatformRolePolicy.SmsStaffRole,
+          Description = "SMS workspace staff role for service management users."
       };
 
       dbContext.Roles.Add(staffRole);
@@ -208,6 +210,32 @@ public sealed class DevelopmentDataSeeder(
     }
 
     staffRole.TenantId = options.TenantId;
+    staffRole.Name = PlatformRolePolicy.SmsStaffRole;
+    staffRole.Description = "SMS workspace staff role for service management users.";
+
+    var mlsStaffRole = await dbContext.Roles
+        .IgnoreQueryFilters()
+        .SingleOrDefaultAsync(entity => entity.Id == ServiFinanceDatabaseDefaults.DefaultDevelopmentMlsStaffRoleId, cancellationToken);
+
+    if (mlsStaffRole is null) {
+      mlsStaffRole = new Role {
+          Id = ServiFinanceDatabaseDefaults.DefaultDevelopmentMlsStaffRoleId,
+          Name = PlatformRolePolicy.MlsStaffRole,
+          Description = "MLS desktop staff role for micro-lending users."
+      };
+
+      dbContext.Roles.Add(mlsStaffRole);
+      logger.LogInformation("Seeded development MLS staff role.");
+    }
+
+    mlsStaffRole.TenantId = options.TenantId;
+    mlsStaffRole.Name = PlatformRolePolicy.MlsStaffRole;
+    mlsStaffRole.Description = "MLS desktop staff role for micro-lending users.";
+
+    ApplyRoleMetadata(superAdminRole);
+    ApplyRoleMetadata(adminRole);
+    ApplyRoleMetadata(staffRole);
+    ApplyRoleMetadata(mlsStaffRole);
 
     var superAdminUser = await dbContext.Users
         .IgnoreQueryFilters()
@@ -654,6 +682,7 @@ public sealed class DevelopmentDataSeeder(
       new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D3_FINANCIAL_RECORDS", "Included", 130),
       new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D4_AMORTIZATION", "Included", 140),
       new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D5_LEDGER_REPORTS", "Included", 150),
+      new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D6_AUDIT_LOGS", "Included", 160),
       new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D7_COLLECTIONS_QUEUE", "Included", 170),
 
       new(ServiFinanceDatabaseDefaults.MediumStandardSubscriptionTierId, "W1_SERVICE_INTAKE", "Included", 10),
@@ -912,4 +941,17 @@ public sealed class DevelopmentDataSeeder(
       string? ReviewRemarks,
       DateTime SubmittedAtUtc,
       DateTime? ReviewedAtUtc);
+
+  private static void ApplyRoleMetadata(Role role) {
+    var definition = RolePermissionCatalog.FindDefaultRole(role.Name);
+    if (definition is null) {
+      return;
+    }
+
+    role.Description = definition.Description;
+    role.PlatformScope = definition.PlatformScope;
+    role.Rank = definition.Rank;
+    role.IsSystemRole = definition.IsSystemRole;
+    role.IsPermissionSetLocked = definition.IsPermissionSetLocked;
+  }
 }

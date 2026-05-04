@@ -21,7 +21,16 @@ export function CustomerDashboardPage() {
   const requests = requestsQuery.data ?? [];
   const invoices = invoicesQuery.data ?? [];
   const activeRequests = requests.filter((item) => item.currentStatus !== "Completed" && item.currentStatus !== "Closed").length;
-  const pendingFeedback = requests.filter((item) => (item.currentStatus === "Completed" || item.currentStatus === "Closed") && item.rating == null).length;
+  const pendingFeedback = requests.filter((item) =>
+    (item.currentStatus === "Completed" || item.currentStatus === "Closed") &&
+    item.rating == null &&
+    !isFeedbackExpired(item.feedbackExpiresAtUtc)
+  ).length;
+  const expiredFeedback = requests.filter((item) =>
+    (item.currentStatus === "Completed" || item.currentStatus === "Closed") &&
+    item.rating == null &&
+    isFeedbackExpired(item.feedbackExpiresAtUtc)
+  ).length;
   const outstandingBalance = invoices.reduce((sum, item) => sum + item.outstandingAmount, 0);
 
   return (
@@ -36,11 +45,12 @@ export function CustomerDashboardPage() {
         </p>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="Open requests" value={String(activeRequests)} description="Requests that are still awaiting closure or completion." />
         <MetricCard label="Invoices" value={String(invoices.length)} description="Finalized or in-progress invoices tied to this customer account." />
         <MetricCard label="Outstanding" value={formatCurrency(outstandingBalance)} description="Current unsettled balance across visible customer invoices." />
-        <MetricCard label="Pending feedback" value={String(pendingFeedback)} description="Completed jobs that still need a customer rating or comment." />
+        <MetricCard label="Pending feedback" value={String(pendingFeedback)} description="Completed jobs still inside the 7-day feedback window." />
+        <MetricCard label="Expired feedback" value={String(expiredFeedback)} description="Completed jobs where the feedback window has already closed." />
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.9fr)]">
@@ -83,6 +93,10 @@ export function CustomerDashboardPage() {
       </section>
     </div>
   );
+}
+
+function isFeedbackExpired(feedbackExpiresAtUtc?: string | null) {
+  return Boolean(feedbackExpiresAtUtc && new Date(feedbackExpiresAtUtc).getTime() < Date.now());
 }
 
 function MetricCard({ label, value, description }: { label: string; value: string; description: string }) {
