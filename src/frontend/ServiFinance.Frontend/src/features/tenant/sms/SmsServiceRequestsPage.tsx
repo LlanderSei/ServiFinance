@@ -58,6 +58,13 @@ export function SmsServiceRequestsPage() {
     itemDescription: "",
     issueDescription: "",
     requestedServiceDate: "",
+    serviceMode: "Drop-off",
+    serviceAddress: "",
+    contactName: "",
+    contactPhone: "",
+    preferredScheduleStartUtc: "",
+    preferredScheduleEndUtc: "",
+    neededByUtc: "",
     priority: "Normal"
   });
   const [invoiceForm, setInvoiceForm] = useState<InvoiceFormState>({
@@ -101,6 +108,13 @@ export function SmsServiceRequestsPage() {
         itemDescription: "",
         issueDescription: "",
         requestedServiceDate: "",
+        serviceMode: "Drop-off",
+        serviceAddress: "",
+        contactName: "",
+        contactPhone: "",
+        preferredScheduleStartUtc: "",
+        preferredScheduleEndUtc: "",
+        neededByUtc: "",
         priority: "Normal"
       });
       toast.success({
@@ -178,6 +192,41 @@ export function SmsServiceRequestsPage() {
               : "Not scheduled"
           },
           { label: "Current status", value: activeRequest.currentStatus }
+        ]
+      },
+      {
+        title: "Visit and availability",
+        items: [
+          { label: "Service mode", value: activeRequest.serviceMode || "Drop-off" },
+          { label: "Service address", value: activeRequest.serviceAddress || "Not provided" },
+          {
+            label: "Customer contact",
+            value: activeRequest.contactName || activeRequest.contactPhone
+              ? `${activeRequest.contactName || "No contact name"}${activeRequest.contactPhone ? ` - ${activeRequest.contactPhone}` : ""}`
+              : "Not provided"
+          },
+          {
+            label: "Preferred schedule",
+            value: formatScheduleRange(activeRequest.preferredScheduleStartUtc, activeRequest.preferredScheduleEndUtc)
+          },
+          {
+            label: "Needed by",
+            value: activeRequest.neededByUtc ? formatDateTime(activeRequest.neededByUtc) : "No due preference"
+          }
+        ]
+      },
+      {
+        title: "Cancellation state",
+        items: [
+          {
+            label: "Cancellation requested",
+            value: activeRequest.cancellationRequestedAtUtc ? formatDateTime(activeRequest.cancellationRequestedAtUtc) : "No cancellation request"
+          },
+          {
+            label: "Cancelled",
+            value: activeRequest.cancelledAtUtc ? formatDateTime(activeRequest.cancelledAtUtc) : "Not cancelled"
+          },
+          { label: "Reason", value: activeRequest.cancellationReason ?? "No reason recorded" }
         ]
       },
       {
@@ -302,7 +351,14 @@ export function SmsServiceRequestsPage() {
     event.preventDefault();
     createRequestMutation.mutate({
       ...form,
-      requestedServiceDate: form.requestedServiceDate || null
+      requestedServiceDate: form.requestedServiceDate || null,
+      serviceMode: form.serviceMode || "Drop-off",
+      serviceAddress: form.serviceAddress || null,
+      contactName: form.contactName || null,
+      contactPhone: form.contactPhone || null,
+      preferredScheduleStartUtc: form.preferredScheduleStartUtc ? new Date(form.preferredScheduleStartUtc).toISOString() : null,
+      preferredScheduleEndUtc: form.preferredScheduleEndUtc ? new Date(form.preferredScheduleEndUtc).toISOString() : null,
+      neededByUtc: form.neededByUtc ? new Date(form.neededByUtc).toISOString() : null
     });
   }
 
@@ -505,6 +561,62 @@ export function SmsServiceRequestsPage() {
                 />
               </WorkspaceField>
 
+              <WorkspaceField label="Service mode">
+                <WorkspaceSelect
+                  value={form.serviceMode ?? "Drop-off"}
+                  onChange={(event) => setForm((current) => ({ ...current, serviceMode: event.target.value }))}
+                >
+                  <option value="Drop-off">Drop-off / customer brings item</option>
+                  <option value="On-site">On-site visit</option>
+                  <option value="Pickup">Pickup request</option>
+                </WorkspaceSelect>
+              </WorkspaceField>
+
+              <WorkspaceField label="Contact name">
+                <WorkspaceInput
+                  value={form.contactName ?? ""}
+                  onChange={(event) => setForm((current) => ({ ...current, contactName: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Contact phone">
+                <WorkspaceInput
+                  value={form.contactPhone ?? ""}
+                  onChange={(event) => setForm((current) => ({ ...current, contactPhone: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Preferred start">
+                <WorkspaceInput
+                  type="datetime-local"
+                  value={form.preferredScheduleStartUtc ?? ""}
+                  onChange={(event) => setForm((current) => ({ ...current, preferredScheduleStartUtc: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Preferred end">
+                <WorkspaceInput
+                  type="datetime-local"
+                  value={form.preferredScheduleEndUtc ?? ""}
+                  onChange={(event) => setForm((current) => ({ ...current, preferredScheduleEndUtc: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Needed by">
+                <WorkspaceInput
+                  type="datetime-local"
+                  value={form.neededByUtc ?? ""}
+                  onChange={(event) => setForm((current) => ({ ...current, neededByUtc: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Service address" wide>
+                <WorkspaceInput
+                  value={form.serviceAddress ?? ""}
+                  onChange={(event) => setForm((current) => ({ ...current, serviceAddress: event.target.value }))}
+                />
+              </WorkspaceField>
+
               <WorkspaceField label="Issue description" wide>
                 <WorkspaceInput
                   value={form.issueDescription}
@@ -617,6 +729,18 @@ function formatDateTime(value: string) {
     hour: "numeric",
     minute: "2-digit"
   });
+}
+
+function formatScheduleRange(start?: string | null, end?: string | null) {
+  if (!start && !end) {
+    return "No preferred schedule";
+  }
+
+  if (start && end) {
+    return `${formatDateTime(start)} to ${formatDateTime(end)}`;
+  }
+
+  return formatDateTime(start ?? end ?? "");
 }
 
 function formatFeedbackCell(serviceRequest: TenantServiceRequestRow) {

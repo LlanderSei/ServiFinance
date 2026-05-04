@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useCustomerRequestDetails } from "./useCustomerRequests";
+import { useCancelCustomerRequest, useCustomerRequestDetails } from "./useCustomerRequests";
 
-function formatDateTime(value?: string | null) {
+function formatDateTime(value?: string | null, fallback = "Not scheduled") {
   if (!value) {
-    return "Not scheduled";
+    return fallback;
   }
 
   return new Date(value).toLocaleString("en-PH", {
@@ -58,9 +59,23 @@ function isFeedbackExpired(feedbackExpiresAtUtc?: string | null) {
   return Boolean(feedbackExpiresAtUtc && new Date(feedbackExpiresAtUtc).getTime() < Date.now());
 }
 
+function formatScheduleRange(start?: string | null, end?: string | null) {
+  if (!start && !end) {
+    return "No preferred schedule";
+  }
+
+  if (start && end) {
+    return `${formatDateTime(start)} to ${formatDateTime(end)}`;
+  }
+
+  return formatDateTime(start ?? end);
+}
+
 export function CustomerRequestDetailsPage() {
   const { requestId = "", tenantDomainSlug = "" } = useParams();
   const detailsQuery = useCustomerRequestDetails(requestId || null);
+  const cancelRequest = useCancelCustomerRequest();
+  const [cancelReason, setCancelReason] = useState("");
 
   if (detailsQuery.isLoading) {
     return (
@@ -122,7 +137,8 @@ export function CustomerRequestDetailsPage() {
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Item" value={request.itemType} description={request.itemDescription} />
           <MetricCard label="Priority" value={request.priority} description={`Opened ${formatDateTime(request.createdAtUtc)}`} />
-          <MetricCard label="Requested date" value={formatDate(request.requestedServiceDate)} description="Preferred service window from the customer record." />
+          <MetricCard label="Service mode" value={request.serviceMode || "Drop-off"} description={request.serviceAddress || "No service address provided."} />
+          <MetricCard label="Needed by" value={formatDate(request.neededByUtc ?? request.requestedServiceDate)} description={formatScheduleRange(request.preferredScheduleStartUtc, request.preferredScheduleEndUtc)} />
           <MetricCard
             label="Finance"
             value={invoice ? invoice.invoiceStatus : "Not invoiced"}
@@ -136,6 +152,69 @@ export function CustomerRequestDetailsPage() {
           <Panel title="Issue summary" eyebrow="Intake">
             <p className="text-sm leading-7 text-slate-700">{request.issueDescription}</p>
           </Panel>
+
+          <Panel title="Visit and contact" eyebrow="Customer logistics">
+            <dl className="grid gap-3 text-sm text-slate-600 md:grid-cols-2">
+              <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
+                <dt className="font-semibold text-slate-900">Service mode</dt>
+                <dd className="mt-2">{request.serviceMode || "Drop-off"}</dd>
+              </div>
+              <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
+                <dt className="font-semibold text-slate-900">Contact</dt>
+                <dd className="mt-2">{request.contactName || "Not provided"}{request.contactPhone ? ` · ${request.contactPhone}` : ""}</dd>
+              </div>
+              <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
+                <dt className="font-semibold text-slate-900">Service address</dt>
+                <dd className="mt-2">{request.serviceAddress || "Not provided"}</dd>
+              </div>
+              <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
+                <dt className="font-semibold text-slate-900">Preferred schedule</dt>
+                <dd className="mt-2">{formatScheduleRange(request.preferredScheduleStartUtc, request.preferredScheduleEndUtc)}</dd>
+              </div>
+              <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
+                <dt className="font-semibold text-slate-900">Needed by</dt>
+                <dd className="mt-2">{formatDateTime(request.neededByUtc, "No due preference")}</dd>
+              </div>
+            </dl>
+          </Panel>
+
+          {(request.canCancelDirectly || request.canRequestCancellation || request.cancellationReason) && (
+            <Panel title="Cancellation" eyebrow="Request control">
+              {request.cancellationReason && (
+                <div className="rounded-[1.4rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-800">
+                  <strong>{request.cancelledAtUtc ? "Cancelled" : "Cancellation note"}:</strong> {request.cancellationReason}
+                  {request.cancellationRequestedAtUtc && <p className="mt-1">Requested {formatDateTime(request.cancellationRequestedAtUtc)}</p>}
+                  {request.cancelledAtUtc && <p className="mt-1">Cancelled {formatDateTime(request.cancelledAtUtc)}</p>}
+                </div>
+              )}
+              {(request.canCancelDirectly || request.canRequestCancellation) && (
+                <form
+                  className="mt-4 grid gap-3 rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4"
+                  onSubmit={event => {
+                    event.preventDefault();
+                    cancelRequest.mutate({ id: request.id, reason: cancelReason });
+                  }}
+                >
+                  <p className="text-sm leading-6 text-slate-600">
+                    {request.canCancelDirectly
+                      ? "This request has not been assigned yet. Cancellation applies immediately."
+                      : "Work may already be scheduled. The tenant team must review this cancellation request."}
+                  </p>
+                  <textarea
+                    className="textarea textarea-bordered w-full rounded-xl bg-white"
+                    placeholder="Reason for cancellation"
+                    value={cancelReason}
+                    onChange={event => setCancelReason(event.target.value)}
+                    required
+                  />
+                  {cancelRequest.isError && <p className="text-sm text-rose-600">{cancelRequest.error.message}</p>}
+                  <button className="btn w-full rounded-full bg-rose-600 text-white hover:bg-rose-700 sm:w-max" disabled={cancelRequest.isPending}>
+                    {cancelRequest.isPending ? "Sending..." : request.canCancelDirectly ? "Cancel request" : "Send cancellation request"}
+                  </button>
+                </form>
+              )}
+            </Panel>
+          )}
 
           <Panel title="Customer pictures" eyebrow="Intake evidence">
             {attachments.length ? (

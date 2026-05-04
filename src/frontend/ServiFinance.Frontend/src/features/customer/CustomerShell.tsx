@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import type { CustomerSession } from "./customerAuth";
 import { logoutCustomerAccount } from "./customerAuth";
@@ -18,12 +18,45 @@ export function CustomerShell({ session, children }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollYRef = useRef(0);
+  const isScrollTickingRef = useRef(false);
   const navItems = buildCustomerNav(tenantDomainSlug);
   const isAuthenticated = session !== null;
 
   useEffect(() => {
     setIsDrawerOpen(false);
+    setIsHeaderVisible(true);
+    lastScrollYRef.current = window.scrollY;
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isScrollTickingRef.current) {
+        return;
+      }
+
+      isScrollTickingRef.current = true;
+      window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY;
+        const scrollDelta = currentScrollY - lastScrollYRef.current;
+
+        if (currentScrollY < 16 || scrollDelta < -8) {
+          setIsHeaderVisible(true);
+        } else if (scrollDelta > 8 && currentScrollY > 96 && !isDrawerOpen) {
+          setIsHeaderVisible(false);
+        }
+
+        lastScrollYRef.current = currentScrollY;
+        isScrollTickingRef.current = false;
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [isDrawerOpen]);
 
   useEffect(() => {
     if (!isDrawerOpen) {
@@ -59,7 +92,7 @@ export function CustomerShell({ session, children }: Props) {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(163,202,255,0.24),transparent_24%),linear-gradient(180deg,#f7fbff_0%,#eff4fb_46%,#f5f7fb_100%)] text-slate-950">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1480px] overflow-hidden lg:gap-5 lg:px-5 lg:py-5">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1480px] lg:gap-5 lg:px-5 lg:py-5">
         <div
           className={joinClasses(
             "fixed inset-0 z-40 bg-slate-950/34 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden",
@@ -71,7 +104,7 @@ export function CustomerShell({ session, children }: Props) {
 
         <aside
           className={joinClasses(
-            "fixed inset-y-0 left-0 z-50 flex w-[min(86vw,21rem)] flex-col border-r border-slate-200/70 bg-white/96 px-4 py-5 shadow-[0_22px_50px_rgba(33,44,74,0.18)] backdrop-blur-xl transition-transform duration-300 lg:sticky lg:inset-auto lg:top-5 lg:h-[calc(100vh-2.5rem)] lg:w-[290px] lg:shrink-0 lg:self-start lg:translate-x-0 lg:overflow-y-auto lg:rounded-[2rem] lg:border lg:shadow-[0_20px_45px_rgba(42,56,92,0.08)]",
+            "fixed inset-y-0 left-0 z-50 flex w-[min(86vw,21rem)] flex-col overflow-y-auto overscroll-contain border-r border-slate-200/70 bg-white/96 px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-5 shadow-[0_22px_50px_rgba(33,44,74,0.18)] backdrop-blur-xl transition-transform duration-300 lg:sticky lg:inset-auto lg:top-5 lg:h-[calc(100vh-2.5rem)] lg:w-[290px] lg:shrink-0 lg:self-start lg:translate-x-0 lg:rounded-[2rem] lg:border lg:pb-8 lg:shadow-[0_20px_45px_rgba(42,56,92,0.08)]",
             isDrawerOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           )}
         >
@@ -149,7 +182,7 @@ export function CustomerShell({ session, children }: Props) {
             ))}
           </nav>
 
-          <div className="mt-auto pt-6">
+          <div className="mt-8 border-t border-slate-200/70 pt-5">
             {isAuthenticated ? (
               <button
                 type="button"
@@ -167,7 +200,12 @@ export function CustomerShell({ session, children }: Props) {
         </aside>
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-white/70 bg-white/84 px-4 py-4 backdrop-blur-xl lg:rounded-[2rem] lg:border lg:px-6 lg:shadow-[0_16px_34px_rgba(35,46,76,0.06)]">
+          <header
+            className={joinClasses(
+              "sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-white/70 bg-white/84 px-4 py-4 backdrop-blur-xl transition-transform duration-300 ease-out lg:rounded-[2rem] lg:border lg:px-6 lg:shadow-[0_16px_34px_rgba(35,46,76,0.06)]",
+              isHeaderVisible ? "translate-y-0" : "-translate-y-[calc(100%+0.75rem)]"
+            )}
+          >
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"

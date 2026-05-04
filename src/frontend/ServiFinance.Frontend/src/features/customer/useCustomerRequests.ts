@@ -7,6 +7,14 @@ export type CustomerRequest = {
   itemType: string;
   itemDescription: string;
   issueDescription: string;
+  requestedServiceDate?: string | null;
+  serviceMode: string;
+  serviceAddress: string;
+  contactName: string;
+  contactPhone: string;
+  preferredScheduleStartUtc?: string | null;
+  preferredScheduleEndUtc?: string | null;
+  neededByUtc?: string | null;
   priority: string;
   currentStatus: string;
   createdAtUtc: string;
@@ -16,6 +24,11 @@ export type CustomerRequest = {
   completedAtUtc?: string | null;
   feedbackSubmittedAtUtc?: string | null;
   feedbackExpiresAtUtc?: string | null;
+  cancellationRequestedAtUtc?: string | null;
+  cancelledAtUtc?: string | null;
+  cancellationReason?: string | null;
+  canCancelDirectly: boolean;
+  canRequestCancellation: boolean;
 };
 
 export type CustomerRequestInvoice = {
@@ -56,10 +69,7 @@ export type CustomerRequestAttachment = {
 };
 
 export type CustomerRequestDetailsResponse = {
-  request: CustomerRequest & {
-    requestedServiceDate?: string | null;
-    invoice?: CustomerRequestInvoice | null;
-  };
+  request: CustomerRequest & { invoice?: CustomerRequestInvoice | null };
   timeline: CustomerRequestTimelineEntry[];
   assignments: CustomerRequestAssignment[];
   attachments: CustomerRequestAttachment[];
@@ -69,6 +79,13 @@ export type CreateCustomerRequestPayload = {
   itemType: string;
   itemDescription: string;
   issueDescription: string;
+  serviceMode?: string | null;
+  serviceAddress?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  preferredScheduleStartUtc?: string | null;
+  preferredScheduleEndUtc?: string | null;
+  neededByUtc?: string | null;
 };
 
 export function useCustomerRequests() {
@@ -97,6 +114,22 @@ export function useCreateCustomerRequest() {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer", "requests"] });
+    }
+  });
+}
+
+export function useCancelCustomerRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      httpPostJson<
+        { currentStatus: string; message: string; canCancelDirectly: boolean; canRequestCancellation: boolean },
+        { reason: string }
+      >(`/api/customer-portal/requests/${id}/cancel`, { reason }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["customer", "requests"] });
+      queryClient.invalidateQueries({ queryKey: ["customer", "requests", variables.id, "details"] });
     }
   });
 }

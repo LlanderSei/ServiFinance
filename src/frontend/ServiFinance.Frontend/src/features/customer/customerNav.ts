@@ -14,6 +14,11 @@ export function buildCustomerNav(tenantDomainSlug: string): CustomerNavItem[] {
       eyebrow: "Workspace"
     },
     {
+      to: `/t/${tenantDomainSlug}/c/profile`,
+      label: "Profile",
+      eyebrow: "Account"
+    },
+    {
       to: `/t/${tenantDomainSlug}/c/requests`,
       label: "My Requests",
       eyebrow: "Service"

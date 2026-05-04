@@ -264,6 +264,11 @@ Current implementation:
 - expired feedback windows are now visible in the customer dashboard, customer feedback workspace, and request details
 - customers can now attach issue pictures to open service requests, stored as service-request intake attachments separate from technician completion evidence
 - customer-uploaded request pictures are visible from the customer request detail page and tenant SMS service request detail modal
+- customers now have a profile page where they can maintain their tenant-scoped full name, phone number, default address, and saved service contact/address loadouts
+- service request intake now captures service mode (`Drop-off`, `On-site`, or `Pickup`), service address, contact person, contact phone, preferred service window, and needed-by date for pre-order or scheduled-visit scenarios
+- saved customer contact/address loadouts can prefill new service requests, reducing repeated typing for home, branch, or office service locations
+- customers can now cancel untouched `New` requests directly, or submit a cancellation request for tenant review once work has already moved into scheduling or execution
+- tenant SMS service request details now surface customer logistics, preferred availability, needed-by dates, cancellation state, cancellation reason, and customer-uploaded pictures in the operator detail modal
 
 Deferred within or after this phase:
 

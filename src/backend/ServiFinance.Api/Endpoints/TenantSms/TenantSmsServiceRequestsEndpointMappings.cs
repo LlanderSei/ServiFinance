@@ -33,6 +33,13 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             entity.ItemDescription,
             entity.IssueDescription,
             entity.RequestedServiceDate,
+            entity.ServiceMode,
+            entity.ServiceAddress,
+            entity.ContactName,
+            entity.ContactPhone,
+            entity.PreferredScheduleStartUtc,
+            entity.PreferredScheduleEndUtc,
+            entity.NeededByUtc,
             entity.Priority,
             entity.CurrentStatus,
             entity.CreatedAtUtc,
@@ -47,6 +54,9 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             entity.CompletedAtUtc,
             entity.FeedbackSubmittedAtUtc,
             entity.FeedbackExpiresAtUtc,
+            entity.CancellationRequestedAtUtc,
+            entity.CancelledAtUtc,
+            entity.CancellationReason,
             InvoiceId = entity.Invoices
                   .OrderByDescending(invoice => invoice.InvoiceDateUtc)
                   .Select(invoice => (Guid?)invoice.Id)
@@ -85,6 +95,13 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           entity.ItemDescription,
           entity.IssueDescription,
           entity.RequestedServiceDate,
+          entity.ServiceMode,
+          entity.ServiceAddress,
+          entity.ContactName,
+          entity.ContactPhone,
+          entity.PreferredScheduleStartUtc,
+          entity.PreferredScheduleEndUtc,
+          entity.NeededByUtc,
           entity.Priority,
           entity.CurrentStatus,
           entity.CreatedAtUtc,
@@ -95,6 +112,9 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           entity.CompletedAtUtc,
           entity.FeedbackSubmittedAtUtc,
           entity.FeedbackExpiresAtUtc,
+          entity.CancellationRequestedAtUtc,
+          entity.CancelledAtUtc,
+          entity.CancellationReason,
           entity.InvoiceId,
           entity.InvoiceNumber,
           entity.InvoiceStatus,
@@ -126,6 +146,13 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             entity.ItemDescription,
             entity.IssueDescription,
             entity.RequestedServiceDate,
+            entity.ServiceMode,
+            entity.ServiceAddress,
+            entity.ContactName,
+            entity.ContactPhone,
+            entity.PreferredScheduleStartUtc,
+            entity.PreferredScheduleEndUtc,
+            entity.NeededByUtc,
             entity.Priority,
             entity.CurrentStatus,
             entity.CreatedAtUtc,
@@ -140,6 +167,9 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             entity.CompletedAtUtc,
             entity.FeedbackSubmittedAtUtc,
             entity.FeedbackExpiresAtUtc,
+            entity.CancellationRequestedAtUtc,
+            entity.CancelledAtUtc,
+            entity.CancellationReason,
             InvoiceId = entity.Invoices
                   .OrderByDescending(invoice => invoice.InvoiceDateUtc)
                   .Select(invoice => (Guid?)invoice.Id)
@@ -211,6 +241,13 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               serviceRequest.ItemDescription,
               serviceRequest.IssueDescription,
               serviceRequest.RequestedServiceDate,
+              serviceRequest.ServiceMode,
+              serviceRequest.ServiceAddress,
+              serviceRequest.ContactName,
+              serviceRequest.ContactPhone,
+              serviceRequest.PreferredScheduleStartUtc,
+              serviceRequest.PreferredScheduleEndUtc,
+              serviceRequest.NeededByUtc,
               serviceRequest.Priority,
               serviceRequest.CurrentStatus,
               serviceRequest.CreatedAtUtc,
@@ -221,6 +258,9 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               serviceRequest.CompletedAtUtc,
               serviceRequest.FeedbackSubmittedAtUtc,
               serviceRequest.FeedbackExpiresAtUtc,
+              serviceRequest.CancellationRequestedAtUtc,
+              serviceRequest.CancelledAtUtc,
+              serviceRequest.CancellationReason,
               serviceRequest.InvoiceId,
               serviceRequest.InvoiceNumber,
               serviceRequest.InvoiceStatus,
@@ -261,13 +301,33 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             return Results.BadRequest(new { error = "The selected customer was not found." });
           }
 
+          var serviceMode = NormalizeServiceMode(request.ServiceMode);
+          var serviceAddress = NormalizeOptionalText(request.ServiceAddress) ?? customer.Address.Trim();
+          var contactName = NormalizeOptionalText(request.ContactName) ?? customer.FullName.Trim();
+          var contactPhone = NormalizeOptionalText(request.ContactPhone) ?? customer.MobileNumber.Trim();
+          if (RequiresServiceAddress(serviceMode) && string.IsNullOrWhiteSpace(serviceAddress)) {
+            return Results.BadRequest(new { error = "A service address is required for on-site or pickup requests." });
+          }
+          if (request.PreferredScheduleStartUtc.HasValue &&
+              request.PreferredScheduleEndUtc.HasValue &&
+              request.PreferredScheduleEndUtc.Value <= request.PreferredScheduleStartUtc.Value) {
+            return Results.BadRequest(new { error = "Preferred schedule end must be after the start time." });
+          }
+
           var serviceRequest = new ServiFinance.Domain.ServiceRequest {
             CustomerId = request.CustomerId,
             RequestNumber = GenerateReferenceCode("SR"),
             ItemType = request.ItemType.Trim(),
-            ItemDescription = request.ItemDescription.Trim(),
+            ItemDescription = (request.ItemDescription ?? string.Empty).Trim(),
             IssueDescription = request.IssueDescription.Trim(),
-            RequestedServiceDate = request.RequestedServiceDate,
+            RequestedServiceDate = request.NeededByUtc?.Date ?? request.PreferredScheduleStartUtc?.Date ?? request.RequestedServiceDate,
+            ServiceMode = serviceMode,
+            ServiceAddress = serviceAddress,
+            ContactName = contactName,
+            ContactPhone = contactPhone,
+            PreferredScheduleStartUtc = request.PreferredScheduleStartUtc,
+            PreferredScheduleEndUtc = request.PreferredScheduleEndUtc,
+            NeededByUtc = request.NeededByUtc,
             Priority = string.IsNullOrWhiteSpace(request.Priority) ? "Normal" : request.Priority.Trim(),
             CurrentStatus = "New",
             CreatedByUserId = createdByUserId,
@@ -299,10 +359,20 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           serviceRequest.ItemDescription,
           serviceRequest.IssueDescription,
           serviceRequest.RequestedServiceDate,
+          serviceRequest.ServiceMode,
+          serviceRequest.ServiceAddress,
+          serviceRequest.ContactName,
+          serviceRequest.ContactPhone,
+          serviceRequest.PreferredScheduleStartUtc,
+          serviceRequest.PreferredScheduleEndUtc,
+          serviceRequest.NeededByUtc,
           serviceRequest.Priority,
           serviceRequest.CurrentStatus,
           serviceRequest.CreatedAtUtc,
           createdByUserName,
+          null,
+          null,
+          null,
           null,
           null,
           null,
@@ -443,6 +513,13 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               serviceRequest.ItemDescription,
               serviceRequest.IssueDescription,
               serviceRequest.RequestedServiceDate,
+              serviceRequest.ServiceMode,
+              serviceRequest.ServiceAddress,
+              serviceRequest.ContactName,
+              serviceRequest.ContactPhone,
+              serviceRequest.PreferredScheduleStartUtc,
+              serviceRequest.PreferredScheduleEndUtc,
+              serviceRequest.NeededByUtc,
               serviceRequest.Priority,
               serviceRequest.CurrentStatus,
               serviceRequest.CreatedAtUtc,
@@ -455,6 +532,9 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               serviceRequest.CompletedAtUtc,
               serviceRequest.FeedbackSubmittedAtUtc,
               serviceRequest.FeedbackExpiresAtUtc,
+              serviceRequest.CancellationRequestedAtUtc,
+              serviceRequest.CancelledAtUtc,
+              serviceRequest.CancellationReason,
               invoice.Id,
               invoice.InvoiceNumber,
               invoice.InvoiceStatus,
@@ -468,4 +548,27 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
 
     return tenantApi;
   }
+
+  private static string? NormalizeOptionalText(string? value) {
+    var normalized = value?.Trim();
+    return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+  }
+
+  private static string NormalizeServiceMode(string? serviceMode) {
+    var normalized = serviceMode?.Trim();
+    if (string.IsNullOrWhiteSpace(normalized)) {
+      return "Drop-off";
+    }
+
+    return normalized.ToLowerInvariant() switch {
+      "onsite" or "on site" or "on-site" => "On-site",
+      "pickup" or "pick up" or "pick-up" => "Pickup",
+      "dropoff" or "drop off" or "drop-off" => "Drop-off",
+      _ => "Drop-off"
+    };
+  }
+
+  private static bool RequiresServiceAddress(string serviceMode) =>
+    string.Equals(serviceMode, "On-site", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(serviceMode, "Pickup", StringComparison.OrdinalIgnoreCase);
 }

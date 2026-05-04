@@ -38,6 +38,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
   public DbSet<UserRole> UserRoles => Set<UserRole>();
   public DbSet<Customer> Customers => Set<Customer>();
+  public DbSet<CustomerContactOption> CustomerContactOptions => Set<CustomerContactOption>();
   public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
   public DbSet<ServiceRequestAttachment> ServiceRequestAttachments => Set<ServiceRequestAttachment>();
   public DbSet<StatusLog> StatusLogs => Set<StatusLog>();
@@ -65,6 +66,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
     ConfigureRolePermissions(modelBuilder);
     ConfigureUserRoles(modelBuilder);
     ConfigureCustomers(modelBuilder);
+    ConfigureCustomerContactOptions(modelBuilder);
     ConfigureServiceRequests(modelBuilder);
     ConfigureServiceRequestAttachments(modelBuilder);
     ConfigureStatusLogs(modelBuilder);

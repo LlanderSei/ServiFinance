@@ -21,6 +21,21 @@ public sealed partial class ServiFinanceDbContext {
         .OnDelete(DeleteBehavior.Restrict);
   }
 
+  private void ConfigureCustomerContactOptions(ModelBuilder modelBuilder) {
+    var customerContactOption = modelBuilder.Entity<CustomerContactOption>();
+    customerContactOption.ToTable("CustomerContactOptions");
+    ConfigureTenantOwned(customerContactOption);
+    customerContactOption.Property(entity => entity.Label).HasMaxLength(120);
+    customerContactOption.Property(entity => entity.ContactName).HasMaxLength(200);
+    customerContactOption.Property(entity => entity.PhoneNumber).HasMaxLength(50);
+    customerContactOption.Property(entity => entity.Address).HasMaxLength(500);
+    customerContactOption.HasIndex(entity => new { entity.TenantId, entity.CustomerId, entity.Label });
+    customerContactOption.HasOne(entity => entity.Customer)
+        .WithMany(entity => entity.ContactOptions)
+        .HasForeignKey(entity => entity.CustomerId)
+        .OnDelete(DeleteBehavior.Cascade);
+  }
+
   private void ConfigureServiceRequests(ModelBuilder modelBuilder) {
     var serviceRequest = modelBuilder.Entity<ServiceRequest>();
     serviceRequest.ToTable("ServiceRequests");
@@ -29,13 +44,20 @@ public sealed partial class ServiFinanceDbContext {
     serviceRequest.Property(entity => entity.ItemType).HasMaxLength(100);
     serviceRequest.Property(entity => entity.ItemDescription).HasMaxLength(500);
     serviceRequest.Property(entity => entity.IssueDescription).HasMaxLength(1000);
+    serviceRequest.Property(entity => entity.ServiceMode).HasMaxLength(50);
+    serviceRequest.Property(entity => entity.ServiceAddress).HasMaxLength(500);
+    serviceRequest.Property(entity => entity.ContactName).HasMaxLength(200);
+    serviceRequest.Property(entity => entity.ContactPhone).HasMaxLength(50);
     serviceRequest.Property(entity => entity.Priority).HasMaxLength(50);
     serviceRequest.Property(entity => entity.CurrentStatus).HasMaxLength(50);
     serviceRequest.Property(entity => entity.FeedbackComments).HasMaxLength(FeedbackCommentsMaxLength);
     serviceRequest.Property(entity => entity.FeedbackSuggestionCategory).HasMaxLength(80);
+    serviceRequest.Property(entity => entity.CancellationReason).HasMaxLength(500);
     serviceRequest.HasIndex(entity => new { entity.TenantId, entity.RequestNumber }).IsUnique();
     serviceRequest.HasIndex(entity => new { entity.TenantId, entity.CompletedAtUtc });
     serviceRequest.HasIndex(entity => new { entity.TenantId, entity.FeedbackSubmittedAtUtc });
+    serviceRequest.HasIndex(entity => new { entity.TenantId, entity.PreferredScheduleStartUtc });
+    serviceRequest.HasIndex(entity => new { entity.TenantId, entity.NeededByUtc });
     serviceRequest.HasOne(entity => entity.Customer)
         .WithMany(entity => entity.ServiceRequests)
         .HasForeignKey(entity => entity.CustomerId)

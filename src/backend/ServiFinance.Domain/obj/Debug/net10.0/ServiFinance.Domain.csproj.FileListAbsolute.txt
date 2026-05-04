@@ -19,3 +19,9 @@ C:\Users\PC\AppData\Local\Temp\servifinance-api-verify\ServiFinance.Domain.pdb
 C:\Users\PC\AppData\Local\Temp\servifinance-api-auth-verify\ServiFinance.Domain.deps.json
 C:\Users\PC\AppData\Local\Temp\servifinance-api-auth-verify\ServiFinance.Domain.dll
 C:\Users\PC\AppData\Local\Temp\servifinance-api-auth-verify\ServiFinance.Domain.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-customer-upload-verify\ServiFinance.Domain.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-customer-upload-verify\ServiFinance.Domain.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-customer-upload-verify\ServiFinance.Domain.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-logistics-verify\ServiFinance.Domain.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-logistics-verify\ServiFinance.Domain.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-logistics-verify\ServiFinance.Domain.pdb

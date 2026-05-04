@@ -184,6 +184,13 @@ export type TenantServiceRequestRow = {
   itemDescription: string;
   issueDescription: string;
   requestedServiceDate: string | null;
+  serviceMode: string;
+  serviceAddress: string;
+  contactName: string;
+  contactPhone: string;
+  preferredScheduleStartUtc: string | null;
+  preferredScheduleEndUtc: string | null;
+  neededByUtc: string | null;
   priority: string;
   currentStatus: string;
   createdAtUtc: string;
@@ -194,6 +201,9 @@ export type TenantServiceRequestRow = {
   completedAtUtc: string | null;
   feedbackSubmittedAtUtc: string | null;
   feedbackExpiresAtUtc: string | null;
+  cancellationRequestedAtUtc: string | null;
+  cancelledAtUtc: string | null;
+  cancellationReason: string | null;
   invoiceId: string | null;
   invoiceNumber: string | null;
   invoiceStatus: string | null;
@@ -212,6 +222,13 @@ export type CreateTenantServiceRequestRequest = {
   itemDescription: string;
   issueDescription: string;
   requestedServiceDate?: string | null;
+  serviceMode?: string | null;
+  serviceAddress?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  preferredScheduleStartUtc?: string | null;
+  preferredScheduleEndUtc?: string | null;
+  neededByUtc?: string | null;
   priority: string;
 };
 

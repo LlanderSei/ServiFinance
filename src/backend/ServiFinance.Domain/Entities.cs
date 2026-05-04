@@ -206,9 +206,22 @@ public sealed class Customer : TenantEntity {
   public ICollection<ServiceRequest> ServiceRequests { get; set; } = [];
   public ICollection<ServiceRequest> CreatedServiceRequests { get; set; } = [];
   public ICollection<StatusLog> StatusLogs { get; set; } = [];
+  public ICollection<CustomerContactOption> ContactOptions { get; set; } = [];
   public ICollection<Invoice> Invoices { get; set; } = [];
   public ICollection<MicroLoan> MicroLoans { get; set; } = [];
   public ICollection<LedgerTransaction> Transactions { get; set; } = [];
+}
+
+public sealed class CustomerContactOption : TenantEntity {
+  public Guid CustomerId { get; set; }
+  public string Label { get; set; } = string.Empty;
+  public string ContactName { get; set; } = string.Empty;
+  public string PhoneNumber { get; set; } = string.Empty;
+  public string Address { get; set; } = string.Empty;
+  public bool IsDefault { get; set; }
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+  public Customer? Customer { get; set; }
 }
 
 public sealed class ServiceRequest : TenantEntity {
@@ -218,6 +231,13 @@ public sealed class ServiceRequest : TenantEntity {
   public string ItemDescription { get; set; } = string.Empty;
   public string IssueDescription { get; set; } = string.Empty;
   public DateTime? RequestedServiceDate { get; set; }
+  public string ServiceMode { get; set; } = string.Empty;
+  public string ServiceAddress { get; set; } = string.Empty;
+  public string ContactName { get; set; } = string.Empty;
+  public string ContactPhone { get; set; } = string.Empty;
+  public DateTime? PreferredScheduleStartUtc { get; set; }
+  public DateTime? PreferredScheduleEndUtc { get; set; }
+  public DateTime? NeededByUtc { get; set; }
   public string Priority { get; set; } = string.Empty;
   public string CurrentStatus { get; set; } = string.Empty;
   public int? Rating { get; set; }
@@ -226,6 +246,9 @@ public sealed class ServiceRequest : TenantEntity {
   public DateTime? CompletedAtUtc { get; set; }
   public DateTime? FeedbackSubmittedAtUtc { get; set; }
   public DateTime? FeedbackExpiresAtUtc { get; set; }
+  public DateTime? CancellationRequestedAtUtc { get; set; }
+  public DateTime? CancelledAtUtc { get; set; }
+  public string? CancellationReason { get; set; }
   public Guid? CreatedByUserId { get; set; }
   public Guid? CreatedByCustomerId { get; set; }
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
