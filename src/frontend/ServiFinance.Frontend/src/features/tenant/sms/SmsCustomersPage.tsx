@@ -3,6 +3,8 @@ import { FormEvent, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { CreateTenantCustomerRequest, TenantCustomerRow, UpdateTenantCustomerRequest } from "@/shared/api/contracts";
 import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
+import { AddressLookupField } from "@/shared/location/AddressLookupField";
+import { formatFullAddress } from "@/shared/location/formatAddress";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
 import {
@@ -34,13 +36,15 @@ export function SmsCustomersPage() {
     fullName: "",
     mobileNumber: "",
     email: "",
-    address: ""
+    address: "",
+    addressDetails: ""
   });
   const [editForm, setEditForm] = useState<UpdateTenantCustomerRequest>({
     fullName: "",
     mobileNumber: "",
     email: "",
-    address: ""
+    address: "",
+    addressDetails: ""
   });
 
   const customersQuery = useQuery({
@@ -59,7 +63,8 @@ export function SmsCustomersPage() {
         fullName: "",
         mobileNumber: "",
         email: "",
-        address: ""
+        address: "",
+        addressDetails: ""
       });
       toast.success({
         title: "Customer record created",
@@ -116,7 +121,7 @@ export function SmsCustomersPage() {
       {
         title: "Operational context",
         items: [
-          { label: "Address", value: selectedCustomer.address || "Not provided" },
+          { label: "Address", value: formatFullAddress(selectedCustomer.address, selectedCustomer.addressDetails) },
           { label: "Service requests", value: selectedCustomer.serviceRequestCount },
           { label: "Created", value: new Date(selectedCustomer.createdAtUtc).toLocaleString("en-PH") }
         ]
@@ -135,7 +140,8 @@ export function SmsCustomersPage() {
       fullName: customer.fullName,
       mobileNumber: customer.mobileNumber,
       email: customer.email,
-      address: customer.address
+      address: customer.address,
+      addressDetails: customer.addressDetails ?? ""
     });
     setIsEditModalOpen(true);
   }
@@ -196,7 +202,7 @@ export function SmsCustomersPage() {
                       <td>{customer.fullName}</td>
                       <td>{customer.mobileNumber || "-"}</td>
                       <td>{customer.email || "-"}</td>
-                      <td>{customer.address || "-"}</td>
+                      <td>{formatFullAddress(customer.address, customer.addressDetails)}</td>
                       <td>{customer.serviceRequestCount}</td>
                       <td className="flex flex-wrap gap-2">
                         <RecordTableActionButton onClick={() => setSelectedCustomer(customer)}>
@@ -280,10 +286,21 @@ export function SmsCustomersPage() {
                 />
               </WorkspaceField>
 
-              <WorkspaceField label="Address">
-                <WorkspaceInput
-                  value={form.address}
-                  onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
+              <AddressLookupField
+                className="md:col-span-2"
+                label="Address"
+                value={form.address}
+                onChange={(value) => setForm((current) => ({ ...current, address: value }))}
+                placeholder="Enter the customer's service address"
+                variant="workspace"
+              />
+
+              <WorkspaceField label="Address details / landmark" wide>
+                <textarea
+                  className="textarea textarea-bordered min-h-24 w-full border-base-300/70 bg-base-100/95 text-base-content shadow-none"
+                  value={form.addressDetails}
+                  onChange={(event) => setForm((current) => ({ ...current, addressDetails: event.target.value }))}
+                  placeholder="Unit, lot, building, floor, landmark, gate color, or access directions"
                 />
               </WorkspaceField>
             </WorkspaceFieldGrid>
@@ -337,10 +354,21 @@ export function SmsCustomersPage() {
                 />
               </WorkspaceField>
 
-              <WorkspaceField label="Address">
-                <WorkspaceInput
-                  value={editForm.address}
-                  onChange={(event) => setEditForm((current) => ({ ...current, address: event.target.value }))}
+              <AddressLookupField
+                className="md:col-span-2"
+                label="Address"
+                value={editForm.address}
+                onChange={(value) => setEditForm((current) => ({ ...current, address: value }))}
+                placeholder="Enter the customer's service address"
+                variant="workspace"
+              />
+
+              <WorkspaceField label="Address details / landmark" wide>
+                <textarea
+                  className="textarea textarea-bordered min-h-24 w-full border-base-300/70 bg-base-100/95 text-base-content shadow-none"
+                  value={editForm.addressDetails}
+                  onChange={(event) => setEditForm((current) => ({ ...current, addressDetails: event.target.value }))}
+                  placeholder="Unit, lot, building, floor, landmark, gate color, or access directions"
                 />
               </WorkspaceField>
             </WorkspaceFieldGrid>

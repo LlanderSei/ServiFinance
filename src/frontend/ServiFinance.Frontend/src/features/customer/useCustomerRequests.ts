@@ -10,6 +10,7 @@ export type CustomerRequest = {
   requestedServiceDate?: string | null;
   serviceMode: string;
   serviceAddress: string;
+  serviceAddressDetails?: string | null;
   contactName: string;
   contactPhone: string;
   preferredScheduleStartUtc?: string | null;
@@ -75,12 +76,28 @@ export type CustomerRequestDetailsResponse = {
   attachments: CustomerRequestAttachment[];
 };
 
+export type CustomerRequestNotification = {
+  id: string;
+  requestId: string;
+  requestNumber: string;
+  itemType: string;
+  status: string;
+  remarks: string;
+  changedAtUtc: string;
+};
+
+export type CustomerRequestNotificationFeed = {
+  cursorUtc: string;
+  events: CustomerRequestNotification[];
+};
+
 export type CreateCustomerRequestPayload = {
   itemType: string;
   itemDescription: string;
   issueDescription: string;
   serviceMode?: string | null;
   serviceAddress?: string | null;
+  serviceAddressDetails?: string | null;
   contactName?: string | null;
   contactPhone?: string | null;
   preferredScheduleStartUtc?: string | null;
@@ -156,8 +173,17 @@ export function useSubmitCustomerFeedback() {
         `/api/customer-portal/requests/${id}/feedback`,
         { rating, feedbackComments, suggestionCategory }
       ),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["customer", "requests"] });
+      queryClient.invalidateQueries({ queryKey: ["customer", "requests", variables.id, "details"] });
     }
   });
+}
+
+export function fetchCustomerRequestNotifications(sinceUtc?: string | null) {
+  const query = sinceUtc
+    ? `?sinceUtc=${encodeURIComponent(sinceUtc)}`
+    : "";
+
+  return httpGet<CustomerRequestNotificationFeed>(`/api/customer-portal/requests/notifications${query}`);
 }

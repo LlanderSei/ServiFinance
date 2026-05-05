@@ -489,7 +489,19 @@ export function SmsDispatchPage() {
                 key: "schedule-dispatch",
                 label: "Schedule assignment",
                 icon: "calendar" as const,
-                onClick: () => setIsScheduleModalOpen(true),
+                onClick: () => {
+                  void dispatchMetaQuery.refetch().then((result) => {
+                    if (result.error) {
+                      toast.error({
+                        title: "Unable to refresh dispatch options",
+                        message: result.error.message
+                      });
+                      return;
+                    }
+
+                    setIsScheduleModalOpen(true);
+                  });
+                },
                 disabled: dispatchMetaQuery.isLoading ||
                   !dispatchMetaQuery.data?.assignableUsers.length ||
                   !dispatchMetaQuery.data?.serviceRequests.length

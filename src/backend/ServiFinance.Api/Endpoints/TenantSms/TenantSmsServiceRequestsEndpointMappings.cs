@@ -10,6 +10,11 @@ using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantSmsServiceRequestsEndpointMappings {
+  private const int ContactNameMaxLength = 200;
+  private const int ContactPhoneMaxLength = 50;
+  private const int ServiceAddressMaxLength = 500;
+  private const int AddressDetailsMaxLength = 500;
+
   public static RouteGroupBuilder MapTenantSmsServiceRequestsEndpoints(this RouteGroupBuilder tenantApi) {
     tenantApi.MapGet("/sms/service-requests", async Task<IResult> (
         HttpContext httpContext,
@@ -35,6 +40,7 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             entity.RequestedServiceDate,
             entity.ServiceMode,
             entity.ServiceAddress,
+            entity.ServiceAddressDetails,
             entity.ContactName,
             entity.ContactPhone,
             entity.PreferredScheduleStartUtc,
@@ -97,6 +103,7 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           entity.RequestedServiceDate,
           entity.ServiceMode,
           entity.ServiceAddress,
+          entity.ServiceAddressDetails,
           entity.ContactName,
           entity.ContactPhone,
           entity.PreferredScheduleStartUtc,
@@ -148,6 +155,7 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             entity.RequestedServiceDate,
             entity.ServiceMode,
             entity.ServiceAddress,
+            entity.ServiceAddressDetails,
             entity.ContactName,
             entity.ContactPhone,
             entity.PreferredScheduleStartUtc,
@@ -243,6 +251,7 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               serviceRequest.RequestedServiceDate,
               serviceRequest.ServiceMode,
               serviceRequest.ServiceAddress,
+              serviceRequest.ServiceAddressDetails,
               serviceRequest.ContactName,
               serviceRequest.ContactPhone,
               serviceRequest.PreferredScheduleStartUtc,
@@ -303,10 +312,23 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
 
           var serviceMode = NormalizeServiceMode(request.ServiceMode);
           var serviceAddress = NormalizeOptionalText(request.ServiceAddress) ?? customer.Address.Trim();
+          var serviceAddressDetails = NormalizeOptionalText(request.ServiceAddressDetails) ?? NormalizeOptionalText(customer.AddressDetails);
           var contactName = NormalizeOptionalText(request.ContactName) ?? customer.FullName.Trim();
           var contactPhone = NormalizeOptionalText(request.ContactPhone) ?? customer.MobileNumber.Trim();
           if (RequiresServiceAddress(serviceMode) && string.IsNullOrWhiteSpace(serviceAddress)) {
             return Results.BadRequest(new { error = "A service address is required for on-site or pickup requests." });
+          }
+          if ((serviceAddress?.Length ?? 0) > ServiceAddressMaxLength) {
+            return Results.BadRequest(new { error = $"Service address must be {ServiceAddressMaxLength} characters or fewer." });
+          }
+          if ((serviceAddressDetails?.Length ?? 0) > AddressDetailsMaxLength) {
+            return Results.BadRequest(new { error = $"Address details must be {AddressDetailsMaxLength} characters or fewer." });
+          }
+          if ((contactName?.Length ?? 0) > ContactNameMaxLength) {
+            return Results.BadRequest(new { error = $"Contact name must be {ContactNameMaxLength} characters or fewer." });
+          }
+          if ((contactPhone?.Length ?? 0) > ContactPhoneMaxLength) {
+            return Results.BadRequest(new { error = $"Contact phone must be {ContactPhoneMaxLength} characters or fewer." });
           }
           if (request.PreferredScheduleStartUtc.HasValue &&
               request.PreferredScheduleEndUtc.HasValue &&
@@ -322,9 +344,10 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
             IssueDescription = request.IssueDescription.Trim(),
             RequestedServiceDate = request.NeededByUtc?.Date ?? request.PreferredScheduleStartUtc?.Date ?? request.RequestedServiceDate,
             ServiceMode = serviceMode,
-            ServiceAddress = serviceAddress,
-            ContactName = contactName,
-            ContactPhone = contactPhone,
+            ServiceAddress = serviceAddress ?? string.Empty,
+            ServiceAddressDetails = serviceAddressDetails,
+            ContactName = contactName ?? string.Empty,
+            ContactPhone = contactPhone ?? string.Empty,
             PreferredScheduleStartUtc = request.PreferredScheduleStartUtc,
             PreferredScheduleEndUtc = request.PreferredScheduleEndUtc,
             NeededByUtc = request.NeededByUtc,
@@ -360,9 +383,10 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           serviceRequest.IssueDescription,
           serviceRequest.RequestedServiceDate,
           serviceRequest.ServiceMode,
-          serviceRequest.ServiceAddress,
-          serviceRequest.ContactName,
-          serviceRequest.ContactPhone,
+          serviceRequest.ServiceAddress ?? string.Empty,
+          serviceRequest.ServiceAddressDetails,
+          serviceRequest.ContactName ?? string.Empty,
+          serviceRequest.ContactPhone ?? string.Empty,
           serviceRequest.PreferredScheduleStartUtc,
           serviceRequest.PreferredScheduleEndUtc,
           serviceRequest.NeededByUtc,
@@ -515,6 +539,7 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
               serviceRequest.RequestedServiceDate,
               serviceRequest.ServiceMode,
               serviceRequest.ServiceAddress,
+              serviceRequest.ServiceAddressDetails,
               serviceRequest.ContactName,
               serviceRequest.ContactPhone,
               serviceRequest.PreferredScheduleStartUtc,

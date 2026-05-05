@@ -1,7 +1,17 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useCancelCustomerRequest, useCustomerRequestDetails } from "./useCustomerRequests";
+import { formatFullAddress } from "@/shared/location/formatAddress";
+import { useCancelCustomerRequest, useCustomerRequestDetails, useSubmitCustomerFeedback } from "./useCustomerRequests";
+
+const feedbackSuggestionOptions = [
+  "Service quality",
+  "Technician conduct",
+  "Scheduling",
+  "Pricing or billing",
+  "Follow-up",
+  "Other suggestion"
+];
 
 function formatDateTime(value?: string | null, fallback = "Not scheduled") {
   if (!value) {
@@ -75,7 +85,11 @@ export function CustomerRequestDetailsPage() {
   const { requestId = "", tenantDomainSlug = "" } = useParams();
   const detailsQuery = useCustomerRequestDetails(requestId || null);
   const cancelRequest = useCancelCustomerRequest();
+  const submitFeedback = useSubmitCustomerFeedback();
   const [cancelReason, setCancelReason] = useState("");
+  const [rating, setRating] = useState(5);
+  const [feedbackComments, setFeedbackComments] = useState("");
+  const [suggestionCategory, setSuggestionCategory] = useState("");
 
   if (detailsQuery.isLoading) {
     return (
@@ -109,6 +123,10 @@ export function CustomerRequestDetailsPage() {
 
   const { request, timeline, assignments, attachments } = detailsQuery.data;
   const invoice = request.invoice;
+  const isCompleted = request.currentStatus === "Completed" || request.currentStatus === "Closed";
+  const hasFeedback = request.rating != null;
+  const feedbackExpired = isCompleted && !hasFeedback && isFeedbackExpired(request.feedbackExpiresAtUtc);
+  const canSubmitFeedback = isCompleted && !hasFeedback && !feedbackExpired;
 
   return (
     <div className="grid gap-5">
@@ -137,8 +155,16 @@ export function CustomerRequestDetailsPage() {
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Item" value={request.itemType} description={request.itemDescription} />
           <MetricCard label="Priority" value={request.priority} description={`Opened ${formatDateTime(request.createdAtUtc)}`} />
-          <MetricCard label="Service mode" value={request.serviceMode || "Drop-off"} description={request.serviceAddress || "No service address provided."} />
-          <MetricCard label="Needed by" value={formatDate(request.neededByUtc ?? request.requestedServiceDate)} description={formatScheduleRange(request.preferredScheduleStartUtc, request.preferredScheduleEndUtc)} />
+          <MetricCard
+            label="Service mode"
+            value={request.serviceMode || "Drop-off"}
+            description={formatFullAddress(request.serviceAddress, request.serviceAddressDetails)}
+          />
+          <MetricCard
+            label="Needed by"
+            value={formatDate(request.neededByUtc ?? request.requestedServiceDate)}
+            description={formatScheduleRange(request.preferredScheduleStartUtc, request.preferredScheduleEndUtc)}
+          />
           <MetricCard
             label="Finance"
             value={invoice ? invoice.invoiceStatus : "Not invoiced"}
@@ -161,11 +187,14 @@ export function CustomerRequestDetailsPage() {
               </div>
               <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
                 <dt className="font-semibold text-slate-900">Contact</dt>
-                <dd className="mt-2">{request.contactName || "Not provided"}{request.contactPhone ? ` · ${request.contactPhone}` : ""}</dd>
+                <dd className="mt-2">
+                  {request.contactName || "Not provided"}
+                  {request.contactPhone ? ` / ${request.contactPhone}` : ""}
+                </dd>
               </div>
               <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
                 <dt className="font-semibold text-slate-900">Service address</dt>
-                <dd className="mt-2">{request.serviceAddress || "Not provided"}</dd>
+                <dd className="mt-2">{formatFullAddress(request.serviceAddress, request.serviceAddressDetails)}</dd>
               </div>
               <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
                 <dt className="font-semibold text-slate-900">Preferred schedule</dt>
@@ -251,6 +280,66 @@ export function CustomerRequestDetailsPage() {
                 {request.feedbackSuggestionCategory && <p className="mt-1">Suggestion: {request.feedbackSuggestionCategory}</p>}
                 {request.feedbackComments && <p className="mt-1">{request.feedbackComments}</p>}
                 {request.feedbackSubmittedAtUtc && <p className="mt-2 text-emerald-700">Submitted {formatDateTime(request.feedbackSubmittedAtUtc)}</p>}
+              </div>
+            ) : canSubmitFeedback ? (
+              <div className="grid gap-4 rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">How was the service?</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Feedback stays open for 7 days after completion{request.feedbackExpiresAtUtc ? `, until ${formatDateTime(request.feedbackExpiresAtUtc)}` : ""}.
+                  </p>
+                </div>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-slate-700">Rating (1-5)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    className="input input-bordered w-24 rounded-xl bg-white"
+                    value={rating}
+                    onChange={(event) => setRating(Number(event.target.value))}
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-slate-700">Suggestion type (optional)</span>
+                  <select
+                    className="select select-bordered w-full rounded-xl bg-white"
+                    value={suggestionCategory}
+                    onChange={(event) => setSuggestionCategory(event.target.value)}
+                  >
+                    <option value="">No category</option>
+                    {feedbackSuggestionOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-slate-700">Comment (optional)</span>
+                  <textarea
+                    className="textarea textarea-bordered min-h-28 w-full rounded-xl bg-white"
+                    placeholder="Share what worked well or what should improve."
+                    value={feedbackComments}
+                    onChange={(event) => setFeedbackComments(event.target.value)}
+                  />
+                </label>
+                {submitFeedback.isError && (
+                  <p className="text-sm text-rose-600">
+                    Feedback could not be submitted. The feedback window may have expired or this request was already rated.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="btn w-full rounded-full bg-slate-900 text-white hover:bg-slate-800 sm:w-max"
+                  disabled={submitFeedback.isPending}
+                  onClick={() => submitFeedback.mutate({
+                    id: request.id,
+                    rating,
+                    feedbackComments,
+                    suggestionCategory
+                  })}
+                >
+                  {submitFeedback.isPending ? "Submitting..." : "Submit feedback"}
+                </button>
               </div>
             ) : request.feedbackExpiresAtUtc ? (
               <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-700">

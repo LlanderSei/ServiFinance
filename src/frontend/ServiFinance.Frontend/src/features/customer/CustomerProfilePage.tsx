@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import {
   useCustomerProfile,
   useDeleteCustomerContactOption,
@@ -12,6 +13,7 @@ const emptyContactForm = {
   contactName: "",
   phoneNumber: "",
   address: "",
+  addressDetails: "",
   isDefault: false
 };
 
@@ -23,6 +25,7 @@ export function CustomerProfilePage() {
   const [fullName, setFullName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [address, setAddress] = useState("");
+  const [addressDetails, setAddressDetails] = useState("");
   const [editingContactId, setEditingContactId] = useState<string | undefined>();
   const [contactForm, setContactForm] = useState(emptyContactForm);
 
@@ -34,6 +37,7 @@ export function CustomerProfilePage() {
     setFullName(profileQuery.data.fullName);
     setMobileNumber(profileQuery.data.mobileNumber);
     setAddress(profileQuery.data.address);
+    setAddressDetails(profileQuery.data.addressDetails ?? "");
   }, [profileQuery.data]);
 
   function handleEditContact(option: CustomerContactOption) {
@@ -43,6 +47,7 @@ export function CustomerProfilePage() {
       contactName: option.contactName,
       phoneNumber: option.phoneNumber,
       address: option.address,
+      addressDetails: option.addressDetails ?? "",
       isDefault: option.isDefault
     });
   }
@@ -54,7 +59,7 @@ export function CustomerProfilePage() {
 
   async function handleProfileSubmit(event: React.FormEvent) {
     event.preventDefault();
-    await updateProfile.mutateAsync({ fullName, mobileNumber, address });
+    await updateProfile.mutateAsync({ fullName, mobileNumber, address, addressDetails });
   }
 
   async function handleContactSubmit(event: React.FormEvent) {
@@ -114,9 +119,20 @@ export function CustomerProfilePage() {
               <span className="text-sm font-medium text-slate-700">Mobile number</span>
               <input className="input input-bordered w-full rounded-xl bg-white" value={mobileNumber} onChange={event => setMobileNumber(event.target.value)} required />
             </label>
+            <AddressLookupField
+              label="Default address"
+              value={address}
+              onChange={setAddress}
+              placeholder="Enter a default service address"
+            />
             <label className="grid gap-2">
-              <span className="text-sm font-medium text-slate-700">Default address</span>
-              <textarea className="textarea textarea-bordered min-h-28 w-full rounded-xl bg-white" value={address} onChange={event => setAddress(event.target.value)} />
+              <span className="text-sm font-medium text-slate-700">Address details</span>
+              <textarea
+                className="textarea textarea-bordered min-h-24 w-full rounded-xl bg-white"
+                value={addressDetails}
+                onChange={event => setAddressDetails(event.target.value)}
+                placeholder="Lot, unit, building, floor, landmark, or access notes"
+              />
             </label>
             {updateProfile.isError && (
               <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -169,9 +185,22 @@ export function CustomerProfilePage() {
                 <input type="checkbox" className="checkbox checkbox-sm" checked={contactForm.isDefault} onChange={event => setContactForm(current => ({ ...current, isDefault: event.target.checked }))} />
                 Use as default for new requests
               </label>
+              <AddressLookupField
+                className="md:col-span-2"
+                label="Service address"
+                value={contactForm.address}
+                onChange={value => setContactForm(current => ({ ...current, address: value }))}
+                placeholder="Enter a saved service address"
+                required
+              />
               <label className="grid gap-2 md:col-span-2">
-                <span className="text-sm font-medium text-slate-700">Service address</span>
-                <textarea className="textarea textarea-bordered min-h-28 w-full rounded-xl bg-white" value={contactForm.address} onChange={event => setContactForm(current => ({ ...current, address: event.target.value }))} required />
+                <span className="text-sm font-medium text-slate-700">Address details</span>
+                <textarea
+                  className="textarea textarea-bordered min-h-24 w-full rounded-xl bg-white"
+                  value={contactForm.addressDetails}
+                  onChange={event => setContactForm(current => ({ ...current, addressDetails: event.target.value }))}
+                  placeholder="Lot, unit, building, floor, landmark, or access notes"
+                />
               </label>
               {saveContact.isError && (
                 <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 md:col-span-2">
@@ -201,8 +230,9 @@ export function CustomerProfilePage() {
                           <h3 className="font-semibold text-slate-950">{option.label}</h3>
                           {option.isDefault && <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-blue-700">Default</span>}
                         </div>
-                        <p className="mt-2 text-sm text-slate-600">{option.contactName} · {option.phoneNumber}</p>
+                        <p className="mt-2 text-sm text-slate-600">{option.contactName} / {option.phoneNumber}</p>
                         <p className="mt-2 text-sm leading-6 text-slate-600">{option.address}</p>
+                        {option.addressDetails && <p className="mt-2 text-sm leading-6 text-slate-500">{option.addressDetails}</p>}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button type="button" className="btn btn-sm rounded-full border-slate-300 bg-white text-slate-900 shadow-none" onClick={() => handleEditContact(option)}>

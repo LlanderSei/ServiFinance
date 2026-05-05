@@ -33,7 +33,11 @@ internal static class GetDispatchMeta {
 
               var schedulableRequests = await dbContext.ServiceRequests
               .AsNoTracking()
-              .Where(entity => entity.CurrentStatus != "Completed")
+              .Where(entity =>
+                entity.CurrentStatus != "Completed" &&
+                entity.CurrentStatus != "Closed" &&
+                entity.CurrentStatus != "Cancelled" &&
+                entity.CurrentStatus != "Cancellation Requested")
               .OrderByDescending(entity => entity.CreatedAtUtc)
               .Select(entity => new {
                 entity.Id,

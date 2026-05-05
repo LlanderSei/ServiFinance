@@ -10,6 +10,8 @@ import type {
 } from "@/shared/api/contracts";
 import { httpGet, httpPostJson } from "@/shared/api/http";
 import { getCurrentSession } from "@/shared/auth/session";
+import { AddressLookupField } from "@/shared/location/AddressLookupField";
+import { formatFullAddress } from "@/shared/location/formatAddress";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
 import {
@@ -60,6 +62,7 @@ export function SmsServiceRequestsPage() {
     requestedServiceDate: "",
     serviceMode: "Drop-off",
     serviceAddress: "",
+    serviceAddressDetails: "",
     contactName: "",
     contactPhone: "",
     preferredScheduleStartUtc: "",
@@ -110,6 +113,7 @@ export function SmsServiceRequestsPage() {
         requestedServiceDate: "",
         serviceMode: "Drop-off",
         serviceAddress: "",
+        serviceAddressDetails: "",
         contactName: "",
         contactPhone: "",
         preferredScheduleStartUtc: "",
@@ -198,7 +202,7 @@ export function SmsServiceRequestsPage() {
         title: "Visit and availability",
         items: [
           { label: "Service mode", value: activeRequest.serviceMode || "Drop-off" },
-          { label: "Service address", value: activeRequest.serviceAddress || "Not provided" },
+          { label: "Service address", value: formatFullAddress(activeRequest.serviceAddress, activeRequest.serviceAddressDetails) },
           {
             label: "Customer contact",
             value: activeRequest.contactName || activeRequest.contactPhone
@@ -345,7 +349,7 @@ export function SmsServiceRequestsPage() {
         ]
       }
     ];
-  }, [activeRequest, requestDetailQuery.data?.auditTrail, requestDetailQuery.isLoading]);
+  }, [activeRequest, requestDetailQuery.data?.attachments, requestDetailQuery.data?.auditTrail, requestDetailQuery.isLoading]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -354,6 +358,7 @@ export function SmsServiceRequestsPage() {
       requestedServiceDate: form.requestedServiceDate || null,
       serviceMode: form.serviceMode || "Drop-off",
       serviceAddress: form.serviceAddress || null,
+      serviceAddressDetails: form.serviceAddressDetails || null,
       contactName: form.contactName || null,
       contactPhone: form.contactPhone || null,
       preferredScheduleStartUtc: form.preferredScheduleStartUtc ? new Date(form.preferredScheduleStartUtc).toISOString() : null,
@@ -610,10 +615,23 @@ export function SmsServiceRequestsPage() {
                 />
               </WorkspaceField>
 
-              <WorkspaceField label="Service address" wide>
-                <WorkspaceInput
-                  value={form.serviceAddress ?? ""}
-                  onChange={(event) => setForm((current) => ({ ...current, serviceAddress: event.target.value }))}
+              <AddressLookupField
+                className="md:col-span-2"
+                label="Service address"
+                value={form.serviceAddress ?? ""}
+                onChange={(value) => setForm((current) => ({ ...current, serviceAddress: value }))}
+                placeholder="Required for on-site or pickup work"
+                description="Search once if you want a normalized address before dispatch planning."
+                required={form.serviceMode === "On-site" || form.serviceMode === "Pickup"}
+                variant="workspace"
+              />
+
+              <WorkspaceField label="Address details / landmark" wide>
+                <textarea
+                  className="textarea textarea-bordered min-h-24 w-full border-base-300/70 bg-base-100/95 text-base-content shadow-none"
+                  value={form.serviceAddressDetails ?? ""}
+                  onChange={(event) => setForm((current) => ({ ...current, serviceAddressDetails: event.target.value }))}
+                  placeholder="Unit, lot, building, floor, landmark, or technician directions"
                 />
               </WorkspaceField>
 

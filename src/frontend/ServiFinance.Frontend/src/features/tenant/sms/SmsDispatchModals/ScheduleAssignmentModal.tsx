@@ -21,6 +21,13 @@ interface ScheduleAssignmentModalProps {
 
 const assignmentStatuses = ["Scheduled", "In Progress", "On Hold", "Completed"] as const;
 
+function isSchedulableServiceRequestStatus(status: string) {
+  return status !== "Completed" &&
+    status !== "Closed" &&
+    status !== "Cancelled" &&
+    status !== "Cancellation Requested";
+}
+
 export function ScheduleAssignmentModal({
   open,
   onClose,
@@ -36,6 +43,9 @@ export function ScheduleAssignmentModal({
     scheduledEndUtc: "",
     assignmentStatus: "Scheduled",
   });
+  const schedulableServiceRequests = (meta?.serviceRequests ?? []).filter((serviceRequest) =>
+    isSchedulableServiceRequestStatus(serviceRequest.currentStatus)
+  );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,7 +75,7 @@ export function ScheduleAssignmentModal({
               isPending ||
               isLoadingMeta ||
               !meta?.assignableUsers.length ||
-              !meta?.serviceRequests.length
+              !schedulableServiceRequests.length
             }
           >
             {isPending ? "Scheduling..." : "Schedule assignment"}
@@ -83,7 +93,7 @@ export function ScheduleAssignmentModal({
               required
             >
               <option value="">Select service request</option>
-              {meta?.serviceRequests.map((serviceRequest) => (
+              {schedulableServiceRequests.map((serviceRequest) => (
                 <option key={serviceRequest.id} value={serviceRequest.id}>
                   {serviceRequest.requestNumber} - {serviceRequest.customerName} - {serviceRequest.itemType}
                 </option>

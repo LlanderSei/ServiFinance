@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ServiFinance.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using ServiFinance.Infrastructure.Data;
 namespace ServiFinance.Infrastructure.Migrations
 {
     [DbContext(typeof(ServiFinanceDbContext))]
-    partial class ServiFinanceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260505102046_AddExternalServiceStates")]
+    partial class AddExternalServiceStates
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -373,10 +376,6 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("AddressDetails")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -426,10 +425,6 @@ namespace ServiFinance.Infrastructure.Migrations
 
                     b.Property<string>("Address")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("AddressDetails")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
@@ -1118,10 +1113,6 @@ namespace ServiFinance.Infrastructure.Migrations
 
                     b.Property<string>("ServiceAddress")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("ServiceAddressDetails")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 

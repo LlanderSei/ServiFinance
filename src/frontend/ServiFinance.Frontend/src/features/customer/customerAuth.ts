@@ -11,6 +11,7 @@ export type CustomerAccountRecord = {
   email: string;
   mobileNumber: string;
   address: string;
+  addressDetails: string | null;
   createdAtUtc: string;
 };
 
@@ -22,6 +23,7 @@ export type RegisterCustomerAccountRequest = {
   email: string;
   mobileNumber: string;
   address: string;
+  addressDetails: string;
   password: string;
 };
 
@@ -37,6 +39,7 @@ export async function registerCustomerAccount(request: RegisterCustomerAccountRe
   const email = request.email.trim().toLowerCase();
   const mobileNumber = request.mobileNumber.trim();
   const address = request.address.trim();
+  const addressDetails = request.addressDetails.trim();
   const password = request.password;
 
   if (!fullName || !email || !mobileNumber || !address || !password) {
@@ -49,6 +52,7 @@ export async function registerCustomerAccount(request: RegisterCustomerAccountRe
     email,
     mobileNumber,
     address,
+    addressDetails,
     password,
     useCookieSession: true
   });

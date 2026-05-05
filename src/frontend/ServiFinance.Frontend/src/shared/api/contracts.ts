@@ -55,6 +55,13 @@ export type PlatformTenantRegistrationStatus = {
   provisionedAtUtc: string | null;
 };
 
+export type AddressLookupResult = {
+  displayName: string;
+  latitude: number;
+  longitude: number;
+  openStreetMapUrl: string;
+};
+
 export type SuperadminTenantRow = {
   id: string;
   name: string;
@@ -161,6 +168,7 @@ export type TenantCustomerRow = {
   mobileNumber: string;
   email: string;
   address: string;
+  addressDetails: string | null;
   createdAtUtc: string;
   serviceRequestCount: number;
 };
@@ -170,6 +178,7 @@ export type CreateTenantCustomerRequest = {
   mobileNumber: string;
   email: string;
   address: string;
+  addressDetails: string;
 };
 
 export type UpdateTenantCustomerRequest = CreateTenantCustomerRequest;
@@ -186,6 +195,7 @@ export type TenantServiceRequestRow = {
   requestedServiceDate: string | null;
   serviceMode: string;
   serviceAddress: string;
+  serviceAddressDetails: string | null;
   contactName: string;
   contactPhone: string;
   preferredScheduleStartUtc: string | null;
@@ -224,6 +234,7 @@ export type CreateTenantServiceRequestRequest = {
   requestedServiceDate?: string | null;
   serviceMode?: string | null;
   serviceAddress?: string | null;
+  serviceAddressDetails?: string | null;
   contactName?: string | null;
   contactPhone?: string | null;
   preferredScheduleStartUtc?: string | null;

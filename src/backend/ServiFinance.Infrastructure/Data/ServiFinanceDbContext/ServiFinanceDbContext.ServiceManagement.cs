@@ -14,6 +14,7 @@ public sealed partial class ServiFinanceDbContext {
     customer.Property(entity => entity.Email).HasMaxLength(EmailMaxLength);
     customer.Property(entity => entity.PasswordHash).HasMaxLength(PasswordHashMaxLength);
     customer.Property(entity => entity.Address).HasMaxLength(500);
+    customer.Property(entity => entity.AddressDetails).HasMaxLength(500);
     customer.HasIndex(entity => new { entity.TenantId, entity.CustomerCode }).IsUnique();
     customer.HasOne(entity => entity.Tenant)
         .WithMany(entity => entity.Customers)
@@ -29,6 +30,7 @@ public sealed partial class ServiFinanceDbContext {
     customerContactOption.Property(entity => entity.ContactName).HasMaxLength(200);
     customerContactOption.Property(entity => entity.PhoneNumber).HasMaxLength(50);
     customerContactOption.Property(entity => entity.Address).HasMaxLength(500);
+    customerContactOption.Property(entity => entity.AddressDetails).HasMaxLength(500);
     customerContactOption.HasIndex(entity => new { entity.TenantId, entity.CustomerId, entity.Label });
     customerContactOption.HasOne(entity => entity.Customer)
         .WithMany(entity => entity.ContactOptions)
@@ -46,6 +48,7 @@ public sealed partial class ServiFinanceDbContext {
     serviceRequest.Property(entity => entity.IssueDescription).HasMaxLength(1000);
     serviceRequest.Property(entity => entity.ServiceMode).HasMaxLength(50);
     serviceRequest.Property(entity => entity.ServiceAddress).HasMaxLength(500);
+    serviceRequest.Property(entity => entity.ServiceAddressDetails).HasMaxLength(500);
     serviceRequest.Property(entity => entity.ContactName).HasMaxLength(200);
     serviceRequest.Property(entity => entity.ContactPhone).HasMaxLength(50);
     serviceRequest.Property(entity => entity.Priority).HasMaxLength(50);

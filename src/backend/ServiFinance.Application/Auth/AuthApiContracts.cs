@@ -29,6 +29,7 @@ public sealed record CustomerRegisterRequest(
     string Email,
     string MobileNumber,
     string Address,
+    string? AddressDetails,
     string Password,
     bool UseCookieSession = true);
 

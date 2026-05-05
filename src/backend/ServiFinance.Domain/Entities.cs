@@ -112,6 +112,15 @@ public sealed class RefreshSession : Entity {
   public Customer? Customer { get; set; }
 }
 
+public sealed class ExternalServiceState : Entity {
+  public string Provider { get; set; } = string.Empty;
+  public string StateKey { get; set; } = string.Empty;
+  public string? PayloadJson { get; set; }
+  public DateTime? ExpiresAtUtc { get; set; }
+  public DateTime? NextAllowedRequestUtc { get; set; }
+  public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
 public sealed class AuditEvent : TenantEntity {
   public string Scope { get; set; } = string.Empty;
   public string Category { get; set; } = string.Empty;
@@ -200,6 +209,7 @@ public sealed class Customer : TenantEntity {
   public string Email { get; set; } = string.Empty;
   public string PasswordHash { get; set; } = string.Empty;
   public string Address { get; set; } = string.Empty;
+  public string? AddressDetails { get; set; }
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
   public Tenant? Tenant { get; set; }
@@ -218,6 +228,7 @@ public sealed class CustomerContactOption : TenantEntity {
   public string ContactName { get; set; } = string.Empty;
   public string PhoneNumber { get; set; } = string.Empty;
   public string Address { get; set; } = string.Empty;
+  public string? AddressDetails { get; set; }
   public bool IsDefault { get; set; }
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
@@ -233,6 +244,7 @@ public sealed class ServiceRequest : TenantEntity {
   public DateTime? RequestedServiceDate { get; set; }
   public string ServiceMode { get; set; } = string.Empty;
   public string ServiceAddress { get; set; } = string.Empty;
+  public string? ServiceAddressDetails { get; set; }
   public string ContactName { get; set; } = string.Empty;
   public string ContactPhone { get; set; } = string.Empty;
   public DateTime? PreferredScheduleStartUtc { get; set; }

@@ -32,7 +32,12 @@ internal sealed record PlatformTenantRegistrationStatusResponse(
     DateTime? ProvisionedAtUtc);
 internal sealed record ToggleUserStateRequest(bool IsActive);
 internal sealed record ToggleTenantStateRequest(bool IsActive);
-internal sealed record CreateCustomerRecordRequest(string FullName, string MobileNumber, string Email, string Address);
+internal sealed record CreateCustomerRecordRequest(
+    string FullName,
+    string MobileNumber,
+    string Email,
+    string Address,
+    string? AddressDetails);
 internal sealed record CreateServiceRequestRecordRequest(
     Guid CustomerId,
     string ItemType,
@@ -41,6 +46,7 @@ internal sealed record CreateServiceRequestRecordRequest(
     DateTime? RequestedServiceDate,
     string? ServiceMode,
     string? ServiceAddress,
+    string? ServiceAddressDetails,
     string? ContactName,
     string? ContactPhone,
     DateTime? PreferredScheduleStartUtc,
@@ -92,6 +98,7 @@ internal sealed record TenantServiceRequestRowResponse(
     DateTime? RequestedServiceDate,
     string ServiceMode,
     string ServiceAddress,
+    string? ServiceAddressDetails,
     string ContactName,
     string ContactPhone,
     DateTime? PreferredScheduleStartUtc,

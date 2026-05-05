@@ -8,6 +8,7 @@ type RegisterFormState = {
   email: string;
   mobileNumber: string;
   address: string;
+  addressDetails: string;
   password: string;
   confirmPassword: string;
 };
@@ -21,6 +22,7 @@ export function CustomerRegisterPage() {
     email: "",
     mobileNumber: "",
     address: "",
+    addressDetails: "",
     password: "",
     confirmPassword: ""
   });
@@ -45,6 +47,7 @@ export function CustomerRegisterPage() {
         email: form.email,
         mobileNumber: form.mobileNumber,
         address: form.address,
+        addressDetails: form.addressDetails,
         password: form.password
       });
       navigate(getCustomerHomeRoute(session), { replace: true });
@@ -79,7 +82,7 @@ export function CustomerRegisterPage() {
           <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500">Customer onboarding</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">Create your portal access</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            This working frontend slice stores a tenant-scoped customer account locally so you can validate the route and interface flow immediately.
+            This creates a tenant-scoped portal account through the shared API, then opens the customer workspace for this domain only.
           </p>
         </div>
 
@@ -129,6 +132,16 @@ export function CustomerRegisterPage() {
               onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
               placeholder="Street, barangay, city"
               required
+            />
+          </label>
+
+          <label className="grid gap-2 sm:col-span-2">
+            <span className="text-sm font-medium text-slate-700">Address details</span>
+            <textarea
+              className="textarea textarea-bordered min-h-24 w-full rounded-2xl border-slate-200 bg-white"
+              value={form.addressDetails}
+              onChange={(event) => setForm((current) => ({ ...current, addressDetails: event.target.value }))}
+              placeholder="Unit, lot, building, floor, landmark, gate color, or other access directions"
             />
           </label>
 

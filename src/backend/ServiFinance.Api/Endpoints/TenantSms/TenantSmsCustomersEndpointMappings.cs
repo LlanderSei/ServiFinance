@@ -11,6 +11,8 @@ using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantSmsCustomersEndpointMappings {
   private const int EmailMaxLength = 50;
+  private const int AddressMaxLength = 500;
+  private const int AddressDetailsMaxLength = 500;
 
   public static RouteGroupBuilder MapTenantSmsCustomersEndpoints(this RouteGroupBuilder tenantApi) {
     tenantApi.MapGet("/sms/customers", async Task<IResult> (
@@ -32,6 +34,7 @@ internal static class TenantSmsCustomersEndpointMappings {
             entity.MobileNumber,
             entity.Email,
             entity.Address,
+            entity.AddressDetails,
             entity.CreatedAtUtc,
             ServiceRequestCount = entity.ServiceRequests.Count
           })
@@ -55,6 +58,12 @@ internal static class TenantSmsCustomersEndpointMappings {
           if (request.Email.Trim().Length > EmailMaxLength) {
             return Results.BadRequest(new { error = $"Customer email must be {EmailMaxLength} characters or fewer." });
           }
+          if (request.Address.Trim().Length > AddressMaxLength) {
+            return Results.BadRequest(new { error = $"Customer address must be {AddressMaxLength} characters or fewer." });
+          }
+          if ((request.AddressDetails?.Trim().Length ?? 0) > AddressDetailsMaxLength) {
+            return Results.BadRequest(new { error = $"Address details must be {AddressDetailsMaxLength} characters or fewer." });
+          }
 
           var customer = new ServiFinance.Domain.Customer {
             CustomerCode = GenerateReferenceCode("CUS"),
@@ -62,6 +71,7 @@ internal static class TenantSmsCustomersEndpointMappings {
             MobileNumber = request.MobileNumber.Trim(),
             Email = request.Email.Trim(),
             Address = request.Address.Trim(),
+            AddressDetails = NormalizeOptionalText(request.AddressDetails),
             CreatedAtUtc = DateTime.UtcNow
           };
 
@@ -75,6 +85,7 @@ internal static class TenantSmsCustomersEndpointMappings {
             customer.MobileNumber,
             customer.Email,
             customer.Address,
+            customer.AddressDetails,
             customer.CreatedAtUtc,
             ServiceRequestCount = 0
           });
@@ -96,6 +107,12 @@ internal static class TenantSmsCustomersEndpointMappings {
           if (request.Email.Trim().Length > EmailMaxLength) {
             return Results.BadRequest(new { error = $"Customer email must be {EmailMaxLength} characters or fewer." });
           }
+          if (request.Address.Trim().Length > AddressMaxLength) {
+            return Results.BadRequest(new { error = $"Customer address must be {AddressMaxLength} characters or fewer." });
+          }
+          if ((request.AddressDetails?.Trim().Length ?? 0) > AddressDetailsMaxLength) {
+            return Results.BadRequest(new { error = $"Address details must be {AddressDetailsMaxLength} characters or fewer." });
+          }
 
           var customer = await dbContext.Customers
           .Include(entity => entity.ServiceRequests)
@@ -108,6 +125,7 @@ internal static class TenantSmsCustomersEndpointMappings {
           customer.MobileNumber = request.MobileNumber.Trim();
           customer.Email = request.Email.Trim();
           customer.Address = request.Address.Trim();
+          customer.AddressDetails = NormalizeOptionalText(request.AddressDetails);
 
           await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -118,11 +136,17 @@ internal static class TenantSmsCustomersEndpointMappings {
             customer.MobileNumber,
             customer.Email,
             customer.Address,
+            customer.AddressDetails,
             customer.CreatedAtUtc,
             ServiceRequestCount = customer.ServiceRequests.Count
           });
         });
 
     return tenantApi;
+  }
+
+  private static string? NormalizeOptionalText(string? value) {
+    var normalized = value?.Trim();
+    return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
   }
 }

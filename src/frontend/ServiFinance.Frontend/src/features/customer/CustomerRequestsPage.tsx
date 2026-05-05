@@ -1,205 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import { useCustomerProfile } from "./useCustomerProfile";
-import { useCancelCustomerRequest, useCustomerRequests, useCreateCustomerRequest, useSubmitCustomerFeedback, useUploadCustomerRequestAttachments } from "./useCustomerRequests";
+import { useCreateCustomerRequest, useCustomerRequests, useUploadCustomerRequestAttachments } from "./useCustomerRequests";
 import type { CustomerRequest } from "./useCustomerRequests";
 
-function RequestRow({ request, tenantDomainSlug }: { request: CustomerRequest; tenantDomainSlug: string }) {
-  const [rating, setRating] = useState(5);
-  const [feedback, setFeedback] = useState("");
-  const [suggestionCategory, setSuggestionCategory] = useState("");
-  const [cancelReason, setCancelReason] = useState("");
-  const submitFeedback = useSubmitCustomerFeedback();
-  const cancelRequest = useCancelCustomerRequest();
+type RequestTab = "ongoing" | "history";
 
-  const isCompleted = request.currentStatus === "Completed" || request.currentStatus === "Closed";
-  const hasFeedback = request.rating != null;
-  const feedbackExpired = isCompleted && !hasFeedback && isFeedbackExpired(request.feedbackExpiresAtUtc);
-  const canSubmitFeedback = isCompleted && !hasFeedback && !feedbackExpired;
-  const canCancel = request.canCancelDirectly || request.canRequestCancellation;
+const historyStatuses = new Set(["Completed", "Closed", "Cancelled"]);
 
-  return (
-    <article className="rounded-[1.8rem] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_14px_30px_rgba(35,46,76,0.06)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500">{request.requestNumber}</p>
-          <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-slate-950">{request.itemType}</h2>
-        </div>
-        <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white">
-          {request.currentStatus}
-        </span>
-      </div>
-      <p className="mt-4 text-sm leading-6 text-slate-600">
-        <strong>Issue:</strong> {request.issueDescription}
-      </p>
-      <p className="mt-2 text-sm leading-6 text-slate-500">
-        <strong>Item:</strong> {request.itemDescription}
-      </p>
-      <dl className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600 md:grid-cols-2">
-        <div>
-          <dt className="font-semibold text-slate-900">Service mode</dt>
-          <dd className="mt-1">{request.serviceMode || "Drop-off"}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold text-slate-900">Preferred window</dt>
-          <dd className="mt-1">{formatScheduleRange(request.preferredScheduleStartUtc, request.preferredScheduleEndUtc)}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold text-slate-900">Needed by</dt>
-          <dd className="mt-1">{formatDateTime(request.neededByUtc, "No due preference")}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold text-slate-900">Contact</dt>
-          <dd className="mt-1">{request.contactName || "Not provided"}{request.contactPhone ? ` / ${request.contactPhone}` : ""}</dd>
-        </div>
-        {request.serviceAddress && (
-          <div className="md:col-span-2">
-            <dt className="font-semibold text-slate-900">Service address</dt>
-            <dd className="mt-1">{request.serviceAddress}</dd>
-          </div>
-        )}
-      </dl>
-      <div className="mt-5">
-        <Link
-          className="btn btn-sm rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
-          to={`/t/${tenantDomainSlug}/c/requests/${request.id}`}
-        >
-          Track request
-        </Link>
-      </div>
-
-      {request.cancellationReason && (
-        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-          <strong>{request.cancelledAtUtc ? "Cancellation reason" : "Cancellation note"}:</strong> {request.cancellationReason}
-        </div>
-      )}
-
-      {canCancel && (
-        <form
-          className="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"
-          onSubmit={event => {
-            event.preventDefault();
-            cancelRequest.mutate({ id: request.id, reason: cancelReason });
-          }}
-        >
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">
-              {request.canCancelDirectly ? "Cancel this request" : "Request cancellation"}
-            </h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              {request.canCancelDirectly
-                ? "This request has not been assigned yet, so cancellation applies immediately."
-                : "Work may already be scheduled, so the tenant team must review this cancellation."}
-            </p>
-          </div>
-          <textarea
-            className="textarea textarea-bordered w-full rounded-xl bg-white"
-            placeholder="Reason for cancellation"
-            value={cancelReason}
-            onChange={event => setCancelReason(event.target.value)}
-            required
-          />
-          {cancelRequest.isError && (
-            <p className="text-sm text-rose-600">{cancelRequest.error.message}</p>
-          )}
-          <button className="btn btn-sm w-full rounded-full bg-rose-600 text-white hover:bg-rose-700 sm:w-max" disabled={cancelRequest.isPending}>
-            {cancelRequest.isPending ? "Sending..." : request.canCancelDirectly ? "Cancel request" : "Send cancellation request"}
-          </button>
-        </form>
-      )}
-
-      {canSubmitFeedback && (
-        <div className="mt-6 rounded-2xl bg-slate-50 p-4 border border-slate-100">
-          <h3 className="text-sm font-semibold text-slate-900">How was our service?</h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Feedback stays open for 7 days after completion{request.feedbackExpiresAtUtc ? `, until ${formatFeedbackDeadline(request.feedbackExpiresAtUtc)}` : ""}.
-          </p>
-          <div className="mt-3 grid gap-3">
-            <label className="flex items-center gap-3">
-              <span className="text-sm text-slate-700">Rating (1-5):</span>
-              <input 
-                type="number" 
-                min="1" 
-                max="5" 
-                className="input input-sm input-bordered w-20 rounded-xl"
-                value={rating} 
-                onChange={e => setRating(Number(e.target.value))} 
-              />
-            </label>
-            <label className="grid gap-1.5">
-              <span className="text-sm text-slate-700">Suggestion type (optional)</span>
-              <select
-                className="select select-bordered w-full rounded-xl bg-white"
-                value={suggestionCategory}
-                onChange={e => setSuggestionCategory(e.target.value)}
-              >
-                <option value="">No category</option>
-                {feedbackSuggestionOptions.map(option => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-            <textarea 
-              className="textarea textarea-bordered w-full rounded-xl bg-white" 
-              placeholder="Leave a comment or suggestion (optional)"
-              value={feedback}
-              onChange={e => setFeedback(e.target.value)}
-            />
-            <button 
-              className="btn btn-sm bg-slate-900 text-white rounded-xl w-max"
-              disabled={submitFeedback.isPending}
-              onClick={() => submitFeedback.mutate({ id: request.id, rating, feedbackComments: feedback, suggestionCategory })}
-            >
-              {submitFeedback.isPending ? "Submitting..." : "Submit Feedback"}
-            </button>
-            {submitFeedback.isError && (
-              <p className="text-sm text-red-600">
-                Feedback could not be submitted. The feedback window may have expired or the rating was already recorded.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {isCompleted && !hasFeedback && feedbackExpired && (
-        <div className="mt-6 rounded-2xl bg-slate-100 p-4 border border-slate-200 text-sm text-slate-700">
-          Feedback window expired{request.feedbackExpiresAtUtc ? ` on ${formatFeedbackDeadline(request.feedbackExpiresAtUtc)}` : ""}.
-        </div>
-      )}
-
-      {isCompleted && hasFeedback && (
-        <div className="mt-6 rounded-2xl bg-emerald-50 p-4 border border-emerald-100 text-sm text-emerald-800">
-          <strong>You rated this {request.rating}/5.</strong>
-          {request.feedbackSuggestionCategory && <p className="mt-1">Suggestion: {request.feedbackSuggestionCategory}</p>}
-          {request.feedbackComments && <p className="mt-1">{request.feedbackComments}</p>}
-        </div>
-      )}
-    </article>
-  );
+function isHistoryRequest(status: string) {
+  return historyStatuses.has(status);
 }
-
-const feedbackSuggestionOptions = [
-  "Service quality",
-  "Technician conduct",
-  "Scheduling",
-  "Pricing or billing",
-  "Follow-up",
-  "Other suggestion"
-];
 
 function isFeedbackExpired(feedbackExpiresAtUtc?: string | null) {
   return Boolean(feedbackExpiresAtUtc && new Date(feedbackExpiresAtUtc).getTime() < Date.now());
 }
 
-function formatFeedbackDeadline(value: string) {
-  return new Date(value).toLocaleDateString("en-PH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
+function joinClasses(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(" ");
 }
 
-function formatDateTime(value?: string | null, fallback = "Not scheduled") {
+function formatDateTime(value?: string | null, fallback = "Unknown time") {
   if (!value) {
     return fallback;
   }
@@ -213,16 +35,162 @@ function formatDateTime(value?: string | null, fallback = "Not scheduled") {
   });
 }
 
-function formatScheduleRange(start?: string | null, end?: string | null) {
-  if (!start && !end) {
-    return "No preferred schedule";
+function statusTone(status: string) {
+  const normalized = status.toLowerCase();
+
+  if (normalized.includes("completed") || normalized.includes("closed")) {
+    return "bg-emerald-100 text-emerald-800";
   }
 
-  if (start && end) {
-    return `${formatDateTime(start)} to ${formatDateTime(end)}`;
+  if (normalized.includes("cancel")) {
+    return "bg-rose-100 text-rose-800";
   }
 
-  return formatDateTime(start ?? end);
+  if (normalized.includes("progress") || normalized.includes("service") || normalized.includes("scheduled")) {
+    return "bg-blue-100 text-blue-800";
+  }
+
+  if (normalized.includes("pending") || normalized.includes("hold")) {
+    return "bg-amber-100 text-amber-800";
+  }
+
+  return "bg-slate-100 text-slate-700";
+}
+
+function buildRequestMeta(request: CustomerRequest) {
+  if (request.currentStatus === "Cancelled") {
+    return `Cancelled ${formatDateTime(request.cancelledAtUtc, formatDateTime(request.createdAtUtc))}`;
+  }
+
+  if (request.currentStatus === "Cancellation Requested") {
+    return `Cancellation requested ${formatDateTime(request.cancellationRequestedAtUtc, formatDateTime(request.createdAtUtc))}`;
+  }
+
+  if ((request.currentStatus === "Completed" || request.currentStatus === "Closed") && request.completedAtUtc) {
+    return `Completed ${formatDateTime(request.completedAtUtc)}`;
+  }
+
+  return `Opened ${formatDateTime(request.createdAtUtc)}`;
+}
+
+function RequestBadge({ request }: { request: CustomerRequest }) {
+  const isCompleted = request.currentStatus === "Completed" || request.currentStatus === "Closed";
+  if (request.rating != null) {
+    return (
+      <span className="rounded-full bg-emerald-50 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+        Rated {request.rating}/5
+      </span>
+    );
+  }
+
+  if (isCompleted && !isFeedbackExpired(request.feedbackExpiresAtUtc)) {
+    return (
+      <span className="rounded-full bg-amber-50 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-amber-700">
+        Feedback open
+      </span>
+    );
+  }
+
+  return null;
+}
+
+function RequestRow({ request, tenantDomainSlug }: { request: CustomerRequest; tenantDomainSlug: string }) {
+  const isOngoing = !isHistoryRequest(request.currentStatus);
+  const actionLabel = isOngoing ? "Track request" : "View";
+
+  return (
+    <article className="rounded-[1.6rem] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_28px_rgba(35,46,76,0.06)] sm:px-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-slate-500">{request.requestNumber}</p>
+          <h2 className="mt-2 truncate text-lg font-semibold tracking-[-0.03em] text-slate-950">
+            {request.itemType}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {buildRequestMeta(request)}
+          </p>
+        </div>
+
+        <span className={joinClasses(
+          "rounded-full px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em]",
+          statusTone(request.currentStatus)
+        )}>
+          {request.currentStatus}
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 pt-4">
+        <RequestBadge request={request} />
+
+        <Link
+          className="btn btn-sm rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
+          to={`/t/${tenantDomainSlug}/c/requests/${request.id}`}
+        >
+          {actionLabel}
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function RequestTabs({
+  activeTab,
+  ongoingCount,
+  historyCount,
+  onChange
+}: {
+  activeTab: RequestTab;
+  ongoingCount: number;
+  historyCount: number;
+  onChange: (tab: RequestTab) => void;
+}) {
+  return (
+    <div className="pointer-events-none fixed bottom-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] left-1/2 z-20 w-[calc(100%-2rem)] max-w-[24rem] -translate-x-1/2 lg:left-[calc(50%+155px)]">
+      <nav className="pointer-events-auto flex w-full items-center gap-2 rounded-full border border-slate-200/80 bg-white/96 p-2 shadow-[0_18px_36px_rgba(35,46,76,0.14)] backdrop-blur-xl">
+        <button
+          type="button"
+          className={joinClasses(
+            "flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold transition-colors duration-200",
+            activeTab === "ongoing"
+              ? "bg-slate-950 text-white"
+              : "text-slate-600 hover:bg-slate-100"
+          )}
+          onClick={() => onChange("ongoing")}
+        >
+          <span>Ongoing</span>
+          <span className={joinClasses(
+            "rounded-full px-2 py-0.5 text-[0.68rem] font-bold",
+            activeTab === "ongoing"
+              ? "bg-white/14 text-white"
+              : "bg-slate-100 text-slate-500"
+          )}>
+            {ongoingCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className={joinClasses(
+            "flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold transition-colors duration-200",
+            activeTab === "history"
+              ? "bg-slate-950 text-white"
+              : "text-slate-600 hover:bg-slate-100"
+          )}
+          onClick={() => onChange("history")}
+        >
+          <span>History</span>
+          <span className={joinClasses(
+            "rounded-full px-2 py-0.5 text-[0.68rem] font-bold",
+            activeTab === "history"
+              ? "bg-white/14 text-white"
+              : "bg-slate-100 text-slate-500"
+          )}>
+            {historyCount}
+          </span>
+        </button>
+      </nav>
+    </div>
+  );
 }
 
 function toUtcIso(value: string) {
@@ -235,8 +203,9 @@ export function CustomerRequestsPage() {
   const profileQuery = useCustomerProfile();
   const createRequest = useCreateCustomerRequest();
   const uploadAttachments = useUploadCustomerRequestAttachments();
-  
+
   const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<RequestTab>("ongoing");
   const [itemType, setItemType] = useState("");
   const [itemDescription, setItemDescription] = useState("");
   const [issueDescription, setIssueDescription] = useState("");
@@ -245,43 +214,62 @@ export function CustomerRequestsPage() {
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [serviceAddress, setServiceAddress] = useState("");
+  const [serviceAddressDetails, setServiceAddressDetails] = useState("");
   const [preferredScheduleStartUtc, setPreferredScheduleStartUtc] = useState("");
   const [preferredScheduleEndUtc, setPreferredScheduleEndUtc] = useState("");
   const [neededByUtc, setNeededByUtc] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
 
+  const ongoingRequests = useMemo(
+    () => (requests ?? []).filter((request) => !isHistoryRequest(request.currentStatus)),
+    [requests]
+  );
+  const historyRequests = useMemo(
+    () => (requests ?? []).filter((request) => isHistoryRequest(request.currentStatus)),
+    [requests]
+  );
+  const visibleRequests = activeTab === "ongoing" ? ongoingRequests : historyRequests;
+  const headerTitle = activeTab === "ongoing" ? "My service requests" : "Request history";
+  const headerDescription = activeTab === "ongoing"
+    ? "Monitor active request movement and submit new requests from this tenant domain."
+    : "Review completed, closed, and cancelled requests without mixing them into the live queue.";
+
   useEffect(() => {
-    if (!showForm || !profileQuery.data || contactName || contactPhone || serviceAddress) {
+    if (!showForm || !profileQuery.data || contactName || contactPhone || serviceAddress || serviceAddressDetails) {
       return;
     }
 
-    const defaultOption = profileQuery.data.contactOptions.find(option => option.isDefault);
+    const defaultOption = profileQuery.data.contactOptions.find((option) => option.isDefault);
     if (defaultOption) {
       setSelectedContactOptionId(defaultOption.id);
       setContactName(defaultOption.contactName);
       setContactPhone(defaultOption.phoneNumber);
       setServiceAddress(defaultOption.address);
+      setServiceAddressDetails(defaultOption.addressDetails ?? "");
       return;
     }
 
     setContactName(profileQuery.data.fullName);
     setContactPhone(profileQuery.data.mobileNumber);
     setServiceAddress(profileQuery.data.address);
-  }, [showForm, profileQuery.data, contactName, contactPhone, serviceAddress]);
+    setServiceAddressDetails(profileQuery.data.addressDetails ?? "");
+  }, [showForm, profileQuery.data, contactName, contactPhone, serviceAddress, serviceAddressDetails]);
 
   function applyContactOption(optionId: string) {
     setSelectedContactOptionId(optionId);
-    const option = profileQuery.data?.contactOptions.find(candidate => candidate.id === optionId);
+    const option = profileQuery.data?.contactOptions.find((candidate) => candidate.id === optionId);
     if (!option) {
       setContactName(profileQuery.data?.fullName ?? "");
       setContactPhone(profileQuery.data?.mobileNumber ?? "");
       setServiceAddress(profileQuery.data?.address ?? "");
+      setServiceAddressDetails(profileQuery.data?.addressDetails ?? "");
       return;
     }
 
     setContactName(option.contactName);
     setContactPhone(option.phoneNumber);
     setServiceAddress(option.address);
+    setServiceAddressDetails(option.addressDetails ?? "");
   }
 
   function resetForm() {
@@ -294,14 +282,15 @@ export function CustomerRequestsPage() {
     setContactName("");
     setContactPhone("");
     setServiceAddress("");
+    setServiceAddressDetails("");
     setPreferredScheduleStartUtc("");
     setPreferredScheduleEndUtc("");
     setNeededByUtc("");
     setAttachments([]);
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function handleCreate(event: React.FormEvent) {
+    event.preventDefault();
 
     try {
       const createdRequest = await createRequest.mutateAsync({
@@ -310,6 +299,7 @@ export function CustomerRequestsPage() {
         issueDescription,
         serviceMode,
         serviceAddress,
+        serviceAddressDetails,
         contactName,
         contactPhone,
         preferredScheduleStartUtc: toUtcIso(preferredScheduleStartUtc),
@@ -319,27 +309,29 @@ export function CustomerRequestsPage() {
 
       if (attachments.length) {
         const payload = new FormData();
-        attachments.forEach(file => payload.append("files", file));
+        attachments.forEach((file) => payload.append("files", file));
         await uploadAttachments.mutateAsync({ id: createdRequest.id, payload });
       }
 
+      setActiveTab("ongoing");
       resetForm();
     } catch {
       // Mutation state already exposes the error message context in the form.
     }
-  };
+  }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-5 pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-32">
       <section className="flex flex-col items-stretch justify-between gap-4 rounded-[2rem] border border-slate-200/80 bg-white px-5 py-6 shadow-[0_14px_30px_rgba(35,46,76,0.06)] sm:flex-row sm:items-start">
         <div>
           <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500">Customer requests</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">My service requests</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">{headerTitle}</h1>
           <p className="mt-3 max-w-[38rem] text-sm leading-6 text-slate-600">
-            View your service history, current status, and submit new requests.
+            {headerDescription}
           </p>
         </div>
-        <button 
+
+        <button
           className="btn w-full rounded-full border-none bg-blue-600 px-6 text-white hover:bg-blue-700 sm:w-auto"
           onClick={() => {
             if (showForm) {
@@ -356,23 +348,23 @@ export function CustomerRequestsPage() {
 
       {showForm && (
         <section className="rounded-[2rem] border border-slate-200/80 bg-slate-50 px-5 py-6 shadow-inner">
-          <h2 className="text-xl font-semibold text-slate-900 mb-4">Create New Service Request</h2>
+          <h2 className="mb-4 text-xl font-semibold text-slate-900">Create New Service Request</h2>
           <form onSubmit={handleCreate} className="grid w-full gap-4 md:grid-cols-2">
             <label className="grid min-w-0 gap-2">
               <span className="text-sm font-medium text-slate-700">Item Type</span>
-              <input required type="text" className="input input-bordered w-full rounded-xl bg-white" placeholder="e.g. Laptop, Commercial Oven" value={itemType} onChange={e => setItemType(e.target.value)} />
+              <input required type="text" className="input input-bordered w-full rounded-xl bg-white" placeholder="e.g. Laptop, Commercial Oven" value={itemType} onChange={(event) => setItemType(event.target.value)} />
             </label>
             <label className="grid min-w-0 gap-2">
               <span className="text-sm font-medium text-slate-700">Item Description</span>
-              <input required type="text" className="input input-bordered w-full rounded-xl bg-white" placeholder="e.g. 15-inch gaming laptop" value={itemDescription} onChange={e => setItemDescription(e.target.value)} />
+              <input required type="text" className="input input-bordered w-full rounded-xl bg-white" placeholder="e.g. 15-inch gaming laptop" value={itemDescription} onChange={(event) => setItemDescription(event.target.value)} />
             </label>
             <label className="grid min-w-0 gap-2 md:col-span-2">
               <span className="text-sm font-medium text-slate-700">Issue Description</span>
-              <textarea required className="textarea textarea-bordered min-h-32 w-full rounded-xl bg-white" placeholder="Describe the problem..." value={issueDescription} onChange={e => setIssueDescription(e.target.value)} />
+              <textarea required className="textarea textarea-bordered min-h-32 w-full rounded-xl bg-white" placeholder="Describe the problem..." value={issueDescription} onChange={(event) => setIssueDescription(event.target.value)} />
             </label>
             <label className="grid min-w-0 gap-2">
               <span className="text-sm font-medium text-slate-700">Service Mode</span>
-              <select className="select select-bordered w-full rounded-xl bg-white" value={serviceMode} onChange={event => setServiceMode(event.target.value)}>
+              <select className="select select-bordered w-full rounded-xl bg-white" value={serviceMode} onChange={(event) => setServiceMode(event.target.value)}>
                 <option value="Drop-off">Drop-off / customer brings item</option>
                 <option value="On-site">On-site visit</option>
                 <option value="Pickup">Pickup request</option>
@@ -380,9 +372,9 @@ export function CustomerRequestsPage() {
             </label>
             <label className="grid min-w-0 gap-2">
               <span className="text-sm font-medium text-slate-700">Saved contact/address</span>
-              <select className="select select-bordered w-full rounded-xl bg-white" value={selectedContactOptionId} onChange={event => applyContactOption(event.target.value)}>
+              <select className="select select-bordered w-full rounded-xl bg-white" value={selectedContactOptionId} onChange={(event) => applyContactOption(event.target.value)}>
                 <option value="">Use primary profile</option>
-                {profileQuery.data?.contactOptions.map(option => (
+                {profileQuery.data?.contactOptions.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}{option.isDefault ? " (default)" : ""}
                   </option>
@@ -391,33 +383,41 @@ export function CustomerRequestsPage() {
             </label>
             <label className="grid min-w-0 gap-2">
               <span className="text-sm font-medium text-slate-700">Contact Name</span>
-              <input required type="text" className="input input-bordered w-full rounded-xl bg-white" value={contactName} onChange={event => setContactName(event.target.value)} />
+              <input required type="text" className="input input-bordered w-full rounded-xl bg-white" value={contactName} onChange={(event) => setContactName(event.target.value)} />
             </label>
             <label className="grid min-w-0 gap-2">
               <span className="text-sm font-medium text-slate-700">Contact Phone</span>
-              <input required type="text" className="input input-bordered w-full rounded-xl bg-white" value={contactPhone} onChange={event => setContactPhone(event.target.value)} />
+              <input required type="text" className="input input-bordered w-full rounded-xl bg-white" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} />
             </label>
+            <AddressLookupField
+              className="md:col-span-2"
+              label="Service Address"
+              value={serviceAddress}
+              onChange={setServiceAddress}
+              placeholder="Required for on-site or pickup work. Optional for drop-off."
+              required={serviceMode === "On-site" || serviceMode === "Pickup"}
+              description="Use a manual lookup if you want a normalized address before the tenant sees the request."
+            />
             <label className="grid min-w-0 gap-2 md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Service Address</span>
+              <span className="text-sm font-medium text-slate-700">Address details</span>
               <textarea
                 className="textarea textarea-bordered min-h-24 w-full rounded-xl bg-white"
-                placeholder="Required for on-site or pickup work. Optional for drop-off."
-                value={serviceAddress}
-                onChange={event => setServiceAddress(event.target.value)}
-                required={serviceMode === "On-site" || serviceMode === "Pickup"}
+                placeholder="Lot, unit, building, floor, landmark, or access notes"
+                value={serviceAddressDetails}
+                onChange={(event) => setServiceAddressDetails(event.target.value)}
               />
             </label>
             <label className="grid min-w-0 gap-2">
               <span className="text-sm font-medium text-slate-700">Preferred Start</span>
-              <input type="datetime-local" className="input input-bordered w-full rounded-xl bg-white" value={preferredScheduleStartUtc} onChange={event => setPreferredScheduleStartUtc(event.target.value)} />
+              <input type="datetime-local" className="input input-bordered w-full rounded-xl bg-white" value={preferredScheduleStartUtc} onChange={(event) => setPreferredScheduleStartUtc(event.target.value)} />
             </label>
             <label className="grid min-w-0 gap-2">
               <span className="text-sm font-medium text-slate-700">Preferred End</span>
-              <input type="datetime-local" className="input input-bordered w-full rounded-xl bg-white" value={preferredScheduleEndUtc} onChange={event => setPreferredScheduleEndUtc(event.target.value)} />
+              <input type="datetime-local" className="input input-bordered w-full rounded-xl bg-white" value={preferredScheduleEndUtc} onChange={(event) => setPreferredScheduleEndUtc(event.target.value)} />
             </label>
             <label className="grid min-w-0 gap-2 md:col-span-2">
               <span className="text-sm font-medium text-slate-700">Needed By / Due Date</span>
-              <input type="datetime-local" className="input input-bordered w-full rounded-xl bg-white" value={neededByUtc} onChange={event => setNeededByUtc(event.target.value)} />
+              <input type="datetime-local" className="input input-bordered w-full rounded-xl bg-white" value={neededByUtc} onChange={(event) => setNeededByUtc(event.target.value)} />
               <span className="text-xs leading-5 text-slate-500">
                 Use this for pre-order style requests or work that should notify tenant staff before a target date.
               </span>
@@ -429,9 +429,11 @@ export function CustomerRequestsPage() {
                 accept="image/*"
                 multiple
                 className="file-input file-input-bordered w-full rounded-xl bg-white"
-                onChange={event => setAttachments(Array.from(event.target.files ?? []))}
+                onChange={(event) => setAttachments(Array.from(event.target.files ?? []))}
               />
-              <span className="text-xs leading-5 text-slate-500">Upload issue photos now so tenant staff can inspect them from SMS. Each file must be 5 MB or smaller.</span>
+              <span className="text-xs leading-5 text-slate-500">
+                Upload issue photos now so tenant staff can inspect them from SMS. Each file must be 5 MB or smaller.
+              </span>
             </label>
             {(createRequest.isError || uploadAttachments.isError) && (
               <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 md:col-span-2">
@@ -447,18 +449,33 @@ export function CustomerRequestsPage() {
 
       {!showForm && (
         isLoading ? (
-          <div className="p-8 text-center text-slate-500">Loading requests...</div>
+          <div className="rounded-[1.8rem] border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 shadow-[0_12px_28px_rgba(35,46,76,0.06)]">
+            Loading requests...
+          </div>
         ) : (
-          <section className="grid gap-4">
-            {requests?.length === 0 ? (
-              <div className="rounded-[1.8rem] border border-slate-200 border-dashed p-8 text-center text-slate-500">
-                You haven't made any service requests yet.
+          <section className="grid gap-3">
+            {visibleRequests.length === 0 ? (
+              <div className="rounded-[1.8rem] border border-slate-200 border-dashed bg-white px-5 py-10 text-center text-slate-500">
+                {activeTab === "ongoing"
+                  ? "You have no ongoing service requests right now."
+                  : "No completed or cancelled requests are in your history yet."}
               </div>
             ) : (
-              requests?.map((req) => <RequestRow key={req.id} request={req} tenantDomainSlug={tenantDomainSlug} />)
+              visibleRequests.map((request) => (
+                <RequestRow key={request.id} request={request} tenantDomainSlug={tenantDomainSlug} />
+              ))
             )}
           </section>
         )
+      )}
+
+      {!showForm && (
+        <RequestTabs
+          activeTab={activeTab}
+          ongoingCount={ongoingRequests.length}
+          historyCount={historyRequests.length}
+          onChange={setActiveTab}
+        />
       )}
     </div>
   );

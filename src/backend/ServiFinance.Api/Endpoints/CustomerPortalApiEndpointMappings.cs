@@ -13,6 +13,7 @@ internal static class CustomerPortalApiEndpointMappings {
   private const int ContactNameMaxLength = 200;
   private const int ContactPhoneMaxLength = 50;
   private const int ServiceAddressMaxLength = 500;
+  private const int AddressDetailsMaxLength = 500;
   private const int CancellationReasonMaxLength = 500;
   private const int FeedbackCommentsMaxLength = 1000;
   private const int FeedbackSuggestionCategoryMaxLength = 80;
@@ -48,6 +49,7 @@ internal static class CustomerPortalApiEndpointMappings {
           var fullName = (payload.FullName ?? string.Empty).Trim();
           var mobileNumber = (payload.MobileNumber ?? string.Empty).Trim();
           var address = (payload.Address ?? string.Empty).Trim();
+          var addressDetails = NormalizeOptionalText(payload.AddressDetails);
           if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(mobileNumber)) {
             return Results.BadRequest(new { error = "Full name and mobile number are required." });
           }
@@ -60,10 +62,14 @@ internal static class CustomerPortalApiEndpointMappings {
           if (address.Length > ServiceAddressMaxLength) {
             return Results.BadRequest(new { error = $"Address must be {ServiceAddressMaxLength} characters or fewer." });
           }
+          if ((addressDetails?.Length ?? 0) > AddressDetailsMaxLength) {
+            return Results.BadRequest(new { error = $"Address details must be {AddressDetailsMaxLength} characters or fewer." });
+          }
 
           customer.FullName = fullName;
           customer.MobileNumber = mobileNumber;
           customer.Address = address;
+          customer.AddressDetails = addressDetails;
           await dbContext.SaveChangesAsync(cancellationToken);
 
           var profile = await LoadCustomerProfileAsync(dbContext, customerId, cancellationToken);
@@ -96,6 +102,7 @@ internal static class CustomerPortalApiEndpointMappings {
             ContactName = (payload.ContactName ?? string.Empty).Trim(),
             PhoneNumber = (payload.PhoneNumber ?? string.Empty).Trim(),
             Address = (payload.Address ?? string.Empty).Trim(),
+            AddressDetails = NormalizeOptionalText(payload.AddressDetails),
             IsDefault = shouldSetDefault,
             CreatedAtUtc = DateTime.UtcNow
           });
@@ -131,6 +138,7 @@ internal static class CustomerPortalApiEndpointMappings {
           option.ContactName = (payload.ContactName ?? string.Empty).Trim();
           option.PhoneNumber = (payload.PhoneNumber ?? string.Empty).Trim();
           option.Address = (payload.Address ?? string.Empty).Trim();
+          option.AddressDetails = NormalizeOptionalText(payload.AddressDetails);
           option.IsDefault = payload.IsDefault;
           await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -188,6 +196,7 @@ internal static class CustomerPortalApiEndpointMappings {
                 r.RequestedServiceDate,
                 r.ServiceMode,
                 r.ServiceAddress,
+                r.ServiceAddressDetails,
                 r.ContactName,
                 r.ContactPhone,
                 r.PreferredScheduleStartUtc,
@@ -218,6 +227,7 @@ internal static class CustomerPortalApiEndpointMappings {
               request.RequestedServiceDate,
               request.ServiceMode,
               request.ServiceAddress,
+              request.ServiceAddressDetails,
               request.ContactName,
               request.ContactPhone,
               request.PreferredScheduleStartUtc,
@@ -239,6 +249,56 @@ internal static class CustomerPortalApiEndpointMappings {
               CanRequestCancellation(request.CurrentStatus, request.HasAssignments))));
         });
 
+    customerApi.MapGet("/requests/notifications", async Task<IResult> (
+        ClaimsPrincipal user,
+        [FromQuery] DateTime? sinceUtc,
+        ServiFinanceDbContext dbContext,
+        CancellationToken cancellationToken) => {
+          var customerId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+          var customerEvents = dbContext.StatusLogs
+              .AsNoTracking()
+              .Where(log =>
+                  log.ServiceRequest != null &&
+                  log.ServiceRequest.CustomerId == customerId &&
+                  log.ChangedByCustomerId == null);
+
+          if (!sinceUtc.HasValue) {
+            var latestChangedAtUtc = await customerEvents
+                .OrderByDescending(log => log.ChangedAtUtc)
+                .Select(log => (DateTime?)log.ChangedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? DateTime.UtcNow;
+
+            return Results.Ok(new CustomerPortalRequestNotificationFeedResponse(
+                latestChangedAtUtc,
+                []));
+          }
+
+          var events = await customerEvents
+              .Where(log => log.ChangedAtUtc > sinceUtc.Value)
+              .OrderBy(log => log.ChangedAtUtc)
+              .ThenBy(log => log.Id)
+              .Select(log => new CustomerPortalRequestNotificationRecord(
+                  log.Id,
+                  log.ServiceRequestId,
+                  log.ServiceRequest != null ? log.ServiceRequest.RequestNumber : string.Empty,
+                  log.ServiceRequest != null ? log.ServiceRequest.ItemType : string.Empty,
+                  log.Status,
+                  log.Remarks,
+                  log.ChangedAtUtc))
+              .Take(20)
+              .ToListAsync(cancellationToken);
+
+          var cursorUtc = events.Count > 0
+              ? events[^1].ChangedAtUtc
+              : sinceUtc.Value;
+
+          return Results.Ok(new CustomerPortalRequestNotificationFeedResponse(
+              cursorUtc,
+              events));
+        });
+
     customerApi.MapGet("/requests/{id:guid}/details", async Task<IResult> (
         Guid id,
         ClaimsPrincipal user,
@@ -258,6 +318,7 @@ internal static class CustomerPortalApiEndpointMappings {
                 r.RequestedServiceDate,
                 r.ServiceMode,
                 r.ServiceAddress,
+                r.ServiceAddressDetails,
                 r.ContactName,
                 r.ContactPhone,
                 r.PreferredScheduleStartUtc,
@@ -304,6 +365,7 @@ internal static class CustomerPortalApiEndpointMappings {
               request.RequestedServiceDate,
               request.ServiceMode,
               request.ServiceAddress,
+              request.ServiceAddressDetails,
               request.ContactName,
               request.ContactPhone,
               request.PreferredScheduleStartUtc,
@@ -397,6 +459,7 @@ internal static class CustomerPortalApiEndpointMappings {
 
           var serviceMode = NormalizeServiceMode(payload.ServiceMode);
           var serviceAddress = NormalizeOptionalText(payload.ServiceAddress) ?? customer.Address.Trim();
+          var serviceAddressDetails = NormalizeOptionalText(payload.ServiceAddressDetails) ?? NormalizeOptionalText(customer.AddressDetails);
           var contactName = NormalizeOptionalText(payload.ContactName) ?? customer.FullName.Trim();
           var contactPhone = NormalizeOptionalText(payload.ContactPhone) ?? customer.MobileNumber.Trim();
           if (RequiresServiceAddress(serviceMode) && string.IsNullOrWhiteSpace(serviceAddress)) {
@@ -410,6 +473,9 @@ internal static class CustomerPortalApiEndpointMappings {
           }
           if (serviceAddress.Length > ServiceAddressMaxLength) {
             return Results.BadRequest(new { error = $"Service address must be {ServiceAddressMaxLength} characters or fewer." });
+          }
+          if ((serviceAddressDetails?.Length ?? 0) > AddressDetailsMaxLength) {
+            return Results.BadRequest(new { error = $"Address details must be {AddressDetailsMaxLength} characters or fewer." });
           }
           if (payload.PreferredScheduleStartUtc.HasValue &&
               payload.PreferredScheduleEndUtc.HasValue &&
@@ -430,6 +496,7 @@ internal static class CustomerPortalApiEndpointMappings {
               RequestedServiceDate = requestedServiceDate,
               ServiceMode = serviceMode,
               ServiceAddress = serviceAddress,
+              ServiceAddressDetails = serviceAddressDetails,
               ContactName = contactName,
               ContactPhone = contactPhone,
               PreferredScheduleStartUtc = payload.PreferredScheduleStartUtc,
@@ -741,6 +808,7 @@ internal static class CustomerPortalApiEndpointMappings {
             entity.Email,
             entity.MobileNumber,
             entity.Address,
+            entity.AddressDetails,
             entity.ContactOptions
                 .OrderByDescending(option => option.IsDefault)
                 .ThenBy(option => option.Label)
@@ -750,6 +818,7 @@ internal static class CustomerPortalApiEndpointMappings {
                     option.ContactName,
                     option.PhoneNumber,
                     option.Address,
+                    option.AddressDetails,
                     option.IsDefault,
                     option.CreatedAtUtc))
                 .ToList()))
@@ -778,6 +847,9 @@ internal static class CustomerPortalApiEndpointMappings {
     }
     if (address.Length > ServiceAddressMaxLength) {
       return $"Address must be {ServiceAddressMaxLength} characters or fewer.";
+    }
+    if (((payload.AddressDetails ?? string.Empty).Trim().Length) > AddressDetailsMaxLength) {
+      return $"Address details must be {AddressDetailsMaxLength} characters or fewer.";
     }
 
     return null;
@@ -860,6 +932,7 @@ public sealed record CustomerPortalProfileResponse(
     string Email,
     string MobileNumber,
     string Address,
+    string? AddressDetails,
     IReadOnlyList<CustomerPortalContactOptionRecord> ContactOptions);
 public sealed record CustomerPortalContactOptionRecord(
     Guid Id,
@@ -867,14 +940,16 @@ public sealed record CustomerPortalContactOptionRecord(
     string ContactName,
     string PhoneNumber,
     string Address,
+    string? AddressDetails,
     bool IsDefault,
     DateTime CreatedAtUtc);
-public sealed record UpdateCustomerProfilePayload(string FullName, string MobileNumber, string Address);
+public sealed record UpdateCustomerProfilePayload(string FullName, string MobileNumber, string Address, string? AddressDetails);
 public sealed record UpsertCustomerContactOptionPayload(
     string Label,
     string ContactName,
     string PhoneNumber,
     string Address,
+    string? AddressDetails,
     bool IsDefault);
 public sealed record CreateCustomerRequestPayload(
     string ItemType,
@@ -882,6 +957,7 @@ public sealed record CreateCustomerRequestPayload(
     string IssueDescription,
     string? ServiceMode,
     string? ServiceAddress,
+    string? ServiceAddressDetails,
     string? ContactName,
     string? ContactPhone,
     DateTime? PreferredScheduleStartUtc,
@@ -906,6 +982,7 @@ public sealed record CustomerPortalRequestRecord(
     DateTime? RequestedServiceDate,
     string ServiceMode,
     string ServiceAddress,
+    string? ServiceAddressDetails,
     string ContactName,
     string ContactPhone,
     DateTime? PreferredScheduleStartUtc,
@@ -943,6 +1020,7 @@ public sealed record CustomerPortalRequestDetailRecord(
     DateTime? RequestedServiceDate,
     string ServiceMode,
     string ServiceAddress,
+    string? ServiceAddressDetails,
     string ContactName,
     string ContactPhone,
     DateTime? PreferredScheduleStartUtc,
@@ -983,6 +1061,17 @@ public sealed record CustomerPortalRequestAttachmentRecord(
     string ContentType,
     string RelativeUrl,
     DateTime CreatedAtUtc);
+public sealed record CustomerPortalRequestNotificationRecord(
+    Guid Id,
+    Guid RequestId,
+    string RequestNumber,
+    string ItemType,
+    string Status,
+    string Remarks,
+    DateTime ChangedAtUtc);
+public sealed record CustomerPortalRequestNotificationFeedResponse(
+    DateTime CursorUtc,
+    IReadOnlyList<CustomerPortalRequestNotificationRecord> Events);
 public sealed record CustomerPortalRequestDetailsResponse(
     CustomerPortalRequestDetailRecord Request,
     IReadOnlyList<CustomerPortalTimelineEntryRecord> Timeline,

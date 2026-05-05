@@ -10,7 +10,8 @@ public sealed class CustomerAuthenticationService(
     ServiFinanceDbContext dbContext,
     IPasswordHasher<Customer> passwordHasher) : ICustomerAuthenticationService {
   private const int EmailMaxLength = 50;
-
+  private const int AddressMaxLength = 500;
+  private const int AddressDetailsMaxLength = 500;
 
   public async Task<AuthenticatedUser?> AuthenticateAsync(string email, string password, string tenantDomainSlug, CancellationToken cancellationToken = default) {
     var tenantSlug = tenantDomainSlug.Trim().ToLowerInvariant();
@@ -44,8 +45,16 @@ public sealed class CustomerAuthenticationService(
   public async Task<AuthenticatedUser> RegisterAsync(CustomerRegisterRequest request, CancellationToken cancellationToken = default) {
     var tenantSlug = request.TenantDomainSlug.Trim().ToLowerInvariant();
     var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+    var address = request.Address.Trim();
+    var addressDetails = NormalizeOptionalText(request.AddressDetails);
     if (normalizedEmail.Length > EmailMaxLength) {
       throw new InvalidOperationException($"Email must be {EmailMaxLength} characters or fewer.");
+    }
+    if (address.Length > AddressMaxLength) {
+      throw new InvalidOperationException($"Address must be {AddressMaxLength} characters or fewer.");
+    }
+    if ((addressDetails?.Length ?? 0) > AddressDetailsMaxLength) {
+      throw new InvalidOperationException($"Address details must be {AddressDetailsMaxLength} characters or fewer.");
     }
 
     var tenant = await dbContext.Tenants
@@ -73,7 +82,8 @@ public sealed class CustomerAuthenticationService(
         FullName = request.FullName.Trim(),
         Email = normalizedEmail,
         MobileNumber = request.MobileNumber.Trim(),
-        Address = request.Address.Trim(),
+        Address = address,
+        AddressDetails = addressDetails,
         CreatedAtUtc = DateTime.UtcNow
     };
 
@@ -89,5 +99,10 @@ public sealed class CustomerAuthenticationService(
         Email: customer.Email,
         FullName: customer.FullName,
         Roles: ["Customer"]);
+  }
+
+  private static string? NormalizeOptionalText(string? value) {
+    var normalized = value?.Trim();
+    return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
   }
 }

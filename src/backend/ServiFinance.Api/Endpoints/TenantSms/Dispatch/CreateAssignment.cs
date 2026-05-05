@@ -42,6 +42,11 @@ internal static class CreateAssignment {
               if (serviceRequest is null) {
                 return Results.BadRequest(new { error = "The selected service request was not found." });
               }
+              if (!CanScheduleServiceRequest(serviceRequest.CurrentStatus)) {
+                return Results.BadRequest(new {
+                  error = "This service request is no longer schedulable because it is cancelled, pending cancellation, or already closed."
+                });
+              }
 
               var assignedUser = await dbContext.Users
               .AsNoTracking()
@@ -140,4 +145,10 @@ internal static class CreateAssignment {
   private static bool IsFeedbackEligibleStatus(string status) =>
     string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase);
+
+  private static bool CanScheduleServiceRequest(string status) =>
+    !string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase) &&
+    !string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase) &&
+    !string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase) &&
+    !string.Equals(status, "Cancellation Requested", StringComparison.OrdinalIgnoreCase);
 }

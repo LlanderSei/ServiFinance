@@ -7,6 +7,7 @@ export type CustomerContactOption = {
   contactName: string;
   phoneNumber: string;
   address: string;
+  addressDetails: string | null;
   isDefault: boolean;
   createdAtUtc: string;
 };
@@ -18,6 +19,7 @@ export type CustomerProfile = {
   email: string;
   mobileNumber: string;
   address: string;
+  addressDetails: string | null;
   contactOptions: CustomerContactOption[];
 };
 
@@ -25,6 +27,7 @@ export type UpdateCustomerProfilePayload = {
   fullName: string;
   mobileNumber: string;
   address: string;
+  addressDetails: string;
 };
 
 export type UpsertCustomerContactOptionPayload = {
@@ -32,6 +35,7 @@ export type UpsertCustomerContactOptionPayload = {
   contactName: string;
   phoneNumber: string;
   address: string;
+  addressDetails: string;
   isDefault: boolean;
 };
 

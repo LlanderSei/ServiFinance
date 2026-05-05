@@ -13,6 +13,8 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   private const int TenantBrandColorMaxLength = 20;
   private const int TenantLogoUrlMaxLength = 500;
   private const int ExternalBillingReferenceMaxLength = 200;
+  private const int ExternalServiceProviderMaxLength = 50;
+  private const int ExternalServiceStateKeyMaxLength = 200;
 
   private readonly Guid _currentTenantId;
   private readonly bool _hasRequestContext;
@@ -31,6 +33,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   public DbSet<SubscriptionTier> SubscriptionTiers => Set<SubscriptionTier>();
   public DbSet<PlatformModule> PlatformModules => Set<PlatformModule>();
   public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
+  public DbSet<ExternalServiceState> ExternalServiceStates => Set<ExternalServiceState>();
   public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
   public DbSet<SubscriptionTierModule> SubscriptionTierModules => Set<SubscriptionTierModule>();
   public DbSet<AppUser> Users => Set<AppUser>();
@@ -59,6 +62,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
     ConfigureSubscriptionTiers(modelBuilder);
     ConfigurePlatformModules(modelBuilder);
     ConfigureRefreshSessions(modelBuilder);
+    ConfigureExternalServiceStates(modelBuilder);
     ConfigureAuditEvents(modelBuilder);
     ConfigureSubscriptionTierModules(modelBuilder);
     ConfigureUsers(modelBuilder);

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useToast } from "@/shared/toast/ToastProvider";
 import type { CustomerSession } from "./customerAuth";
 import { logoutCustomerAccount } from "./customerAuth";
+import { fetchCustomerRequestNotifications } from "./useCustomerRequests";
 import { buildCustomerNav } from "./customerNav";
 
 type Props = {
@@ -9,20 +11,57 @@ type Props = {
   children: ReactNode;
 };
 
+type NotificationBanner = {
+  tone: "info" | "warning";
+  title: string;
+  message: string;
+  canPrompt: boolean;
+};
+
 function joinClasses(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
+}
+
+function getNotificationPermissionState(): NotificationPermission | "unsupported" {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return "unsupported";
+  }
+
+  return window.Notification.permission;
+}
+
+function buildNotificationStorageKey(tenantDomainSlug: string, customerUserId: string) {
+  return `servifinance:customer-request-notifications:${tenantDomainSlug}:${customerUserId}`;
+}
+
+function trimNotificationText(value: string, maxLength = 140) {
+  const normalized = value.trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 export function CustomerShell({ session, children }: Props) {
   const { tenantDomainSlug = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(() => getNotificationPermissionState());
+  const [notificationBanner, setNotificationBanner] = useState<NotificationBanner | null>(null);
   const lastScrollYRef = useRef(0);
   const isScrollTickingRef = useRef(false);
+  const notificationCursorRef = useRef<string | null>(null);
+  const isNotificationPollingRef = useRef(false);
+  const seenNotificationIdsRef = useRef<Set<string>>(new Set());
   const navItems = buildCustomerNav(tenantDomainSlug);
   const isAuthenticated = session !== null;
+  const notificationStorageKey = session
+    ? buildNotificationStorageKey(session.tenantDomainSlug, session.userId)
+    : null;
 
   useEffect(() => {
     setIsDrawerOpen(false);
@@ -70,9 +109,278 @@ export function CustomerShell({ session, children }: Props) {
     };
   }, [isDrawerOpen]);
 
+  useEffect(() => {
+    const permission = getNotificationPermissionState();
+    setNotificationPermission(permission);
+    notificationCursorRef.current = null;
+    seenNotificationIdsRef.current.clear();
+
+    if (!session) {
+      setNotificationBanner(null);
+      return;
+    }
+
+    if (permission === "default") {
+      setNotificationBanner({
+        tone: "info",
+        title: "Enable browser notifications",
+        message: "Allow browser notifications so tenant-side request updates can reach you instantly, even when this tab is in the background.",
+        canPrompt: true
+      });
+      return;
+    }
+
+    if (permission === "granted") {
+      setNotificationBanner(null);
+      return;
+    }
+
+    if (permission === "denied") {
+      setNotificationBanner({
+        tone: "warning",
+        title: "Browser notifications are blocked",
+        message: "Request updates can still appear inside the portal, but instant browser alerts are blocked until you re-enable them in browser site settings.",
+        canPrompt: false
+      });
+      return;
+    }
+
+    setNotificationBanner({
+      tone: "warning",
+      title: "Browser notifications are unavailable",
+      message: "This browser cannot show web notifications, so request movement will appear as in-app alerts only.",
+      canPrompt: false
+    });
+  }, [session?.tenantDomainSlug, session?.userId]);
+
+  useEffect(() => {
+    const storageKey = notificationStorageKey!;
+    if (!storageKey) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    async function bootstrapNotifications() {
+      const storedCursor = window.localStorage.getItem(storageKey);
+      if (storedCursor) {
+        notificationCursorRef.current = storedCursor;
+        return;
+      }
+
+      try {
+        const baseline = await fetchCustomerRequestNotifications();
+        if (isCancelled) {
+          return;
+        }
+
+        notificationCursorRef.current = baseline.cursorUtc;
+        window.localStorage.setItem(storageKey, baseline.cursorUtc);
+      } catch {
+        const fallbackCursor = new Date().toISOString();
+        notificationCursorRef.current = fallbackCursor;
+        window.localStorage.setItem(storageKey, fallbackCursor);
+      }
+    }
+
+    void bootstrapNotifications();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [notificationStorageKey]);
+
+  useEffect(() => {
+    const storageKey = notificationStorageKey!;
+    if (!storageKey || !session) {
+      return;
+    }
+
+    let isDisposed = false;
+
+    async function pollNotifications() {
+      if (isDisposed || isNotificationPollingRef.current) {
+        return;
+      }
+
+      isNotificationPollingRef.current = true;
+      try {
+        if (!notificationCursorRef.current) {
+          const baseline = await fetchCustomerRequestNotifications();
+          if (isDisposed) {
+            return;
+          }
+
+          notificationCursorRef.current = baseline.cursorUtc;
+          window.localStorage.setItem(storageKey, baseline.cursorUtc);
+          return;
+        }
+
+        const cursorUtc = notificationCursorRef.current;
+        const feed = await fetchCustomerRequestNotifications(cursorUtc);
+        if (isDisposed) {
+          return;
+        }
+
+        const unseenEvents = feed.events.filter((event) => !seenNotificationIdsRef.current.has(event.id));
+        unseenEvents.forEach((event) => {
+          seenNotificationIdsRef.current.add(event.id);
+        });
+
+        notificationCursorRef.current = feed.cursorUtc;
+        window.localStorage.setItem(storageKey, feed.cursorUtc);
+
+        if (unseenEvents.length === 0) {
+          return;
+        }
+
+        const latestEvent = unseenEvents[unseenEvents.length - 1];
+        const updateCountLabel = unseenEvents.length === 1
+          ? "1 new request update"
+          : `${unseenEvents.length} new request updates`;
+        const defaultMessage = `${latestEvent.requestNumber} is now ${latestEvent.status}. ${trimNotificationText(latestEvent.remarks, 96)}`;
+
+        if (notificationPermission === "granted" && typeof window !== "undefined" && "Notification" in window) {
+          if (document.visibilityState === "visible") {
+            toast.info({
+              title: updateCountLabel,
+              message: defaultMessage
+            });
+          } else {
+            unseenEvents.forEach((event) => {
+              new window.Notification(`Request updated: ${event.requestNumber}`, {
+                body: `${event.status} • ${trimNotificationText(event.remarks, 96)}`,
+                tag: `customer-request-${event.id}`
+              });
+            });
+          }
+
+          return;
+        }
+
+        if (notificationPermission === "denied") {
+          setNotificationBanner({
+            tone: "warning",
+            title: "Browser notifications are blocked",
+            message: `${updateCountLabel} arrived while notifications were denied. Open browser site settings to re-enable alerts for this tenant domain.`,
+            canPrompt: false
+          });
+          toast.warning({
+            title: "Request update available",
+            message: `${defaultMessage} Notifications are currently blocked in this browser.`
+          });
+          return;
+        }
+
+        if (notificationPermission === "default") {
+          setNotificationBanner({
+            tone: "info",
+            title: "Enable browser notifications",
+            message: `${updateCountLabel} arrived. Allow notifications so future tenant-side request movement can reach you instantly.`,
+            canPrompt: true
+          });
+          toast.info({
+            title: "Request update available",
+            message: `${defaultMessage} Enable browser notifications for instant alerts.`
+          });
+          return;
+        }
+
+        setNotificationBanner({
+          tone: "warning",
+          title: "Browser notifications are unavailable",
+          message: `${updateCountLabel} arrived, but this browser cannot show web notifications. Keep the portal open for in-app alerts.`,
+          canPrompt: false
+        });
+        toast.info({
+          title: "Request update available",
+          message: defaultMessage
+        });
+      } catch {
+        // Notification polling should fail quietly and retry on the next interval.
+      } finally {
+        isNotificationPollingRef.current = false;
+      }
+    }
+
+    const timerId = window.setInterval(() => {
+      void pollNotifications();
+    }, 30000);
+
+    void pollNotifications();
+
+    return () => {
+      isDisposed = true;
+      window.clearInterval(timerId);
+    };
+  }, [notificationPermission, notificationStorageKey, session?.userId, toast]);
+
   async function handleLogout() {
     await logoutCustomerAccount();
     navigate(`/t/${tenantDomainSlug}/c/login`, { replace: true });
+  }
+
+  async function handleEnableNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      setNotificationBanner({
+        tone: "warning",
+        title: "Browser notifications are unavailable",
+        message: "This browser does not support the Notification API for web alerts.",
+        canPrompt: false
+      });
+      return;
+    }
+
+    if (!window.isSecureContext) {
+      setNotificationBanner({
+        tone: "warning",
+        title: "Notification permission cannot be requested here",
+        message: "Browser notifications require a secure origin. Use HTTPS or localhost to enable them.",
+        canPrompt: false
+      });
+      return;
+    }
+
+    try {
+      const permission = await window.Notification.requestPermission();
+      setNotificationPermission(permission);
+
+      if (permission === "granted") {
+        setNotificationBanner(null);
+        toast.success({
+          title: "Browser notifications enabled",
+          message: "Tenant-side request movement can now reach you instantly while this customer portal stays signed in."
+        });
+        return;
+      }
+
+      if (permission === "denied") {
+        setNotificationBanner({
+          tone: "warning",
+          title: "Browser notifications are blocked",
+          message: "This browser denied notification permission. Open browser site settings if you want to enable alerts later.",
+          canPrompt: false
+        });
+        toast.warning({
+          title: "Notifications blocked",
+          message: "Browser permission was denied, so future request updates will stay inside the portal only."
+        });
+        return;
+      }
+
+      setNotificationBanner({
+        tone: "info",
+        title: "Enable browser notifications",
+        message: "Permission is still pending. Allow notifications when the browser prompts so request movement can reach you instantly.",
+        canPrompt: true
+      });
+    } catch {
+      toast.error({
+        title: "Unable to request notifications",
+        message: "The browser could not open the notification permission prompt right now."
+      });
+    }
   }
 
   const authLinks = isAuthenticated
@@ -239,6 +547,41 @@ export function CustomerShell({ session, children }: Props) {
 
           <main className="min-w-0 flex-1 px-4 py-4 lg:px-6 lg:py-5">
             <div className="mx-auto w-full max-w-[1120px]">
+              {session && notificationBanner && (
+                <section
+                  className={joinClasses(
+                    "mb-5 rounded-[1.7rem] border px-4 py-4 shadow-[0_12px_28px_rgba(35,46,76,0.06)] sm:px-5",
+                    notificationBanner.tone === "warning"
+                      ? "border-amber-200 bg-amber-50 text-amber-900"
+                      : "border-sky-200 bg-sky-50 text-sky-900"
+                  )}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em]">
+                        {notificationBanner.tone === "warning" ? "Notification status" : "Instant request alerts"}
+                      </p>
+                      <h3 className="mt-2 text-lg font-semibold tracking-[-0.02em]">
+                        {notificationBanner.title}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-current/80">
+                        {notificationBanner.message}
+                      </p>
+                    </div>
+
+                    {notificationBanner.canPrompt && (
+                      <button
+                        type="button"
+                        className="btn rounded-full border-none bg-slate-950 px-5 text-white hover:bg-slate-800 sm:w-auto"
+                        onClick={handleEnableNotifications}
+                      >
+                        Enable notifications
+                      </button>
+                    )}
+                  </div>
+                </section>
+              )}
+
               {children}
             </div>
           </main>

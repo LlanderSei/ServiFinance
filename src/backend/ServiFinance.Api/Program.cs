@@ -4,12 +4,17 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using ServiFinance.Api.Endpoints;
 using ServiFinance.Api.Infrastructure;
+using ServiFinance.Api.Services;
 using ServiFinance.Infrastructure.Configuration;
 using ServiFinance.Infrastructure.Extensions;
 
 DotEnvLoader.LoadFromCurrentDirectory();
 
 var builder = WebApplication.CreateBuilder(args);
+var nominatimUserAgent = builder.Configuration["ServiFinance:ExternalServices:Nominatim:UserAgent"]?.Trim()
+    ?? builder.Configuration["ExternalServices:Nominatim:UserAgent"]?.Trim();
+var nominatimContactEmail = builder.Configuration["ServiFinance:ExternalServices:Nominatim:ContactEmail"]?.Trim()
+    ?? builder.Configuration["ExternalServices:Nominatim:ContactEmail"]?.Trim();
 var sessionTokenOptions = builder.Configuration.GetSection(SessionTokenOptions.SectionName).Get<SessionTokenOptions>() ?? new SessionTokenOptions();
 if (string.IsNullOrWhiteSpace(sessionTokenOptions.SigningKey)) {
   throw new InvalidOperationException(
@@ -18,6 +23,21 @@ if (string.IsNullOrWhiteSpace(sessionTokenOptions.SigningKey)) {
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient(NominatimAddressLookupService.HttpClientName, client => {
+  client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+  client.Timeout = TimeSpan.FromSeconds(10);
+  client.DefaultRequestHeaders.UserAgent.ParseAdd(
+    !string.IsNullOrWhiteSpace(nominatimUserAgent)
+      ? nominatimUserAgent
+      : !string.IsNullOrWhiteSpace(nominatimContactEmail)
+        ? $"ServiFinance/1.0 ({nominatimContactEmail})"
+        : "ServiFinance/1.0"
+  );
+  client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+  client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-PH,en;q=0.9");
+});
+builder.Services.AddScoped<IAddressLookupService, NominatimAddressLookupService>();
 builder.Services.AddCors(options => {
   options.AddPolicy("ServiFinanceFrontendClients", policy => {
     policy.SetIsOriginAllowed(ProgramEndpointSupport.IsAllowedFrontendOrigin)
@@ -68,6 +88,7 @@ app.MapWebAccountEndpoints();
 
 var api = app.MapGroup("/api");
 api.MapPlatformApiEndpoints();
+api.MapAddressLookupApiEndpoints();
 api.MapAuthApiEndpoints(sessionTokenOptions);
 api.MapSuperadminApiEndpoints();
 api.MapTenantSmsApiEndpoints();
