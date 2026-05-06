@@ -15,11 +15,10 @@ Based on `Use Case IT15 ServiFinance`, the current SMS web implementation is alr
 - job photo and evidence uploads are implemented
 - service invoice finalization is implemented
 
-The remaining gaps are the customer-facing and billing-facing use cases that are still outside the current SMS web scope:
+The remaining gaps are now narrower and mostly centered on deeper commercial automation rather than core service operations:
 
-- customer service-invoice payment in the SMS web is not implemented
-- tenant-facing domain or subscription payment processing is not implemented
-- direct online invoice settlement or proof-submission is not implemented in the customer portal
+- embedded custom card or wallet forms for service invoices are not implemented; online settlement now uses hosted Stripe Checkout instead
+- service-invoice settlement can now be posted from the customer portal, tenant SMS direct-payment confirmation, or MLS desktop finance review, but cashier-side reconciliation and mixed settlement paths can still be tightened
 
 There is also one workflow-tightening gap where the use-case intent is only partially matched:
 
@@ -228,7 +227,7 @@ Provide a secure, tenant-scoped, public-facing portal where end-customers can cr
 - **Dashboard & Navigation:** Present a responsive overview, sidebar/drawer navigation, and active session details.
 - **Service Request Tracking:** Provide customer-owned request list fetching, displaying status timelines and progress (e.g. `GET /api/customer-portal/requests`).
 - **Request Submission:** Enable self-service intake where customers create `ServiceRequest` records directly (`POST /api/customer-portal/requests`).
-- **Invoice Readiness:** Expose finalized or pending invoices linked to the customer account (`GET /api/customer-portal/invoices`), preparing for future settlement workflows.
+- **Invoice Readiness and Settlement Visibility:** Expose finalized or pending invoices linked to the customer account (`GET /api/customer-portal/invoices`) and allow manual settlement-proof submission for finance review.
 - **Feedback & Ratings:** Support post-completion survey capturing customer ratings and feedback text attached directly to completed `ServiceRequest` records.
 
 ### Planned Outputs
@@ -257,7 +256,7 @@ Current implementation:
 - customer dashboard, request list, invoice list, and feedback routes now load inside a dedicated customer shell with mobile drawer navigation
 - customers can create new service requests directly from the portal without tenant-staff intervention
 - customer request tracking now includes a request-detail page with service timeline, dispatch assignment context, and invoice handoff visibility
-- customer invoices now expose settlement status, outstanding balances, and whether the invoice has already been converted into an MLS loan account
+- customer invoices now expose settlement status, outstanding balances, whether the invoice has already been converted into an MLS loan account, and the submission/review trail for manual settlement proofs
 - customer feedback and ratings now persist back to completed service requests through the portal
 - customer feedback is now lifecycle-bound to service completion with stored completion, submission, and 7-day expiry timestamps
 - customer feedback can now capture a suggestion category in addition to the 1-5 star rating and optional comments
@@ -269,10 +268,17 @@ Current implementation:
 - saved customer contact/address loadouts can prefill new service requests, reducing repeated typing for home, branch, or office service locations
 - customers can now cancel untouched `New` requests directly, or submit a cancellation request for tenant review once work has already moved into scheduling or execution
 - tenant SMS service request details now surface customer logistics, preferred availability, needed-by dates, cancellation state, cancellation reason, and customer-uploaded pictures in the operator detail modal
+- customers can now submit manual payment proof for finalized service invoices, including amount, payment method, reference number, receipt image or PDF, and optional settlement note
+- customers can now start hosted Stripe Checkout for fully unpaid finalized direct-settlement invoices without leaving the customer portal flow permanently
+- customer request details and invoice history now show settlement-proof review outcomes, approved amounts, review remarks, and linked receipt files for transparency
+- tenant SMS service request details now allow owner or administrator users to confirm direct service-invoice payments such as cash, GCash, Maya, bank transfer, card, or other recorded settlement methods
+- MLS customer finance now includes a `Settlements` tab where tenant finance staff can approve or reject customer-submitted service-invoice settlement proofs
+- approving or rejecting a settlement proof now updates invoice state (`Payment Submitted`, `Partially Paid`, or `Paid`) and writes service-request status-log entries so customer notifications can react to finance movement
+- once direct settlement starts through manual proof, hosted checkout, or tenant-recorded payment, the invoice leaves the `Finalized` loan-conversion queue so MLS loan conversion only remains available for untouched finalized balances
 
 Deferred within or after this phase:
 
-- direct online payment capture is still deferred; the current customer portal only tracks invoice and settlement state
+- embedded custom card or wallet payment forms are still deferred; the current customer portal uses hosted Stripe Checkout, while offline or semi-manual settlement still uses proof submission and tenant finance review
 - guest or token-based tracking links are still deferred; request tracking currently uses the authenticated customer session
 
 ## Phase 9: Tenant Subscription and Domain Billing Workspace

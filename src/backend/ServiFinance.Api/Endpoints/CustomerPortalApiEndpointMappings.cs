@@ -3,6 +3,7 @@ namespace ServiFinance.Api.Endpoints;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Payments;
 using ServiFinance.Domain;
 using ServiFinance.Infrastructure.Data;
 using System.Security.Claims;
@@ -19,6 +20,11 @@ internal static class CustomerPortalApiEndpointMappings {
   private const int FeedbackSuggestionCategoryMaxLength = 80;
   private const int FeedbackWindowDays = 7;
   private const long AttachmentMaxBytes = 5 * 1024 * 1024;
+  private const int PaymentMethodMaxLength = 80;
+  private const int PaymentReferenceNumberMaxLength = 120;
+  private const int PaymentNoteMaxLength = 1000;
+  private const int PaymentReviewRemarksMaxLength = 1000;
+  private const long PaymentProofMaxBytes = 8 * 1024 * 1024;
 
   public static RouteGroupBuilder MapCustomerPortalApiEndpoints(this RouteGroupBuilder api) {
     var customerApi = api.MapGroup("/customer-portal")
@@ -302,9 +308,11 @@ internal static class CustomerPortalApiEndpointMappings {
     customerApi.MapGet("/requests/{id:guid}/details", async Task<IResult> (
         Guid id,
         ClaimsPrincipal user,
+        IStripeServiceInvoicePaymentService stripePaymentService,
         ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
           var customerId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+          var canUseOnlineCheckout = stripePaymentService.IsConfigured;
 
           var request = await dbContext.ServiceRequests
               .AsNoTracking()
@@ -336,25 +344,102 @@ internal static class CustomerPortalApiEndpointMappings {
                 r.CancellationRequestedAtUtc,
                 r.CancelledAtUtc,
                 r.CancellationReason,
-                HasAssignments = r.Assignments.Any(),
-                Invoice = r.Invoices
-                    .OrderByDescending(invoice => invoice.InvoiceDateUtc)
-                    .Select(invoice => new CustomerPortalRequestInvoiceRecord(
-                        invoice.Id,
-                        invoice.InvoiceNumber,
-                        invoice.InvoiceStatus,
-                        invoice.TotalAmount,
-                        invoice.OutstandingAmount,
-                        invoice.InvoiceDateUtc,
-                        invoice.MicroLoan != null,
-                        invoice.MicroLoan != null ? invoice.MicroLoan.LoanStatus : null))
-                    .FirstOrDefault()
+                HasAssignments = r.Assignments.Any()
               })
               .SingleOrDefaultAsync(cancellationToken);
 
           if (request is null) {
             return Results.NotFound();
           }
+
+          var invoice = await dbContext.Invoices
+              .AsNoTracking()
+              .Where(entity => entity.ServiceRequestId == id)
+              .OrderByDescending(entity => entity.InvoiceDateUtc)
+              .Select(entity => new CustomerPortalRequestInvoiceRecord(
+                  entity.Id,
+                  entity.InvoiceNumber,
+                  entity.InvoiceStatus,
+                  entity.SubtotalAmount,
+                  entity.TaxAmount,
+                  entity.DiscountAmount,
+                  entity.TotalAmount,
+                  entity.OutstandingAmount,
+                  entity.InterestableAmount,
+                  entity.InvoiceDateUtc,
+                  entity.MicroLoan != null,
+                  entity.MicroLoan != null ? entity.MicroLoan.LoanStatus : null,
+                  entity.MicroLoan == null &&
+                    entity.OutstandingAmount > 0m &&
+                    entity.InvoiceStatus != ServiceInvoiceFinancePolicy.CheckoutPendingStatus &&
+                    !entity.PaymentSubmissions.Any(submission =>
+                        submission.Status == ServiceInvoiceFinancePolicy.PaymentSubmittedStatus ||
+                        submission.Status == ServiceInvoiceFinancePolicy.LegacyPendingReviewStatus),
+                  canUseOnlineCheckout &&
+                    entity.MicroLoan == null &&
+                    entity.InvoiceStatus == ServiceInvoiceFinancePolicy.FinalizedStatus &&
+                    entity.OutstandingAmount > 0m &&
+                    entity.OutstandingAmount == entity.TotalAmount &&
+                    !entity.PaymentSubmissions.Any(submission =>
+                        submission.Status == ServiceInvoiceFinancePolicy.CheckoutPendingStatus ||
+                        submission.Status == ServiceInvoiceFinancePolicy.PaymentSubmittedStatus ||
+                        submission.Status == ServiceInvoiceFinancePolicy.LegacyPendingReviewStatus),
+                  entity.InvoiceLines
+                      .OrderBy(line => line.SortOrder)
+                      .ThenBy(line => line.Name)
+                      .Select(line => new CustomerPortalRequestInvoiceLineRecord(
+                          line.Id,
+                          line.Category,
+                          line.Name,
+                          line.Specification,
+                          line.Quantity,
+                          line.UnitPrice,
+                          line.LineTotal))
+                      .ToList(),
+                  entity.PaymentSubmissions
+                      .OrderByDescending(submission => submission.SubmittedAtUtc)
+                      .ThenByDescending(submission => submission.Id)
+                      .Select(submission => new CustomerPortalInvoicePaymentSubmissionRecord(
+                          submission.Id,
+                          submission.AmountSubmitted,
+                          submission.ApprovedAmount,
+                          submission.PaymentMethod,
+                          submission.ReferenceNumber,
+                          submission.Status,
+                          submission.Note,
+                          submission.ReviewRemarks,
+                          submission.ProofOriginalFileName,
+                          submission.ProofRelativeUrl,
+                          submission.SubmittedAtUtc,
+                          submission.ReviewedAtUtc))
+                      .ToList()))
+              .FirstOrDefaultAsync(cancellationToken);
+
+          var costSheet = await dbContext.ServiceCostSheets
+              .AsNoTracking()
+              .Where(entity => entity.ServiceRequestId == id)
+              .Select(entity => new {
+                entity.Id,
+                entity.Status,
+                entity.IsTaxEnabled,
+                entity.TaxLabel,
+                entity.TaxRate,
+                entity.Notes,
+                entity.UpdatedAtUtc,
+                Lines = entity.Lines
+                    .OrderBy(line => line.SortOrder)
+                    .ThenBy(line => line.Name)
+                    .Select(line => new CustomerPortalServiceCostLineRecord(
+                        line.Id,
+                        line.Category,
+                        line.Name,
+                        line.Specification,
+                        line.Quantity,
+                        line.UnitPrice,
+                        line.Quantity * line.UnitPrice))
+                    .ToList()
+              })
+              .SingleOrDefaultAsync(cancellationToken);
 
           var requestRecord = new CustomerPortalRequestDetailRecord(
               request.Id,
@@ -385,7 +470,26 @@ internal static class CustomerPortalApiEndpointMappings {
               request.CancellationReason,
               CanCancelDirectly(request.CurrentStatus, request.HasAssignments),
               CanRequestCancellation(request.CurrentStatus, request.HasAssignments),
-              request.Invoice);
+              invoice,
+              costSheet is null
+                  ? null
+                  : new CustomerPortalServiceCostSheetRecord(
+                      costSheet.Id,
+                      costSheet.Status,
+                      costSheet.IsTaxEnabled,
+                      costSheet.TaxLabel,
+                      costSheet.TaxRate,
+                      costSheet.Lines.Sum(line => line.LineTotal),
+                      costSheet.IsTaxEnabled
+                          ? Math.Round(costSheet.Lines.Sum(line => line.LineTotal) * (costSheet.TaxRate / 100m), 2, MidpointRounding.AwayFromZero)
+                          : 0m,
+                      costSheet.Lines.Sum(line => line.LineTotal) + (
+                        costSheet.IsTaxEnabled
+                          ? Math.Round(costSheet.Lines.Sum(line => line.LineTotal) * (costSheet.TaxRate / 100m), 2, MidpointRounding.AwayFromZero)
+                          : 0m),
+                      costSheet.Notes,
+                      costSheet.UpdatedAtUtc,
+                      costSheet.Lines));
 
           var timeline = await dbContext.StatusLogs
               .AsNoTracking()
@@ -701,31 +805,256 @@ internal static class CustomerPortalApiEndpointMappings {
 
     customerApi.MapGet("/invoices", async Task<IResult> (
         ClaimsPrincipal user,
+        IStripeServiceInvoicePaymentService stripePaymentService,
         ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
           var customerId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+          var canUseOnlineCheckout = stripePaymentService.IsConfigured;
 
           var invoices = await dbContext.Invoices
               .AsNoTracking()
               .Include(i => i.ServiceRequest)
               .Where(i => i.CustomerId == customerId)
               .OrderByDescending(i => i.InvoiceDateUtc)
-              .Select(i => new {
-                i.Id,
-                i.InvoiceNumber,
-                i.InvoiceDateUtc,
-                i.TotalAmount,
-                i.OutstandingAmount,
-                i.InvoiceStatus,
-                ServiceRequestId = i.ServiceRequestId,
-                ServiceRequestNumber = i.ServiceRequest != null ? i.ServiceRequest.RequestNumber : null,
-                HasMicroLoan = i.MicroLoan != null,
-                MicroLoanStatus = i.MicroLoan != null ? i.MicroLoan.LoanStatus : null
-              })
+              .Select(i => new CustomerPortalInvoiceSummaryRecord(
+                  i.Id,
+                  i.InvoiceNumber,
+                  i.InvoiceDateUtc,
+                  i.TotalAmount,
+                  i.OutstandingAmount,
+                  i.InvoiceStatus,
+                  i.ServiceRequestId,
+                  i.ServiceRequest != null ? i.ServiceRequest.RequestNumber : null,
+                  i.MicroLoan != null,
+                  i.MicroLoan != null ? i.MicroLoan.LoanStatus : null,
+                  i.MicroLoan == null &&
+                    i.OutstandingAmount > 0m &&
+                    i.InvoiceStatus != ServiceInvoiceFinancePolicy.CheckoutPendingStatus &&
+                    !i.PaymentSubmissions.Any(submission =>
+                        submission.Status == ServiceInvoiceFinancePolicy.PaymentSubmittedStatus ||
+                        submission.Status == ServiceInvoiceFinancePolicy.LegacyPendingReviewStatus),
+                  canUseOnlineCheckout &&
+                    i.MicroLoan == null &&
+                    i.InvoiceStatus == ServiceInvoiceFinancePolicy.FinalizedStatus &&
+                    i.OutstandingAmount > 0m &&
+                    i.OutstandingAmount == i.TotalAmount &&
+                    !i.PaymentSubmissions.Any(submission =>
+                        submission.Status == ServiceInvoiceFinancePolicy.CheckoutPendingStatus ||
+                        submission.Status == ServiceInvoiceFinancePolicy.PaymentSubmittedStatus ||
+                        submission.Status == ServiceInvoiceFinancePolicy.LegacyPendingReviewStatus),
+                  i.PaymentSubmissions
+                      .OrderByDescending(submission => submission.SubmittedAtUtc)
+                      .ThenByDescending(submission => submission.Id)
+                      .Select(submission => new CustomerPortalInvoicePaymentSubmissionRecord(
+                          submission.Id,
+                          submission.AmountSubmitted,
+                          submission.ApprovedAmount,
+                          submission.PaymentMethod,
+                          submission.ReferenceNumber,
+                          submission.Status,
+                          submission.Note,
+                          submission.ReviewRemarks,
+                          submission.ProofOriginalFileName,
+                          submission.ProofRelativeUrl,
+                          submission.SubmittedAtUtc,
+                          submission.ReviewedAtUtc))
+                      .ToList()))
               .ToListAsync(cancellationToken);
 
           return Results.Ok(invoices);
         });
+
+    customerApi.MapPost("/invoices/{invoiceId:guid}/stripe-checkout", async Task<IResult> (
+        Guid invoiceId,
+        HttpContext httpContext,
+        ClaimsPrincipal user,
+        IStripeServiceInvoicePaymentService stripePaymentService,
+        CancellationToken cancellationToken) => {
+          var customerId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+          var tenantDomainSlug = user.FindFirstValue("tenant_domain_slug") ?? string.Empty;
+          try {
+            var baseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}{httpContext.Request.PathBase}";
+            var session = await stripePaymentService.CreateCheckoutSessionAsync(
+                invoiceId,
+                customerId,
+                tenantDomainSlug,
+                baseUrl,
+                cancellationToken);
+
+            return Results.Ok(new CustomerPortalStripeCheckoutSessionResponse(
+                session.InvoiceId,
+                session.CheckoutSessionId,
+                session.CheckoutUrl));
+          } catch (InvalidOperationException ex) {
+            return Results.BadRequest(new { error = ex.Message });
+          }
+        });
+
+    customerApi.MapPost("/invoices/{invoiceId:guid}/stripe-checkout/sync", async Task<IResult> (
+        Guid invoiceId,
+        ClaimsPrincipal user,
+        [FromBody] SyncCustomerInvoiceStripeCheckoutRequest request,
+        IStripeServiceInvoicePaymentService stripePaymentService,
+        CancellationToken cancellationToken) => {
+          var customerId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+          if (string.IsNullOrWhiteSpace(request.CheckoutSessionId)) {
+            return Results.BadRequest(new { error = "Checkout session id is required." });
+          }
+
+          try {
+            var syncResult = await stripePaymentService.SyncCheckoutSessionAsync(
+                invoiceId,
+                customerId,
+                request.CheckoutSessionId.Trim(),
+                cancellationToken);
+            return syncResult is null
+              ? Results.NotFound()
+              : Results.Ok(new CustomerPortalStripeCheckoutSyncResponse(
+                  syncResult.InvoiceId,
+                  syncResult.InvoiceStatus,
+                  syncResult.OutstandingAmount,
+                  syncResult.PaymentApplied));
+          } catch (InvalidOperationException ex) {
+            return Results.BadRequest(new { error = ex.Message });
+          }
+        });
+
+    customerApi.MapPost("/invoices/{invoiceId:guid}/payment-submissions", async Task<IResult> (
+        Guid invoiceId,
+        ClaimsPrincipal user,
+        [FromForm] SubmitCustomerInvoicePaymentSubmissionRequest request,
+        ServiFinanceDbContext dbContext,
+        IWebHostEnvironment environment,
+        CancellationToken cancellationToken) => {
+          var customerId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+          var tenantId = Guid.Parse(user.FindFirstValue("tenant_id")!);
+          var tenantDomainSlug = user.FindFirstValue("tenant_domain_slug") ?? "tenant";
+
+          var paymentMethod = (request.PaymentMethod ?? string.Empty).Trim();
+          if (string.IsNullOrWhiteSpace(paymentMethod)) {
+            return Results.BadRequest(new { error = "Select the payment method used for this settlement proof." });
+          }
+          if (paymentMethod.Length > PaymentMethodMaxLength) {
+            return Results.BadRequest(new { error = $"Payment method must be {PaymentMethodMaxLength} characters or fewer." });
+          }
+
+          var referenceNumber = (request.ReferenceNumber ?? string.Empty).Trim();
+          if (string.IsNullOrWhiteSpace(referenceNumber)) {
+            return Results.BadRequest(new { error = "Enter the payment reference number for finance review." });
+          }
+          if (referenceNumber.Length > PaymentReferenceNumberMaxLength) {
+            return Results.BadRequest(new { error = $"Reference number must be {PaymentReferenceNumberMaxLength} characters or fewer." });
+          }
+
+          var note = NormalizeOptionalText(request.Note);
+          if ((note?.Length ?? 0) > PaymentNoteMaxLength) {
+            return Results.BadRequest(new { error = $"Payment note must be {PaymentNoteMaxLength} characters or fewer." });
+          }
+
+          if (request.AmountSubmitted <= 0m) {
+            return Results.BadRequest(new { error = "Enter the amount you submitted for this invoice." });
+          }
+
+          if (request.ProofFile is null || request.ProofFile.Length <= 0) {
+            return Results.BadRequest(new { error = "Attach a payment proof image or PDF before submitting." });
+          }
+          if (request.ProofFile.Length > PaymentProofMaxBytes) {
+            return Results.BadRequest(new { error = "Payment proof must be 8 MB or smaller." });
+          }
+          if (!IsSupportedSettlementProof(request.ProofFile)) {
+            return Results.BadRequest(new { error = "Payment proof must be an image or PDF file." });
+          }
+
+          var invoice = await dbContext.Invoices
+              .Include(entity => entity.MicroLoan)
+              .Include(entity => entity.PaymentSubmissions)
+              .Include(entity => entity.ServiceRequest)
+              .SingleOrDefaultAsync(entity => entity.Id == invoiceId && entity.CustomerId == customerId, cancellationToken);
+          if (invoice is null) {
+            return Results.NotFound();
+          }
+          if (invoice.MicroLoan is not null) {
+            return Results.BadRequest(new { error = "This invoice has already been converted into an MLS loan account and can no longer accept direct settlement proof." });
+          }
+          if (invoice.OutstandingAmount <= 0m || string.Equals(invoice.InvoiceStatus, "Paid", StringComparison.OrdinalIgnoreCase)) {
+            return Results.BadRequest(new { error = "This invoice is already settled." });
+          }
+          if (invoice.PaymentSubmissions.Any(entity => entity.Status == ServiceInvoiceFinancePolicy.CheckoutPendingStatus)) {
+            return Results.BadRequest(new { error = "An online checkout session is already in progress for this invoice." });
+          }
+          if (invoice.PaymentSubmissions.Any(entity => ServiceInvoiceFinancePolicy.IsManualReviewPendingStatus(entity.Status))) {
+            return Results.BadRequest(new { error = "A payment proof is already pending review for this invoice." });
+          }
+
+          var amountSubmitted = RoundCurrency(request.AmountSubmitted);
+          if (amountSubmitted > invoice.OutstandingAmount) {
+            return Results.BadRequest(new { error = "Submitted amount cannot be greater than the current outstanding balance." });
+          }
+
+          var submission = new InvoicePaymentSubmission {
+            TenantId = tenantId,
+            InvoiceId = invoice.Id,
+            CustomerId = customerId,
+            ServiceRequestId = invoice.ServiceRequestId,
+            AmountSubmitted = amountSubmitted,
+            PaymentMethod = paymentMethod,
+            ReferenceNumber = referenceNumber,
+            Note = note,
+            Status = ServiceInvoiceFinancePolicy.PaymentSubmittedStatus,
+            SubmittedAtUtc = DateTime.UtcNow
+          };
+
+          var webRootPath = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
+          var uploadDirectory = Path.Combine(
+              webRootPath,
+              "uploads",
+              "invoice-payment-submissions",
+              tenantDomainSlug,
+              invoice.Id.ToString("N"),
+              submission.Id.ToString("N"));
+          Directory.CreateDirectory(uploadDirectory);
+
+          var proofExtension = Path.GetExtension(request.ProofFile.FileName);
+          var storedFileName = $"invoice-proof-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}{proofExtension}";
+          var absoluteFilePath = Path.Combine(uploadDirectory, storedFileName);
+          await using (var stream = File.Create(absoluteFilePath)) {
+            await request.ProofFile.CopyToAsync(stream, cancellationToken);
+          }
+
+          submission.ProofOriginalFileName = request.ProofFile.FileName;
+          submission.ProofStoredFileName = storedFileName;
+          submission.ProofContentType = request.ProofFile.ContentType;
+          submission.ProofRelativeUrl = $"/uploads/invoice-payment-submissions/{tenantDomainSlug}/{invoice.Id:N}/{submission.Id:N}/{storedFileName}";
+
+          dbContext.InvoicePaymentSubmissions.Add(submission);
+          invoice.InvoiceStatus = ServiceInvoiceFinancePolicy.DeriveInvoiceStatus(invoice);
+
+          if (invoice.ServiceRequestId.HasValue) {
+            dbContext.StatusLogs.Add(new StatusLog {
+              ServiceRequestId = invoice.ServiceRequestId.Value,
+              Status = invoice.ServiceRequest?.CurrentStatus ?? "Completed",
+              Remarks = $"Customer submitted payment proof for invoice {invoice.InvoiceNumber} amounting to {amountSubmitted:0.00}.",
+              ChangedByCustomerId = customerId,
+              ChangedAtUtc = submission.SubmittedAtUtc
+            });
+          }
+
+          await dbContext.SaveChangesAsync(cancellationToken);
+
+          return Results.Ok(new CustomerPortalInvoicePaymentSubmissionRecord(
+              submission.Id,
+              submission.AmountSubmitted,
+              submission.ApprovedAmount,
+              submission.PaymentMethod,
+              submission.ReferenceNumber,
+              submission.Status,
+              submission.Note,
+              submission.ReviewRemarks,
+              submission.ProofOriginalFileName,
+              submission.ProofRelativeUrl,
+              submission.SubmittedAtUtc,
+              submission.ReviewedAtUtc));
+        }).DisableAntiforgery();
 
     customerApi.MapPost("/requests/{id:guid}/feedback", async Task<IResult> (
         Guid id,
@@ -923,6 +1252,13 @@ internal static class CustomerPortalApiEndpointMappings {
 
   private static bool IsSupportedImage(IFormFile file) =>
     file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
+  private static bool IsSupportedSettlementProof(IFormFile file) =>
+    file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase);
+
+  private static decimal RoundCurrency(decimal value) =>
+    Math.Round(value, 2, MidpointRounding.AwayFromZero);
 }
 
 public sealed record CustomerPortalProfileResponse(
@@ -973,6 +1309,14 @@ public sealed record SubmitFeedbackPayload(int Rating, string? FeedbackComments,
 public sealed class SubmitCustomerServiceRequestAttachmentRequest {
   public List<IFormFile>? Files { get; init; }
 }
+public sealed class SubmitCustomerInvoicePaymentSubmissionRequest {
+  public decimal AmountSubmitted { get; init; }
+  public string? PaymentMethod { get; init; }
+  public string? ReferenceNumber { get; init; }
+  public string? Note { get; init; }
+  public IFormFile? ProofFile { get; init; }
+}
+public sealed record SyncCustomerInvoiceStripeCheckoutRequest(string CheckoutSessionId);
 public sealed record CustomerPortalRequestRecord(
     Guid Id,
     string RequestNumber,
@@ -1006,11 +1350,83 @@ public sealed record CustomerPortalRequestInvoiceRecord(
     Guid Id,
     string InvoiceNumber,
     string InvoiceStatus,
+    decimal SubtotalAmount,
+    decimal TaxAmount,
+    decimal DiscountAmount,
     decimal TotalAmount,
     decimal OutstandingAmount,
+    decimal InterestableAmount,
     DateTime InvoiceDateUtc,
     bool HasMicroLoan,
-    string? MicroLoanStatus);
+    string? MicroLoanStatus,
+    bool CanSubmitPaymentProof,
+    bool CanStartStripeCheckout,
+    IReadOnlyList<CustomerPortalRequestInvoiceLineRecord> Lines,
+    IReadOnlyList<CustomerPortalInvoicePaymentSubmissionRecord> PaymentSubmissions);
+public sealed record CustomerPortalInvoicePaymentSubmissionRecord(
+    Guid Id,
+    decimal AmountSubmitted,
+    decimal? ApprovedAmount,
+    string PaymentMethod,
+    string ReferenceNumber,
+    string Status,
+    string? Note,
+    string? ReviewRemarks,
+    string? ProofOriginalFileName,
+    string? ProofRelativeUrl,
+    DateTime SubmittedAtUtc,
+    DateTime? ReviewedAtUtc);
+public sealed record CustomerPortalInvoiceSummaryRecord(
+    Guid Id,
+    string InvoiceNumber,
+    DateTime InvoiceDateUtc,
+    decimal TotalAmount,
+    decimal OutstandingAmount,
+    string InvoiceStatus,
+    Guid? ServiceRequestId,
+    string? ServiceRequestNumber,
+    bool HasMicroLoan,
+    string? MicroLoanStatus,
+    bool CanSubmitPaymentProof,
+    bool CanStartStripeCheckout,
+    IReadOnlyList<CustomerPortalInvoicePaymentSubmissionRecord> PaymentSubmissions);
+public sealed record CustomerPortalStripeCheckoutSessionResponse(
+    Guid InvoiceId,
+    string CheckoutSessionId,
+    string CheckoutUrl);
+public sealed record CustomerPortalStripeCheckoutSyncResponse(
+    Guid InvoiceId,
+    string InvoiceStatus,
+    decimal OutstandingAmount,
+    bool PaymentApplied);
+public sealed record CustomerPortalRequestInvoiceLineRecord(
+    Guid Id,
+    string Category,
+    string Name,
+    string? Specification,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal LineTotal);
+public sealed record CustomerPortalServiceCostLineRecord(
+    Guid Id,
+    string Category,
+    string Name,
+    string? Specification,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal LineTotal);
+public sealed record CustomerPortalServiceCostSheetRecord(
+    Guid Id,
+    string Status,
+    bool IsTaxEnabled,
+    string TaxLabel,
+    decimal TaxRate,
+    decimal SubtotalAmount,
+    decimal TaxAmount,
+    decimal TotalAmount,
+    string? Notes,
+    DateTime UpdatedAtUtc,
+    IReadOnlyList<CustomerPortalServiceCostLineRecord> Lines);
 public sealed record CustomerPortalRequestDetailRecord(
     Guid Id,
     string RequestNumber,
@@ -1040,7 +1456,8 @@ public sealed record CustomerPortalRequestDetailRecord(
     string? CancellationReason,
     bool CanCancelDirectly,
     bool CanRequestCancellation,
-    CustomerPortalRequestInvoiceRecord? Invoice);
+    CustomerPortalRequestInvoiceRecord? Invoice,
+    CustomerPortalServiceCostSheetRecord? CostSheet);
 public sealed record CustomerPortalTimelineEntryRecord(
     Guid Id,
     string Status,

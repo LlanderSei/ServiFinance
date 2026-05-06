@@ -2,6 +2,7 @@ namespace ServiFinance.Api.Endpoints.TenantMls;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Payments;
 using ServiFinance.Api.Contracts;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -43,7 +44,8 @@ internal static class TenantMlsDashboardEndpointMappings {
                     hasInvoice: true,
                     hasMicroLoan: entity.MicroLoan != null,
                     entity.OutstandingAmount,
-                    entity.InterestableAmount)
+                    entity.InterestableAmount,
+                    entity.InvoiceStatus)
               })
               .ToList();
 
@@ -52,7 +54,8 @@ internal static class TenantMlsDashboardEndpointMappings {
                   hasInvoice: true,
                   entity.HasMicroLoan,
                   entity.OutstandingAmount,
-                  entity.InterestableAmount))
+                  entity.InterestableAmount,
+                  ServiceInvoiceFinancePolicy.FinalizedStatus))
               .Select(entity => new TenantMlsFinanceQueueRowResponse(
                   entity.Id,
                   entity.ServiceRequestId,
@@ -87,12 +90,12 @@ internal static class TenantMlsDashboardEndpointMappings {
 
           var ledgerEntries = await dbContext.Transactions.CountAsync(cancellationToken);
           var summary = new TenantMlsDashboardSummaryResponse(
-              financeQueue.Count(entity => CanConvertToLoan(true, entity.HasMicroLoan, entity.OutstandingAmount, entity.InterestableAmount)),
+              financeQueue.Count(entity => CanConvertToLoan(true, entity.HasMicroLoan, entity.OutstandingAmount, entity.InterestableAmount, ServiceInvoiceFinancePolicy.FinalizedStatus)),
               finalizedInvoices.Count(entity => entity.MicroLoan != null),
               finalizedInvoices.Count,
               ledgerEntries,
               financeQueue
-                  .Where(entity => CanConvertToLoan(true, entity.HasMicroLoan, entity.OutstandingAmount, entity.InterestableAmount))
+                  .Where(entity => CanConvertToLoan(true, entity.HasMicroLoan, entity.OutstandingAmount, entity.InterestableAmount, ServiceInvoiceFinancePolicy.FinalizedStatus))
                   .Sum(entity => entity.OutstandingAmount),
               await dbContext.MicroLoans.SumAsync(entity => entity.PrincipalAmount, cancellationToken));
 

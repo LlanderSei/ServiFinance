@@ -36,11 +36,68 @@ export type CustomerRequestInvoice = {
   id: string;
   invoiceNumber: string;
   invoiceStatus: string;
+  subtotalAmount: number;
+  taxAmount: number;
+  discountAmount: number;
   totalAmount: number;
   outstandingAmount: number;
+  interestableAmount: number;
   invoiceDateUtc: string;
   hasMicroLoan: boolean;
   microLoanStatus?: string | null;
+  canSubmitPaymentProof: boolean;
+  canStartStripeCheckout: boolean;
+  lines: CustomerRequestInvoiceLine[];
+  paymentSubmissions: CustomerRequestInvoicePaymentSubmission[];
+};
+
+export type CustomerRequestInvoiceLine = {
+  id: string;
+  category: string;
+  name: string;
+  specification?: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+export type CustomerRequestInvoicePaymentSubmission = {
+  id: string;
+  amountSubmitted: number;
+  approvedAmount?: number | null;
+  paymentMethod: string;
+  referenceNumber: string;
+  status: string;
+  note?: string | null;
+  reviewRemarks?: string | null;
+  proofOriginalFileName?: string | null;
+  proofRelativeUrl?: string | null;
+  submittedAtUtc: string;
+  reviewedAtUtc?: string | null;
+};
+
+export type CustomerRequestCostLine = {
+  id: string;
+  category: string;
+  name: string;
+  specification?: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+export type CustomerRequestCostSheet = {
+  id: string;
+  status: string;
+  isTaxEnabled: boolean;
+  taxLabel: string;
+  taxRate: number;
+  subtotalAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  notes?: string | null;
+  updatedAtUtc: string;
+  lines: CustomerRequestCostLine[];
 };
 
 export type CustomerRequestTimelineEntry = {
@@ -70,7 +127,7 @@ export type CustomerRequestAttachment = {
 };
 
 export type CustomerRequestDetailsResponse = {
-  request: CustomerRequest & { invoice?: CustomerRequestInvoice | null };
+  request: CustomerRequest & { invoice?: CustomerRequestInvoice | null; costSheet?: CustomerRequestCostSheet | null };
   timeline: CustomerRequestTimelineEntry[];
   assignments: CustomerRequestAssignment[];
   attachments: CustomerRequestAttachment[];

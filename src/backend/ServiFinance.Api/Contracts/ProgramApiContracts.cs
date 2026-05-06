@@ -86,6 +86,83 @@ internal sealed record FinalizeTenantServiceInvoiceRequest(
     decimal InterestableAmount,
     decimal DiscountAmount,
     string? Remarks);
+internal sealed record RecordTenantServiceInvoicePaymentRequest(
+    decimal AmountReceived,
+    string PaymentMethod,
+    string? ReferenceNumber,
+    string? Note);
+internal sealed record UpdateTenantCostingPolicyRequest(
+    string TaxLabel,
+    decimal DefaultTaxRate,
+    bool TaxEnabledByDefault);
+internal sealed record UpsertServiceCostPresetRequest(
+    string Category,
+    string Name,
+    string? DefaultSpecification,
+    decimal DefaultQuantity,
+    decimal DefaultUnitPrice,
+    bool IsActive,
+    int SortOrder);
+internal sealed record SaveTenantServiceCostLineRequest(
+    Guid? Id,
+    Guid? ServiceCostPresetId,
+    string Category,
+    string Name,
+    string? Specification,
+    decimal Quantity,
+    decimal UnitPrice,
+    int SortOrder);
+internal sealed record SaveTenantServiceCostSheetRequest(
+    bool IsTaxEnabled,
+    string TaxLabel,
+    decimal TaxRate,
+    string? Notes,
+    IReadOnlyList<SaveTenantServiceCostLineRequest> Lines);
+internal sealed record TenantCostingPolicyResponse(
+    Guid Id,
+    string TaxLabel,
+    decimal DefaultTaxRate,
+    bool TaxEnabledByDefault,
+    DateTime UpdatedAtUtc);
+internal sealed record ServiceCostPresetResponse(
+    Guid Id,
+    string Category,
+    string Name,
+    string? DefaultSpecification,
+    decimal DefaultQuantity,
+    decimal DefaultUnitPrice,
+    bool IsActive,
+    int SortOrder,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc);
+internal sealed record ServiceCostLineResponse(
+    Guid Id,
+    Guid? ServiceCostPresetId,
+    string Category,
+    string Name,
+    string? Specification,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal LineTotal,
+    int SortOrder);
+internal sealed record ServiceCostSheetResponse(
+    Guid Id,
+    string Status,
+    bool IsTaxEnabled,
+    string TaxLabel,
+    decimal TaxRate,
+    string? Notes,
+    decimal SubtotalAmount,
+    decimal TaxAmount,
+    decimal TotalAmount,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc,
+    DateTime? FinalizedAtUtc,
+    IReadOnlyList<ServiceCostLineResponse> Lines);
+internal sealed record TenantPricingWorkspaceResponse(
+    TenantCostingPolicyResponse Policy,
+    IReadOnlyList<ServiceCostPresetResponse> Presets,
+    IReadOnlyList<string> Categories);
 internal sealed record TenantServiceRequestRowResponse(
     Guid Id,
     Guid CustomerId,
@@ -143,7 +220,10 @@ internal sealed record TenantServiceRequestAttachmentRowResponse(
 internal sealed record TenantServiceRequestDetailResponse(
     TenantServiceRequestRowResponse ServiceRequest,
     IReadOnlyList<TenantServiceRequestAuditRowResponse> AuditTrail,
-    IReadOnlyList<TenantServiceRequestAttachmentRowResponse> Attachments);
+    IReadOnlyList<TenantServiceRequestAttachmentRowResponse> Attachments,
+    ServiceCostSheetResponse? CostSheet,
+    TenantCostingPolicyResponse CostingPolicy,
+    IReadOnlyList<ServiceCostPresetResponse> CostPresets);
 internal sealed record TenantDispatchAssignmentRowResponse(
     Guid Id,
     Guid ServiceRequestId,
@@ -426,10 +506,45 @@ internal sealed record TenantMlsCustomerFinanceRowResponse(
 internal sealed record TenantMlsCustomerFinanceWorkspaceResponse(
     TenantMlsCustomerFinanceSummaryResponse Summary,
     IReadOnlyList<TenantMlsCustomerFinanceRowResponse> Customers);
+internal sealed record TenantMlsInvoicePaymentSubmissionRowResponse(
+    Guid SubmissionId,
+    Guid InvoiceId,
+    Guid? ServiceRequestId,
+    string? ServiceRequestNumber,
+    decimal AmountSubmitted,
+    decimal? ApprovedAmount,
+    string PaymentMethod,
+    string ReferenceNumber,
+    string Status,
+    string? Note,
+    string? ReviewRemarks,
+    string? ProofOriginalFileName,
+    string? ProofRelativeUrl,
+    DateTime SubmittedAtUtc,
+    DateTime? ReviewedAtUtc,
+    string? ReviewedByUserName);
+internal sealed record TenantMlsCustomerServiceInvoiceRowResponse(
+    Guid InvoiceId,
+    Guid? ServiceRequestId,
+    string? ServiceRequestNumber,
+    string InvoiceNumber,
+    DateTime InvoiceDateUtc,
+    decimal TotalAmount,
+    decimal OutstandingAmount,
+    string InvoiceStatus,
+    bool HasMicroLoan,
+    string? MicroLoanStatus,
+    IReadOnlyList<TenantMlsInvoicePaymentSubmissionRowResponse> PaymentSubmissions);
 internal sealed record TenantMlsCustomerFinanceDetailResponse(
     TenantMlsCustomerFinanceRowResponse Customer,
     IReadOnlyList<TenantMlsLoanAccountRowResponse> Loans,
-    IReadOnlyList<TenantMlsLedgerRowResponse> Ledger);
+    IReadOnlyList<TenantMlsLedgerRowResponse> Ledger,
+    IReadOnlyList<TenantMlsCustomerServiceInvoiceRowResponse> ServiceInvoices);
+internal sealed record ApproveTenantMlsInvoicePaymentSubmissionRequest(
+    decimal ApprovedAmount,
+    string? ReviewRemarks);
+internal sealed record RejectTenantMlsInvoicePaymentSubmissionRequest(
+    string ReviewRemarks);
 internal sealed record TenantMlsAuditSummaryResponse(
     int TotalEvents,
     int LoanCreationEvents,

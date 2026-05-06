@@ -740,10 +740,18 @@ function formatDateTime(value: string | null) {
 
 function getFinanceTone(status: string): "active" | "warning" | "progress" | "neutral" {
   switch (status) {
-    case "Loan created": return "active";
+    case "Loan created":
+    case "Direct settlement completed":
+      return "active";
     case "Ready for loan conversion":
-    case "Ready for invoicing": return "warning";
-    case "Invoice finalized": return "progress";
-    default: return "neutral";
+    case "Ready for invoicing":
+      return "warning";
+    case "Invoice finalized":
+    case "Customer checkout in progress":
+    case "Direct settlement under review":
+    case "Direct settlement in progress":
+      return "progress";
+    default:
+      return "neutral";
   }
 }

@@ -11,6 +11,7 @@ public sealed partial class ServiFinanceDbContext {
     invoice.Property(entity => entity.InvoiceNumber).HasMaxLength(50);
     invoice.Property(entity => entity.InvoiceStatus).HasMaxLength(50);
     ConfigureMoney(invoice.Property(entity => entity.SubtotalAmount));
+    ConfigureMoney(invoice.Property(entity => entity.TaxAmount));
     ConfigureMoney(invoice.Property(entity => entity.InterestableAmount));
     ConfigureMoney(invoice.Property(entity => entity.DiscountAmount));
     ConfigureMoney(invoice.Property(entity => entity.TotalAmount));
@@ -30,6 +31,9 @@ public sealed partial class ServiFinanceDbContext {
     var invoiceLine = modelBuilder.Entity<InvoiceLine>();
     invoiceLine.ToTable("InvoiceLines");
     ConfigureTenantOwned(invoiceLine);
+    invoiceLine.Property(entity => entity.Category).HasMaxLength(50);
+    invoiceLine.Property(entity => entity.Name).HasMaxLength(160);
+    invoiceLine.Property(entity => entity.Specification).HasMaxLength(300);
     invoiceLine.Property(entity => entity.Description).HasMaxLength(500);
     ConfigureMoney(invoiceLine.Property(entity => entity.Quantity), 10, 2);
     ConfigureMoney(invoiceLine.Property(entity => entity.UnitPrice));
@@ -38,6 +42,40 @@ public sealed partial class ServiFinanceDbContext {
         .WithMany(entity => entity.InvoiceLines)
         .HasForeignKey(entity => entity.InvoiceId)
         .OnDelete(DeleteBehavior.Cascade);
+  }
+
+  private void ConfigureInvoicePaymentSubmissions(ModelBuilder modelBuilder) {
+    var submission = modelBuilder.Entity<InvoicePaymentSubmission>();
+    submission.ToTable("InvoicePaymentSubmissions");
+    ConfigureTenantOwned(submission);
+    submission.Property(entity => entity.PaymentMethod).HasMaxLength(80);
+    submission.Property(entity => entity.ReferenceNumber).HasMaxLength(120);
+    submission.Property(entity => entity.Status).HasMaxLength(50);
+    submission.Property(entity => entity.Note).HasMaxLength(1000);
+    submission.Property(entity => entity.ReviewRemarks).HasMaxLength(1000);
+    submission.Property(entity => entity.ProofOriginalFileName).HasMaxLength(260);
+    submission.Property(entity => entity.ProofStoredFileName).HasMaxLength(260);
+    submission.Property(entity => entity.ProofContentType).HasMaxLength(120);
+    submission.Property(entity => entity.ProofRelativeUrl).HasMaxLength(500);
+    ConfigureMoney(submission.Property(entity => entity.AmountSubmitted));
+    submission.Property(entity => entity.ApprovedAmount).HasPrecision(12, 2);
+    submission.HasIndex(entity => new { entity.InvoiceId, entity.SubmittedAtUtc });
+    submission.HasOne(entity => entity.Invoice)
+        .WithMany(entity => entity.PaymentSubmissions)
+        .HasForeignKey(entity => entity.InvoiceId)
+        .OnDelete(DeleteBehavior.Cascade);
+    submission.HasOne(entity => entity.Customer)
+        .WithMany(entity => entity.InvoicePaymentSubmissions)
+        .HasForeignKey(entity => entity.CustomerId)
+        .OnDelete(DeleteBehavior.Restrict);
+    submission.HasOne(entity => entity.ServiceRequest)
+        .WithMany(entity => entity.InvoicePaymentSubmissions)
+        .HasForeignKey(entity => entity.ServiceRequestId)
+        .OnDelete(DeleteBehavior.Restrict);
+    submission.HasOne(entity => entity.ReviewedByUser)
+        .WithMany(entity => entity.ReviewedInvoicePaymentSubmissions)
+        .HasForeignKey(entity => entity.ReviewedByUserId)
+        .OnDelete(DeleteBehavior.Restrict);
   }
 
   private void ConfigureMicroLoans(ModelBuilder modelBuilder) {

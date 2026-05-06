@@ -105,7 +105,7 @@ internal static class TenantMlsLoanConversionEndpointMappings {
               .Include(entity => entity.ServiceRequest)
               .Include(entity => entity.MicroLoan)
               .FirstOrDefaultAsync(entity => entity.Id == request.InvoiceId, cancellationToken);
-          if (invoice is null || !CanConvertToLoan(true, invoice.MicroLoan != null, invoice.OutstandingAmount, invoice.InterestableAmount)) {
+          if (invoice is null || !CanConvertToLoan(true, invoice.MicroLoan != null, invoice.OutstandingAmount, invoice.InterestableAmount, invoice.InvoiceStatus)) {
             return Results.BadRequest(new { error = "The selected invoice can no longer be converted into a loan." });
           }
 

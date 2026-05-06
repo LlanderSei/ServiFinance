@@ -46,7 +46,12 @@ function getFinanceTone(label: string) {
     case "Ready for loan conversion":
       return "warning" as const;
     case "Loan created":
+    case "Direct settlement completed":
       return "active" as const;
+    case "Customer checkout in progress":
+    case "Direct settlement under review":
+    case "Direct settlement in progress":
+      return "progress" as const;
     default:
       return "neutral" as const;
   }

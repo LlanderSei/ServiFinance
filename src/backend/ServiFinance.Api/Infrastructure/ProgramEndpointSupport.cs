@@ -4,6 +4,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Payments;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Application.Auth;
 using ServiFinance.Domain;
@@ -16,6 +17,13 @@ internal static class ProgramEndpointSupport {
   internal const string MlsModuleCodeLedgerReports = "D5_LEDGER_REPORTS";
   internal const string MlsModuleCodeAuditLogs = "D6_AUDIT_LOGS";
   internal const string MlsModuleCodeCollectionsQueue = "D7_COLLECTIONS_QUEUE";
+  internal static readonly string[] ServiceCostCategories = [
+    "Base Charge",
+    "Part Replacement",
+    "Service",
+    "Fee",
+    "Other"
+  ];
 
   internal static bool IsAllowedFrontendOrigin(string origin) {
     if (string.IsNullOrWhiteSpace(origin)) {
@@ -209,12 +217,29 @@ internal static class ProgramEndpointSupport {
     bool hasInvoice,
     bool hasMicroLoan,
     decimal? outstandingAmount,
-    decimal? interestableAmount) {
+    decimal? interestableAmount,
+    string? invoiceStatus) {
     if (hasMicroLoan) {
       return "Loan created";
     }
 
-    if (hasInvoice && CanConvertToLoan(hasInvoice, hasMicroLoan, outstandingAmount, interestableAmount)) {
+    if (hasInvoice && string.Equals(invoiceStatus, ServiceInvoiceFinancePolicy.CheckoutPendingStatus, StringComparison.OrdinalIgnoreCase)) {
+      return "Customer checkout in progress";
+    }
+
+    if (hasInvoice && string.Equals(invoiceStatus, ServiceInvoiceFinancePolicy.PaymentSubmittedStatus, StringComparison.OrdinalIgnoreCase)) {
+      return "Direct settlement under review";
+    }
+
+    if (hasInvoice && string.Equals(invoiceStatus, ServiceInvoiceFinancePolicy.PartiallyPaidStatus, StringComparison.OrdinalIgnoreCase)) {
+      return "Direct settlement in progress";
+    }
+
+    if (hasInvoice && string.Equals(invoiceStatus, ServiceInvoiceFinancePolicy.PaidStatus, StringComparison.OrdinalIgnoreCase)) {
+      return "Direct settlement completed";
+    }
+
+    if (hasInvoice && CanConvertToLoan(hasInvoice, hasMicroLoan, outstandingAmount, interestableAmount, invoiceStatus)) {
       return "Ready for loan conversion";
     }
 
@@ -234,11 +259,14 @@ internal static class ProgramEndpointSupport {
     bool hasInvoice,
     bool hasMicroLoan,
     decimal? outstandingAmount,
-    decimal? interestableAmount) =>
-    hasInvoice &&
-    !hasMicroLoan &&
-    (interestableAmount ?? 0m) > 0m &&
-    (outstandingAmount ?? 0m) > 0m;
+    decimal? interestableAmount,
+    string? invoiceStatus) =>
+    ServiceInvoiceFinancePolicy.CanConvertToLoan(
+        hasInvoice,
+        hasMicroLoan,
+        outstandingAmount,
+        interestableAmount,
+        invoiceStatus);
 
   internal static TenantServiceRequestRowResponse CreateTenantServiceRequestResponse(
     Guid id,
@@ -316,9 +344,9 @@ internal static class ProgramEndpointSupport {
         invoiceTotalAmount,
         invoiceOutstandingAmount,
         interestableAmount,
-        DeriveFinanceHandoffStatus(currentStatus, hasInvoice, hasMicroLoan, invoiceOutstandingAmount, interestableAmount),
+        DeriveFinanceHandoffStatus(currentStatus, hasInvoice, hasMicroLoan, invoiceOutstandingAmount, interestableAmount, invoiceStatus),
         CanFinalizeInvoice(currentStatus, hasInvoice),
-        CanConvertToLoan(hasInvoice, hasMicroLoan, invoiceOutstandingAmount, interestableAmount),
+        CanConvertToLoan(hasInvoice, hasMicroLoan, invoiceOutstandingAmount, interestableAmount, invoiceStatus),
         hasMicroLoan);
   }
 
@@ -361,12 +389,99 @@ internal static class ProgramEndpointSupport {
         scheduledEndUtc,
         assignmentStatus,
         createdAtUtc,
-        DeriveFinanceHandoffStatus(serviceStatus, hasInvoice, hasMicroLoan, invoiceOutstandingAmount, interestableAmount),
+        DeriveFinanceHandoffStatus(serviceStatus, hasInvoice, hasMicroLoan, invoiceOutstandingAmount, interestableAmount, invoiceStatus),
         invoiceNumber,
         invoiceStatus,
         scheduleConflictCount,
-        CanConvertToLoan(hasInvoice, hasMicroLoan, invoiceOutstandingAmount, interestableAmount),
+        CanConvertToLoan(hasInvoice, hasMicroLoan, invoiceOutstandingAmount, interestableAmount, invoiceStatus),
         hasMicroLoan);
+  }
+
+  internal static decimal RoundMoney(decimal value) =>
+    Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+  internal static decimal CalculateServiceCostLineTotal(decimal quantity, decimal unitPrice) =>
+    RoundMoney(quantity * unitPrice);
+
+  internal static decimal CalculateServiceCostSubtotal(IEnumerable<ServiceCostLine> lines) =>
+    RoundMoney(lines.Sum(entity => CalculateServiceCostLineTotal(entity.Quantity, entity.UnitPrice)));
+
+  internal static decimal CalculateServiceCostTaxAmount(decimal subtotalAmount, bool isTaxEnabled, decimal taxRate) =>
+    !isTaxEnabled || subtotalAmount <= 0m
+      ? 0m
+      : RoundMoney(subtotalAmount * (taxRate / 100m));
+
+  internal static string NormalizeServiceCostCategory(string? category) {
+    var normalized = category?.Trim();
+    if (string.IsNullOrWhiteSpace(normalized)) {
+      return ServiceCostCategories[0];
+    }
+
+    var matchedCategory = ServiceCostCategories.FirstOrDefault(entity =>
+        string.Equals(entity, normalized, StringComparison.OrdinalIgnoreCase));
+
+    return matchedCategory ?? ServiceCostCategories[0];
+  }
+
+  internal static string BuildInvoiceLineDescription(string name, string? specification) =>
+    string.IsNullOrWhiteSpace(specification)
+      ? name
+      : $"{name} - {specification.Trim()}";
+
+  internal static TenantCostingPolicyResponse CreateTenantCostingPolicyResponse(TenantCostingPolicy policy) =>
+    new(
+      policy.Id,
+      policy.TaxLabel,
+      policy.DefaultTaxRate,
+      policy.TaxEnabledByDefault,
+      policy.UpdatedAtUtc);
+
+  internal static ServiceCostPresetResponse CreateServiceCostPresetResponse(ServiceCostPreset preset) =>
+    new(
+      preset.Id,
+      preset.Category,
+      preset.Name,
+      preset.DefaultSpecification,
+      preset.DefaultQuantity,
+      preset.DefaultUnitPrice,
+      preset.IsActive,
+      preset.SortOrder,
+      preset.CreatedAtUtc,
+      preset.UpdatedAtUtc);
+
+  internal static ServiceCostLineResponse CreateServiceCostLineResponse(ServiceCostLine line) =>
+    new(
+      line.Id,
+      line.ServiceCostPresetId,
+      line.Category,
+      line.Name,
+      line.Specification,
+      line.Quantity,
+      line.UnitPrice,
+      CalculateServiceCostLineTotal(line.Quantity, line.UnitPrice),
+      line.SortOrder);
+
+  internal static ServiceCostSheetResponse CreateServiceCostSheetResponse(ServiceCostSheet sheet) {
+    var orderedLines = sheet.Lines
+        .OrderBy(entity => entity.SortOrder)
+        .ThenBy(entity => entity.CreatedAtUtc)
+        .ToList();
+    var subtotalAmount = CalculateServiceCostSubtotal(orderedLines);
+    var taxAmount = CalculateServiceCostTaxAmount(subtotalAmount, sheet.IsTaxEnabled, sheet.TaxRate);
+    return new ServiceCostSheetResponse(
+        sheet.Id,
+        sheet.Status,
+        sheet.IsTaxEnabled,
+        sheet.TaxLabel,
+        sheet.TaxRate,
+        sheet.Notes,
+        subtotalAmount,
+        taxAmount,
+        subtotalAmount + taxAmount,
+        sheet.CreatedAtUtc,
+        sheet.UpdatedAtUtc,
+        sheet.FinalizedAtUtc,
+        orderedLines.Select(CreateServiceCostLineResponse).ToList());
   }
 
   internal static int CountScheduleConflictsInList<T>(

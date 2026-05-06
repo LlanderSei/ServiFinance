@@ -250,6 +250,103 @@ export type FinalizeTenantServiceInvoiceRequest = {
   remarks?: string | null;
 };
 
+export type RecordTenantServiceInvoicePaymentRequest = {
+  amountReceived: number;
+  paymentMethod: string;
+  referenceNumber?: string | null;
+  note?: string | null;
+};
+
+export type UpdateTenantCostingPolicyRequest = {
+  taxLabel: string;
+  defaultTaxRate: number;
+  taxEnabledByDefault: boolean;
+};
+
+export type UpsertServiceCostPresetRequest = {
+  category: string;
+  name: string;
+  defaultSpecification?: string | null;
+  defaultQuantity: number;
+  defaultUnitPrice: number;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+export type SaveTenantServiceCostLineRequest = {
+  id?: string | null;
+  serviceCostPresetId?: string | null;
+  category: string;
+  name: string;
+  specification?: string | null;
+  quantity: number;
+  unitPrice: number;
+  sortOrder: number;
+};
+
+export type SaveTenantServiceCostSheetRequest = {
+  isTaxEnabled: boolean;
+  taxLabel: string;
+  taxRate: number;
+  notes?: string | null;
+  lines: SaveTenantServiceCostLineRequest[];
+};
+
+export type TenantCostingPolicy = {
+  id: string;
+  taxLabel: string;
+  defaultTaxRate: number;
+  taxEnabledByDefault: boolean;
+  updatedAtUtc: string;
+};
+
+export type ServiceCostPreset = {
+  id: string;
+  category: string;
+  name: string;
+  defaultSpecification: string | null;
+  defaultQuantity: number;
+  defaultUnitPrice: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+};
+
+export type ServiceCostLine = {
+  id: string;
+  serviceCostPresetId: string | null;
+  category: string;
+  name: string;
+  specification: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  sortOrder: number;
+};
+
+export type ServiceCostSheet = {
+  id: string;
+  status: string;
+  isTaxEnabled: boolean;
+  taxLabel: string;
+  taxRate: number;
+  notes: string | null;
+  subtotalAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+  finalizedAtUtc: string | null;
+  lines: ServiceCostLine[];
+};
+
+export type TenantPricingWorkspaceResponse = {
+  policy: TenantCostingPolicy;
+  presets: ServiceCostPreset[];
+  categories: string[];
+};
+
 export type TenantServiceRequestAuditRow = {
   id: string;
   status: string;
@@ -271,6 +368,9 @@ export type TenantServiceRequestDetailResponse = {
   serviceRequest: TenantServiceRequestRow;
   auditTrail: TenantServiceRequestAuditRow[];
   attachments: TenantServiceRequestAttachmentRow[];
+  costSheet: ServiceCostSheet | null;
+  costingPolicy: TenantCostingPolicy;
+  costPresets: ServiceCostPreset[];
 };
 
 export type TenantDispatchAssignmentRow = {
@@ -763,10 +863,53 @@ export type TenantMlsCustomerFinanceWorkspaceResponse = {
   customers: TenantMlsCustomerFinanceRow[];
 };
 
+export type TenantMlsInvoicePaymentSubmissionRow = {
+  submissionId: string;
+  invoiceId: string;
+  serviceRequestId: string | null;
+  serviceRequestNumber: string | null;
+  amountSubmitted: number;
+  approvedAmount: number | null;
+  paymentMethod: string;
+  referenceNumber: string;
+  status: string;
+  note: string | null;
+  reviewRemarks: string | null;
+  proofOriginalFileName: string | null;
+  proofRelativeUrl: string | null;
+  submittedAtUtc: string;
+  reviewedAtUtc: string | null;
+  reviewedByUserName: string | null;
+};
+
+export type TenantMlsCustomerServiceInvoiceRow = {
+  invoiceId: string;
+  serviceRequestId: string | null;
+  serviceRequestNumber: string | null;
+  invoiceNumber: string;
+  invoiceDateUtc: string;
+  totalAmount: number;
+  outstandingAmount: number;
+  invoiceStatus: string;
+  hasMicroLoan: boolean;
+  microLoanStatus: string | null;
+  paymentSubmissions: TenantMlsInvoicePaymentSubmissionRow[];
+};
+
 export type TenantMlsCustomerFinanceDetailResponse = {
   customer: TenantMlsCustomerFinanceRow;
   loans: TenantMlsLoanAccountRow[];
   ledger: TenantMlsLedgerRow[];
+  serviceInvoices: TenantMlsCustomerServiceInvoiceRow[];
+};
+
+export type ApproveTenantMlsInvoicePaymentSubmissionRequest = {
+  approvedAmount: number;
+  reviewRemarks?: string | null;
+};
+
+export type RejectTenantMlsInvoicePaymentSubmissionRequest = {
+  reviewRemarks: string;
 };
 
 export type TenantMlsAuditSummary = {

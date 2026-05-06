@@ -47,6 +47,7 @@ const SmsCustomersPage = lazyPage(() => import("@/features/tenant/sms/SmsCustome
 const SmsServiceRequestsPage = lazyPage(() => import("@/features/tenant/sms/SmsServiceRequestsPage"), "SmsServiceRequestsPage");
 const SmsDispatchPage = lazyPage(() => import("@/features/tenant/sms/SmsDispatchTabs"), "SmsDispatchPage");
 const SmsReportsPage = lazyPage(() => import("@/features/tenant/sms/SmsReportsPage"), "SmsReportsPage");
+const SmsPricingPage = lazyPage(() => import("@/features/tenant/sms/SmsPricingPage"), "SmsPricingPage");
 const SmsUsersPage = lazyPage(() => import("@/features/tenant/sms/SmsUsersPage"), "SmsUsersPage");
 const TenantSmsAuditsPage = lazyPage(() => import("@/features/administration/audits/AuditsPage"), "TenantSmsAuditsPage");
 const TenantSmsRolesPermissionsPage = lazyPage(() => import("@/features/administration/roles-permissions/RolesPermissionsPage"), "TenantSmsRolesPermissionsPage");
@@ -132,6 +133,7 @@ const browserRoutes = [
             element: <TenantAdminProtectedLayout />,
             children: [
               { path: "billing", element: <TenantBillingPage /> },
+              { path: "sms/pricing", element: <SmsPricingPage /> },
               { path: "sms/audits", element: <TenantSmsAuditsPage /> },
               { path: "sms/roles-permissions", element: <TenantSmsRolesPermissionsPage /> },
               { path: "sms/users", element: <SmsUsersPage /> }
@@ -222,6 +224,7 @@ const desktopRoutes = [
             element: <TenantAdminProtectedLayout />,
             children: [
               { path: "billing", element: <TenantBillingPage /> },
+              { path: "sms/pricing", element: <SmsPricingPage /> },
               { path: "sms/audits", element: <TenantSmsAuditsPage /> },
               { path: "sms/roles-permissions", element: <TenantSmsRolesPermissionsPage /> },
               { path: "sms/users", element: <SmsUsersPage /> }

@@ -548,6 +548,10 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -575,6 +579,11 @@ namespace ServiFinance.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -587,9 +596,21 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
                     b.Property<decimal>("Quantity")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Specification")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
@@ -605,6 +626,95 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("InvoiceLines", (string)null);
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.InvoicePaymentSubmission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("AmountSubmitted")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<decimal?>("ApprovedAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ProofContentType")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ProofOriginalFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("ProofRelativeUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ProofStoredFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ReviewRemarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ServiceRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("SubmittedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("ServiceRequestId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("InvoiceId", "SubmittedAtUtc");
+
+                    b.ToTable("InvoicePaymentSubmissions", (string)null);
                 });
 
             modelBuilder.Entity("ServiFinance.Domain.LedgerTransaction", b =>
@@ -1014,6 +1124,167 @@ namespace ServiFinance.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("RolePermissions", (string)null);
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.ServiceCostLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<Guid?>("ServiceCostPresetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ServiceCostSheetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Specification")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceCostPresetId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("ServiceCostSheetId", "SortOrder");
+
+                    b.ToTable("ServiceCostLines", (string)null);
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.ServiceCostPreset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("DefaultQuantity")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("DefaultSpecification")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("DefaultUnitPrice")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Category", "SortOrder");
+
+                    b.ToTable("ServiceCostPresets", (string)null);
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.ServiceCostSheet", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FinalizedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsTaxEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("ServiceRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TaxLabel")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<decimal>("TaxRate")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceRequestId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("ServiceCostSheets", (string)null);
                 });
 
             modelBuilder.Entity("ServiFinance.Domain.ServiceRequest", b =>
@@ -1517,6 +1788,41 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.ToTable("TenantBillingRecords", (string)null);
                 });
 
+            modelBuilder.Entity("ServiFinance.Domain.TenantCostingPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("DefaultTaxRate")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
+
+                    b.Property<bool>("TaxEnabledByDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TaxLabel")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("TenantCostingPolicies", (string)null);
+                });
+
             modelBuilder.Entity("ServiFinance.Domain.TenantTheme", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1761,6 +2067,39 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Navigation("Invoice");
                 });
 
+            modelBuilder.Entity("ServiFinance.Domain.InvoicePaymentSubmission", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.Customer", "Customer")
+                        .WithMany("InvoicePaymentSubmissions")
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiFinance.Domain.Invoice", "Invoice")
+                        .WithMany("PaymentSubmissions")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ServiFinance.Domain.AppUser", "ReviewedByUser")
+                        .WithMany("ReviewedInvoicePaymentSubmissions")
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiFinance.Domain.ServiceRequest", "ServiceRequest")
+                        .WithMany("InvoicePaymentSubmissions")
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("ReviewedByUser");
+
+                    b.Navigation("ServiceRequest");
+                });
+
             modelBuilder.Entity("ServiFinance.Domain.LedgerTransaction", b =>
                 {
                     b.HasOne("ServiFinance.Domain.AmortizationSchedule", "AmortizationSchedule")
@@ -1884,6 +2223,46 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("ServiFinance.Domain.ServiceCostLine", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.ServiceCostPreset", "ServiceCostPreset")
+                        .WithMany("CostLines")
+                        .HasForeignKey("ServiceCostPresetId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ServiFinance.Domain.ServiceCostSheet", "ServiceCostSheet")
+                        .WithMany("Lines")
+                        .HasForeignKey("ServiceCostSheetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceCostPreset");
+
+                    b.Navigation("ServiceCostSheet");
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.ServiceCostPreset", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.Tenant", "Tenant")
+                        .WithMany("ServiceCostPresets")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.ServiceCostSheet", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.ServiceRequest", "ServiceRequest")
+                        .WithOne("CostSheet")
+                        .HasForeignKey("ServiFinance.Domain.ServiceCostSheet", "ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceRequest");
+                });
+
             modelBuilder.Entity("ServiFinance.Domain.ServiceRequest", b =>
                 {
                     b.HasOne("ServiFinance.Domain.Customer", "CreatedByCustomer")
@@ -1991,6 +2370,17 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("ServiFinance.Domain.TenantCostingPolicy", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.Tenant", "Tenant")
+                        .WithOne("CostingPolicy")
+                        .HasForeignKey("ServiFinance.Domain.TenantCostingPolicy", "TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("ServiFinance.Domain.TenantTheme", b =>
                 {
                     b.HasOne("ServiFinance.Domain.Tenant", "Tenant")
@@ -2044,6 +2434,8 @@ namespace ServiFinance.Infrastructure.Migrations
 
                     b.Navigation("RefreshSessions");
 
+                    b.Navigation("ReviewedInvoicePaymentSubmissions");
+
                     b.Navigation("StatusLogs");
 
                     b.Navigation("SubmittedBillingRecords");
@@ -2064,6 +2456,8 @@ namespace ServiFinance.Infrastructure.Migrations
 
                     b.Navigation("CreatedServiceRequests");
 
+                    b.Navigation("InvoicePaymentSubmissions");
+
                     b.Navigation("Invoices");
 
                     b.Navigation("MicroLoans");
@@ -2080,6 +2474,8 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Navigation("InvoiceLines");
 
                     b.Navigation("MicroLoan");
+
+                    b.Navigation("PaymentSubmissions");
 
                     b.Navigation("Transactions");
                 });
@@ -2103,11 +2499,25 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Navigation("UserRoles");
                 });
 
+            modelBuilder.Entity("ServiFinance.Domain.ServiceCostPreset", b =>
+                {
+                    b.Navigation("CostLines");
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.ServiceCostSheet", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
             modelBuilder.Entity("ServiFinance.Domain.ServiceRequest", b =>
                 {
                     b.Navigation("Assignments");
 
                     b.Navigation("Attachments");
+
+                    b.Navigation("CostSheet");
+
+                    b.Navigation("InvoicePaymentSubmissions");
 
                     b.Navigation("Invoices");
 
@@ -2123,9 +2533,13 @@ namespace ServiFinance.Infrastructure.Migrations
                 {
                     b.Navigation("BillingRecords");
 
+                    b.Navigation("CostingPolicy");
+
                     b.Navigation("Customers");
 
                     b.Navigation("Roles");
+
+                    b.Navigation("ServiceCostPresets");
 
                     b.Navigation("Theme");
 

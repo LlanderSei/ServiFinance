@@ -42,7 +42,11 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   public DbSet<UserRole> UserRoles => Set<UserRole>();
   public DbSet<Customer> Customers => Set<Customer>();
   public DbSet<CustomerContactOption> CustomerContactOptions => Set<CustomerContactOption>();
+  public DbSet<TenantCostingPolicy> TenantCostingPolicies => Set<TenantCostingPolicy>();
+  public DbSet<ServiceCostPreset> ServiceCostPresets => Set<ServiceCostPreset>();
   public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+  public DbSet<ServiceCostSheet> ServiceCostSheets => Set<ServiceCostSheet>();
+  public DbSet<ServiceCostLine> ServiceCostLines => Set<ServiceCostLine>();
   public DbSet<ServiceRequestAttachment> ServiceRequestAttachments => Set<ServiceRequestAttachment>();
   public DbSet<StatusLog> StatusLogs => Set<StatusLog>();
   public DbSet<Assignment> Assignments => Set<Assignment>();
@@ -50,6 +54,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   public DbSet<AssignmentEvidence> AssignmentEvidenceItems => Set<AssignmentEvidence>();
   public DbSet<TenantBillingRecord> TenantBillingRecords => Set<TenantBillingRecord>();
   public DbSet<Invoice> Invoices => Set<Invoice>();
+  public DbSet<InvoicePaymentSubmission> InvoicePaymentSubmissions => Set<InvoicePaymentSubmission>();
   public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
   public DbSet<MicroLoan> MicroLoans => Set<MicroLoan>();
   public DbSet<AmortizationSchedule> AmortizationSchedules => Set<AmortizationSchedule>();
@@ -71,7 +76,11 @@ public sealed partial class ServiFinanceDbContext : DbContext {
     ConfigureUserRoles(modelBuilder);
     ConfigureCustomers(modelBuilder);
     ConfigureCustomerContactOptions(modelBuilder);
+    ConfigureTenantCostingPolicies(modelBuilder);
+    ConfigureServiceCostPresets(modelBuilder);
     ConfigureServiceRequests(modelBuilder);
+    ConfigureServiceCostSheets(modelBuilder);
+    ConfigureServiceCostLines(modelBuilder);
     ConfigureServiceRequestAttachments(modelBuilder);
     ConfigureStatusLogs(modelBuilder);
     ConfigureAssignments(modelBuilder);
@@ -79,6 +88,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
     ConfigureAssignmentEvidence(modelBuilder);
     ConfigureTenantBillingRecords(modelBuilder);
     ConfigureInvoices(modelBuilder);
+    ConfigureInvoicePaymentSubmissions(modelBuilder);
     ConfigureInvoiceLines(modelBuilder);
     ConfigureMicroLoans(modelBuilder);
     ConfigureAmortizationSchedules(modelBuilder);

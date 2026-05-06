@@ -1,0 +1,71 @@
+<mxfile host="65bd71144e">
+    <diagram name="Desktop Access Flow" id="-nXY-1aDN_AZUlQPjyXd">
+        <mxGraphModel dx="724" dy="787" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-0"/>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-1" parent="D1T832teIL6wZtgjm5Tb-0"/>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-2" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="D1T832teIL6wZtgjm5Tb-1" source="D1T832teIL6wZtgjm5Tb-14" target="D1T832teIL6wZtgjm5Tb-15" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="240" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-3" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="D1T832teIL6wZtgjm5Tb-1" source="D1T832teIL6wZtgjm5Tb-14" target="D1T832teIL6wZtgjm5Tb-16" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="240" y="270"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-4" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="D1T832teIL6wZtgjm5Tb-1" source="D1T832teIL6wZtgjm5Tb-14" target="D1T832teIL6wZtgjm5Tb-17" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="240" y="350"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-5" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="D1T832teIL6wZtgjm5Tb-1" source="D1T832teIL6wZtgjm5Tb-14" target="D1T832teIL6wZtgjm5Tb-18" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="240" y="430"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-10" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="D1T832teIL6wZtgjm5Tb-1" source="D1T832teIL6wZtgjm5Tb-14" target="D1T832teIL6wZtgjm5Tb-22" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-11" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="D1T832teIL6wZtgjm5Tb-1" source="D1T832teIL6wZtgjm5Tb-14" target="D1T832teIL6wZtgjm5Tb-19" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-12" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="D1T832teIL6wZtgjm5Tb-1" source="D1T832teIL6wZtgjm5Tb-14" target="D1T832teIL6wZtgjm5Tb-20" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-14" value="Open ServiFinance Desktop App" style="rounded=0;whiteSpace=wrap;html=1;" parent="D1T832teIL6wZtgjm5Tb-1" vertex="1">
+                    <mxGeometry x="200" y="60" width="280" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-15" value="Start MAUI Hybrid Host" style="rounded=0;whiteSpace=wrap;html=1;" parent="D1T832teIL6wZtgjm5Tb-1" vertex="1">
+                    <mxGeometry x="80" y="160" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-16" value="Bootstrap or Connect to Backend API" style="rounded=0;whiteSpace=wrap;html=1;" parent="D1T832teIL6wZtgjm5Tb-1" vertex="1">
+                    <mxGeometry x="80" y="240" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-17" value="Open MLS Desktop Login" style="rounded=0;whiteSpace=wrap;html=1;" parent="D1T832teIL6wZtgjm5Tb-1" vertex="1">
+                    <mxGeometry x="80" y="320" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-18" value="Enter Tenant User Credentials" style="rounded=0;whiteSpace=wrap;html=1;" parent="D1T832teIL6wZtgjm5Tb-1" vertex="1">
+                    <mxGeometry x="80" y="400" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-19" value="Store Desktop Session" style="rounded=0;whiteSpace=wrap;html=1;" parent="D1T832teIL6wZtgjm5Tb-1" vertex="1">
+                    <mxGeometry x="280" y="240" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-20" value="Load MLS Dashboard" style="rounded=0;whiteSpace=wrap;html=1;" parent="D1T832teIL6wZtgjm5Tb-1" vertex="1">
+                    <mxGeometry x="280" y="320" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="D1T832teIL6wZtgjm5Tb-22" value="Validate User, Tenant, Role, and Surface" style="rounded=0;whiteSpace=wrap;html=1;" parent="D1T832teIL6wZtgjm5Tb-1" vertex="1">
+                    <mxGeometry x="280" y="160" width="120" height="60" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

@@ -30,6 +30,8 @@ public sealed class Tenant : Entity {
   public ICollection<Role> Roles { get; set; } = [];
   public ICollection<Customer> Customers { get; set; } = [];
   public ICollection<TenantBillingRecord> BillingRecords { get; set; } = [];
+  public TenantCostingPolicy? CostingPolicy { get; set; }
+  public ICollection<ServiceCostPreset> ServiceCostPresets { get; set; } = [];
   public TenantTheme? Theme { get; set; }
 }
 
@@ -167,6 +169,7 @@ public sealed class AppUser : TenantEntity {
   public ICollection<AssignmentEvent> AssignmentEvents { get; set; } = [];
   public ICollection<AssignmentEvidence> AssignmentEvidenceItems { get; set; } = [];
   public ICollection<TenantBillingRecord> SubmittedBillingRecords { get; set; } = [];
+  public ICollection<InvoicePaymentSubmission> ReviewedInvoicePaymentSubmissions { get; set; } = [];
   public ICollection<MicroLoan> CreatedMicroLoans { get; set; } = [];
   public ICollection<LedgerTransaction> CreatedTransactions { get; set; } = [];
   public ICollection<RefreshSession> RefreshSessions { get; set; } = [];
@@ -218,6 +221,7 @@ public sealed class Customer : TenantEntity {
   public ICollection<StatusLog> StatusLogs { get; set; } = [];
   public ICollection<CustomerContactOption> ContactOptions { get; set; } = [];
   public ICollection<Invoice> Invoices { get; set; } = [];
+  public ICollection<InvoicePaymentSubmission> InvoicePaymentSubmissions { get; set; } = [];
   public ICollection<MicroLoan> MicroLoans { get; set; } = [];
   public ICollection<LedgerTransaction> Transactions { get; set; } = [];
 }
@@ -233,6 +237,32 @@ public sealed class CustomerContactOption : TenantEntity {
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
   public Customer? Customer { get; set; }
+}
+
+public sealed class TenantCostingPolicy : Entity, ITenantEntity {
+  public Guid TenantId { get; set; }
+  public string TaxLabel { get; set; } = "VAT";
+  public decimal DefaultTaxRate { get; set; } = 12m;
+  public bool TaxEnabledByDefault { get; set; } = true;
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+
+  public Tenant? Tenant { get; set; }
+}
+
+public sealed class ServiceCostPreset : TenantEntity {
+  public string Category { get; set; } = string.Empty;
+  public string Name { get; set; } = string.Empty;
+  public string? DefaultSpecification { get; set; }
+  public decimal DefaultQuantity { get; set; } = 1m;
+  public decimal DefaultUnitPrice { get; set; }
+  public bool IsActive { get; set; } = true;
+  public int SortOrder { get; set; }
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+
+  public Tenant? Tenant { get; set; }
+  public ICollection<ServiceCostLine> CostLines { get; set; } = [];
 }
 
 public sealed class ServiceRequest : TenantEntity {
@@ -271,7 +301,40 @@ public sealed class ServiceRequest : TenantEntity {
   public ICollection<StatusLog> StatusLogs { get; set; } = [];
   public ICollection<Assignment> Assignments { get; set; } = [];
   public ICollection<Invoice> Invoices { get; set; } = [];
+  public ICollection<InvoicePaymentSubmission> InvoicePaymentSubmissions { get; set; } = [];
   public ICollection<ServiceRequestAttachment> Attachments { get; set; } = [];
+  public ServiceCostSheet? CostSheet { get; set; }
+}
+
+public sealed class ServiceCostSheet : TenantEntity {
+  public Guid ServiceRequestId { get; set; }
+  public string Status { get; set; } = "Draft";
+  public bool IsTaxEnabled { get; set; } = true;
+  public string TaxLabel { get; set; } = "VAT";
+  public decimal TaxRate { get; set; } = 12m;
+  public string? Notes { get; set; }
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime? FinalizedAtUtc { get; set; }
+
+  public ServiceRequest? ServiceRequest { get; set; }
+  public ICollection<ServiceCostLine> Lines { get; set; } = [];
+}
+
+public sealed class ServiceCostLine : TenantEntity {
+  public Guid ServiceCostSheetId { get; set; }
+  public Guid? ServiceCostPresetId { get; set; }
+  public string Category { get; set; } = string.Empty;
+  public string Name { get; set; } = string.Empty;
+  public string? Specification { get; set; }
+  public decimal Quantity { get; set; } = 1m;
+  public decimal UnitPrice { get; set; }
+  public int SortOrder { get; set; }
+  public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+
+  public ServiceCostSheet? ServiceCostSheet { get; set; }
+  public ServiceCostPreset? ServiceCostPreset { get; set; }
 }
 
 public sealed class ServiceRequestAttachment : TenantEntity {
@@ -380,6 +443,7 @@ public sealed class Invoice : TenantEntity {
   public string InvoiceNumber { get; set; } = string.Empty;
   public DateTime InvoiceDateUtc { get; set; } = DateTime.UtcNow;
   public decimal SubtotalAmount { get; set; }
+  public decimal TaxAmount { get; set; }
   public decimal InterestableAmount { get; set; }
   public decimal DiscountAmount { get; set; }
   public decimal TotalAmount { get; set; }
@@ -389,16 +453,46 @@ public sealed class Invoice : TenantEntity {
   public Customer? Customer { get; set; }
   public ServiceRequest? ServiceRequest { get; set; }
   public ICollection<InvoiceLine> InvoiceLines { get; set; } = [];
+  public ICollection<InvoicePaymentSubmission> PaymentSubmissions { get; set; } = [];
   public MicroLoan? MicroLoan { get; set; }
   public ICollection<LedgerTransaction> Transactions { get; set; } = [];
 }
 
+public sealed class InvoicePaymentSubmission : TenantEntity {
+  public Guid InvoiceId { get; set; }
+  public Guid CustomerId { get; set; }
+  public Guid? ServiceRequestId { get; set; }
+  public decimal AmountSubmitted { get; set; }
+  public decimal? ApprovedAmount { get; set; }
+  public string PaymentMethod { get; set; } = string.Empty;
+  public string ReferenceNumber { get; set; } = string.Empty;
+  public string? Note { get; set; }
+  public string Status { get; set; } = string.Empty;
+  public string? ReviewRemarks { get; set; }
+  public string? ProofOriginalFileName { get; set; }
+  public string? ProofStoredFileName { get; set; }
+  public string? ProofContentType { get; set; }
+  public string? ProofRelativeUrl { get; set; }
+  public DateTime SubmittedAtUtc { get; set; } = DateTime.UtcNow;
+  public Guid? ReviewedByUserId { get; set; }
+  public DateTime? ReviewedAtUtc { get; set; }
+
+  public Invoice? Invoice { get; set; }
+  public Customer? Customer { get; set; }
+  public ServiceRequest? ServiceRequest { get; set; }
+  public AppUser? ReviewedByUser { get; set; }
+}
+
 public sealed class InvoiceLine : TenantEntity {
   public Guid InvoiceId { get; set; }
+  public string Category { get; set; } = string.Empty;
+  public string Name { get; set; } = string.Empty;
+  public string? Specification { get; set; }
   public string Description { get; set; } = string.Empty;
   public decimal Quantity { get; set; }
   public decimal UnitPrice { get; set; }
   public decimal LineTotal { get; set; }
+  public int SortOrder { get; set; }
 
   public Invoice? Invoice { get; set; }
 }

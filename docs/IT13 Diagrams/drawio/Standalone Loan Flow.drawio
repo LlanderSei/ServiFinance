@@ -1,0 +1,77 @@
+<mxfile host="65bd71144e">
+    <diagram name="Standalone Loan Flow" id="jEoUtyDFTqRCLrUrqOw2">
+        <mxGraphModel dx="724" dy="787" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-0"/>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-1" parent="cXT960aoApBLRzLnLHoJ-0"/>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-2" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="cXT960aoApBLRzLnLHoJ-1" source="cXT960aoApBLRzLnLHoJ-14" target="cXT960aoApBLRzLnLHoJ-15" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="240" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-3" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="cXT960aoApBLRzLnLHoJ-1" source="cXT960aoApBLRzLnLHoJ-14" target="cXT960aoApBLRzLnLHoJ-16" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="240" y="270"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-4" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="cXT960aoApBLRzLnLHoJ-1" source="cXT960aoApBLRzLnLHoJ-14" target="cXT960aoApBLRzLnLHoJ-17" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="240" y="350"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-5" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="cXT960aoApBLRzLnLHoJ-1" source="cXT960aoApBLRzLnLHoJ-14" target="cXT960aoApBLRzLnLHoJ-18" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="240" y="430"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-10" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="cXT960aoApBLRzLnLHoJ-1" source="cXT960aoApBLRzLnLHoJ-14" target="cXT960aoApBLRzLnLHoJ-22" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-11" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="cXT960aoApBLRzLnLHoJ-1" source="cXT960aoApBLRzLnLHoJ-14" target="cXT960aoApBLRzLnLHoJ-19" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-12" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="cXT960aoApBLRzLnLHoJ-1" source="cXT960aoApBLRzLnLHoJ-14" target="cXT960aoApBLRzLnLHoJ-20" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-13" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="cXT960aoApBLRzLnLHoJ-1" source="cXT960aoApBLRzLnLHoJ-14" target="cXT960aoApBLRzLnLHoJ-21" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-14" value="Open Standalone Loans" style="rounded=0;whiteSpace=wrap;html=1;" parent="cXT960aoApBLRzLnLHoJ-1" vertex="1">
+                    <mxGeometry x="200" y="60" width="280" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-15" value="Select Customer" style="rounded=0;whiteSpace=wrap;html=1;" parent="cXT960aoApBLRzLnLHoJ-1" vertex="1">
+                    <mxGeometry x="80" y="160" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-16" value="Enter Principal, Interest Rate, Term, and Start Date" style="rounded=0;whiteSpace=wrap;html=1;" parent="cXT960aoApBLRzLnLHoJ-1" vertex="1">
+                    <mxGeometry x="80" y="240" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-17" value="Preview Amortization" style="rounded=0;whiteSpace=wrap;html=1;" parent="cXT960aoApBLRzLnLHoJ-1" vertex="1">
+                    <mxGeometry x="80" y="320" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-18" value="Validate Loan Terms" style="rounded=0;whiteSpace=wrap;html=1;" parent="cXT960aoApBLRzLnLHoJ-1" vertex="1">
+                    <mxGeometry x="80" y="400" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-19" value="Generate Amortization Schedules" style="rounded=0;whiteSpace=wrap;html=1;" parent="cXT960aoApBLRzLnLHoJ-1" vertex="1">
+                    <mxGeometry x="280" y="240" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-20" value="Create Opening Ledger Transaction" style="rounded=0;whiteSpace=wrap;html=1;" parent="cXT960aoApBLRzLnLHoJ-1" vertex="1">
+                    <mxGeometry x="280" y="320" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-21" value="Write Audit Event" style="rounded=0;whiteSpace=wrap;html=1;" parent="cXT960aoApBLRzLnLHoJ-1" vertex="1">
+                    <mxGeometry x="280" y="400" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="cXT960aoApBLRzLnLHoJ-22" value="Create MicroLoan Without Source Invoice" style="rounded=0;whiteSpace=wrap;html=1;" parent="cXT960aoApBLRzLnLHoJ-1" vertex="1">
+                    <mxGeometry x="280" y="160" width="120" height="60" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

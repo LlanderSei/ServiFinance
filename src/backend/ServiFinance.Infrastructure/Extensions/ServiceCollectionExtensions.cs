@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ServiFinance.Application.Auditing;
 using ServiFinance.Application.Auth;
 using ServiFinance.Application.Onboarding;
+using ServiFinance.Application.Payments;
 using ServiFinance.Application.Subscriptions;
 using ServiFinance.Application.Tenancy;
 using ServiFinance.Domain;
@@ -13,6 +14,7 @@ using ServiFinance.Infrastructure.Auth;
 using ServiFinance.Infrastructure.Configuration;
 using ServiFinance.Infrastructure.Data;
 using ServiFinance.Infrastructure.Onboarding;
+using ServiFinance.Infrastructure.Payments;
 using ServiFinance.Infrastructure.Subscriptions;
 using ServiFinance.Infrastructure.Tenancy;
 
@@ -45,6 +47,7 @@ public static class ServiceCollectionExtensions {
     services.AddScoped<IRolePermissionManagementService, RolePermissionManagementService>();
     services.AddScoped<IAuditLogService, AuditLogService>();
     services.AddScoped<IPlatformTenantOnboardingService, StripePlatformTenantOnboardingService>();
+    services.AddScoped<IStripeServiceInvoicePaymentService, StripeServiceInvoicePaymentService>();
     services.AddScoped<ISubscriptionTierCatalogService, SubscriptionTierCatalogService>();
     services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
     services.AddScoped<IPasswordHasher<Customer>, PasswordHasher<Customer>>();

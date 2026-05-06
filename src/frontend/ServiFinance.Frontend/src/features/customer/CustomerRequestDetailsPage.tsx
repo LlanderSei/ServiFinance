@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { formatFullAddress } from "@/shared/location/formatAddress";
+import { useToast } from "@/shared/toast/ToastProvider";
+import { useCreateCustomerInvoiceStripeCheckout } from "./useCustomerInvoices";
 import { useCancelCustomerRequest, useCustomerRequestDetails, useSubmitCustomerFeedback } from "./useCustomerRequests";
 
 const feedbackSuggestionOptions = [
@@ -50,6 +52,10 @@ function formatCurrency(value: number) {
 function statusTone(status: string) {
   const normalized = status.toLowerCase();
 
+  if (normalized.includes("partial")) {
+    return "bg-amber-100 text-amber-700";
+  }
+
   if (normalized.includes("completed") || normalized.includes("paid") || normalized.includes("closed")) {
     return "bg-emerald-100 text-emerald-700";
   }
@@ -63,6 +69,12 @@ function statusTone(status: string) {
   }
 
   return "bg-slate-100 text-slate-700";
+}
+
+function hasPendingManualReview(statuses: Array<{ status: string }>) {
+  return statuses.some((submission) =>
+    submission.status === "Payment Submitted" || submission.status === "Pending Review"
+  );
 }
 
 function isFeedbackExpired(feedbackExpiresAtUtc?: string | null) {
@@ -83,13 +95,32 @@ function formatScheduleRange(start?: string | null, end?: string | null) {
 
 export function CustomerRequestDetailsPage() {
   const { requestId = "", tenantDomainSlug = "" } = useParams();
+  const toast = useToast();
   const detailsQuery = useCustomerRequestDetails(requestId || null);
   const cancelRequest = useCancelCustomerRequest();
   const submitFeedback = useSubmitCustomerFeedback();
+  const createStripeCheckout = useCreateCustomerInvoiceStripeCheckout();
   const [cancelReason, setCancelReason] = useState("");
   const [rating, setRating] = useState(5);
   const [feedbackComments, setFeedbackComments] = useState("");
   const [suggestionCategory, setSuggestionCategory] = useState("");
+
+  function handleStartOnlinePayment(invoiceId: string) {
+    createStripeCheckout.mutate(
+      { invoiceId },
+      {
+        onSuccess: (response) => {
+          window.location.assign(response.checkoutUrl);
+        },
+        onError: (error) => {
+          toast.error({
+            title: "Unable to open Stripe Checkout",
+            message: error.message
+          });
+        }
+      }
+    );
+  }
 
   if (detailsQuery.isLoading) {
     return (
@@ -123,6 +154,7 @@ export function CustomerRequestDetailsPage() {
 
   const { request, timeline, assignments, attachments } = detailsQuery.data;
   const invoice = request.invoice;
+  const costSheet = request.costSheet;
   const isCompleted = request.currentStatus === "Completed" || request.currentStatus === "Closed";
   const hasFeedback = request.rating != null;
   const feedbackExpired = isCompleted && !hasFeedback && isFeedbackExpired(request.feedbackExpiresAtUtc);
@@ -167,8 +199,14 @@ export function CustomerRequestDetailsPage() {
           />
           <MetricCard
             label="Finance"
-            value={invoice ? invoice.invoiceStatus : "Not invoiced"}
-            description={invoice ? `${formatCurrency(invoice.outstandingAmount)} outstanding` : "Invoice will appear here after tenant finalization."}
+            value={invoice ? invoice.invoiceStatus : costSheet ? `${costSheet.status} draft` : "Not invoiced"}
+            description={
+              invoice
+                ? `${formatCurrency(invoice.outstandingAmount)} outstanding`
+                : costSheet
+                  ? `${formatCurrency(costSheet.totalAmount)} draft total`
+                  : "Invoice will appear here after tenant finalization."
+            }
           />
         </div>
       </section>
@@ -415,7 +453,7 @@ export function CustomerRequestDetailsPage() {
             </div>
           </Panel>
 
-          <Panel title="Invoice and settlement" eyebrow="Finance">
+          <Panel title="Costing and settlement" eyebrow="Commercial">
             {invoice ? (
               <div className="grid gap-4">
                 <article className="rounded-[1.4rem] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(35,46,76,0.05)]">
@@ -434,12 +472,24 @@ export function CustomerRequestDetailsPage() {
                       <dd className="text-right text-slate-900">{formatDate(invoice.invoiceDateUtc)}</dd>
                     </div>
                     <div className="flex items-center justify-between gap-4">
+                      <dt>Subtotal</dt>
+                      <dd className="text-right text-slate-900">{formatCurrency(invoice.subtotalAmount)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <dt>{costSheet?.taxLabel ?? "Tax"}</dt>
+                      <dd className="text-right text-slate-900">{formatCurrency(invoice.taxAmount)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <dt>Discount</dt>
+                      <dd className="text-right text-slate-900">{formatCurrency(invoice.discountAmount)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
                       <dt>Outstanding</dt>
                       <dd className="text-right text-slate-900">{formatCurrency(invoice.outstandingAmount)}</dd>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <dt>Settlement mode</dt>
-                      <dd className="text-right text-slate-900">{invoice.hasMicroLoan ? "MLS loan account" : "Cashier confirmation"}</dd>
+                      <dd className="text-right text-slate-900">{invoice.hasMicroLoan ? "MLS loan account" : "Direct settlement"}</dd>
                     </div>
                     {invoice.hasMicroLoan && (
                       <div className="flex items-center justify-between gap-4">
@@ -449,22 +499,163 @@ export function CustomerRequestDetailsPage() {
                     )}
                   </dl>
                 </article>
+
+                {invoice.lines.length ? (
+                  <div className="grid gap-3">
+                    {invoice.lines.map((line) => (
+                      <article key={line.id} className="rounded-[1.4rem] border border-slate-200/80 bg-slate-50 px-4 py-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <strong className="text-slate-950">{line.name}</strong>
+                            <p className="mt-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-slate-500">{line.category}</p>
+                          </div>
+                          <span className="font-semibold text-slate-950">{formatCurrency(line.lineTotal)}</span>
+                        </div>
+                        {line.specification ? <p className="mt-2 text-sm leading-6 text-slate-600">{line.specification}</p> : null}
+                        <p className="mt-2 text-xs text-slate-500">
+                          Qty {line.quantity} / Unit {formatCurrency(line.unitPrice)}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+
+                {invoice.paymentSubmissions.length ? (
+                  <div className="grid gap-3 rounded-[1.4rem] border border-slate-200/80 bg-slate-50 px-4 py-4">
+                    <div>
+                      <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500">Settlement history</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        Submitted payment proofs and tenant finance review activity for this service invoice.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3">
+                      {invoice.paymentSubmissions.map((submission) => (
+                        <article key={submission.id} className="rounded-[1.2rem] border border-slate-200/80 bg-white px-4 py-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-950">{formatCurrency(submission.amountSubmitted)} submitted</p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {submission.paymentMethod} / {submission.referenceNumber}
+                              </p>
+                            </div>
+                            <span className={`rounded-full px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] ${statusTone(submission.status)}`}>
+                              {submission.status}
+                            </span>
+                          </div>
+                          <div className="mt-3 grid gap-2 text-sm text-slate-600">
+                            <p>Submitted {formatDateTime(submission.submittedAtUtc)}</p>
+                            {submission.approvedAmount != null ? (
+                              <p className="text-slate-900">Approved amount: {formatCurrency(submission.approvedAmount)}</p>
+                            ) : null}
+                            {submission.reviewedAtUtc ? (
+                              <p>Reviewed {formatDateTime(submission.reviewedAtUtc)}</p>
+                            ) : null}
+                            {submission.note ? <p>{submission.note}</p> : null}
+                            {submission.reviewRemarks ? (
+                              <p className="rounded-[1rem] border border-slate-200 bg-slate-50 px-3 py-3 text-slate-700">
+                                {submission.reviewRemarks}
+                              </p>
+                            ) : null}
+                            {submission.proofRelativeUrl ? (
+                              <a
+                                className="text-sm font-medium text-blue-700 underline-offset-2 hover:underline"
+                                href={submission.proofRelativeUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Open {submission.proofOriginalFileName ?? "payment proof"}
+                              </a>
+                            ) : null}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 <p className="rounded-[1.4rem] border border-slate-200/80 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-600">
                   {invoice.hasMicroLoan
                     ? "This invoice has already been handed into MLS financing. Collections and amortization are tracked under the linked loan account."
-                    : invoice.outstandingAmount > 0
-                      ? "Direct online payment is not enabled yet. Use the tenant's cashier or finance instructions, then watch this status for settlement confirmation."
-                      : "This invoice is fully settled in the current tenant ledger."}
+                    : invoice.invoiceStatus === "Checkout Pending"
+                      ? "An online Stripe Checkout session is already open for this invoice. Return to the invoice workspace after payment so the status can refresh."
+                    : invoice.canStartStripeCheckout
+                      ? "You can pay this invoice online through Stripe Checkout now, or submit manual settlement proof from the invoice workspace."
+                    : invoice.canSubmitPaymentProof
+                      ? "You can now submit payment proof from the invoice workspace so the tenant finance team can review and clear this balance."
+                      : hasPendingManualReview(invoice.paymentSubmissions)
+                        ? "A settlement proof is pending tenant finance review. Watch the service timeline and settlement history for the next update."
+                        : invoice.outstandingAmount > 0
+                          ? "Finance review is still required before this invoice can be cleared."
+                          : "This invoice is fully settled in the current tenant ledger."}
                 </p>
-                <Link
-                  className="btn rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
-                  to={`/t/${tenantDomainSlug}/c/invoices`}
-                >
-                  Open invoices
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  {invoice.canStartStripeCheckout ? (
+                    <button
+                      type="button"
+                      className="btn rounded-full bg-blue-600 text-white hover:bg-blue-700"
+                      onClick={() => handleStartOnlinePayment(invoice.id)}
+                      disabled={createStripeCheckout.isPending}
+                    >
+                      {createStripeCheckout.isPending ? "Opening checkout..." : "Pay online"}
+                    </button>
+                  ) : null}
+                  <Link
+                    className="btn rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
+                    to={`/t/${tenantDomainSlug}/c/invoices`}
+                  >
+                    Open invoices
+                  </Link>
+                </div>
+              </div>
+            ) : costSheet ? (
+              <div className="grid gap-4">
+                <article className="rounded-[1.4rem] border border-sky-200 bg-sky-50 px-4 py-4 text-sm leading-6 text-sky-900">
+                  <strong>Draft commercial breakdown</strong>
+                  <p className="mt-2">
+                    The tenant team is still updating this service cost sheet. Totals may change until the invoice is finalized.
+                  </p>
+                  <p className="mt-2 text-sky-700">
+                    Updated {formatDateTime(costSheet.updatedAtUtc)} / {costSheet.status}
+                  </p>
+                </article>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <MetricCard label="Subtotal" value={formatCurrency(costSheet.subtotalAmount)} description="Current draft labor, parts, and service charges." />
+                  <MetricCard label={costSheet.taxLabel} value={formatCurrency(costSheet.taxAmount)} description={costSheet.isTaxEnabled ? `Applied at ${costSheet.taxRate}%` : "Not applied on this draft"} />
+                  <MetricCard label="Draft total" value={formatCurrency(costSheet.totalAmount)} description="Projected total before any final approval or invoice changes." />
+                </div>
+
+                {costSheet.notes ? (
+                  <p className="rounded-[1.4rem] border border-slate-200/80 bg-white px-4 py-4 text-sm leading-6 text-slate-700">
+                    {costSheet.notes}
+                  </p>
+                ) : null}
+
+                {costSheet.lines.length ? (
+                  <div className="grid gap-3">
+                    {costSheet.lines.map((line) => (
+                      <article key={line.id} className="rounded-[1.4rem] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_10px_24px_rgba(35,46,76,0.05)]">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <strong className="text-slate-950">{line.name}</strong>
+                            <p className="mt-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-slate-500">{line.category}</p>
+                          </div>
+                          <span className="font-semibold text-slate-950">{formatCurrency(line.lineTotal)}</span>
+                        </div>
+                        {line.specification ? <p className="mt-2 text-sm leading-6 text-slate-600">{line.specification}</p> : null}
+                        <p className="mt-2 text-xs text-slate-500">
+                          Qty {line.quantity} / Unit {formatCurrency(line.unitPrice)}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState message="The tenant has not added any draft cost lines yet." />
+                )}
               </div>
             ) : (
-              <EmptyState message="An invoice has not been finalized for this request yet." />
+              <EmptyState message="A cost breakdown or finalized invoice has not been added for this request yet." />
             )}
           </Panel>
         </div>

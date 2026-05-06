@@ -1,12 +1,16 @@
 namespace ServiFinance.Api.Endpoints.TenantMls;
 
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Payments;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantMlsCustomerFinanceEndpointMappings {
+  private const int ReviewRemarksMaxLength = 1000;
+
   public static RouteGroupBuilder MapTenantMlsCustomerFinanceEndpoints(this RouteGroupBuilder tenantApi) {
     tenantApi.MapGet("/mls/customers", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -29,18 +33,22 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
               .Include(entity => entity.MicroLoans)
                 .ThenInclude(entity => entity!.AmortizationSchedules)
               .Include(entity => entity.Transactions)
+              .Include(entity => entity.Invoices)
+                .ThenInclude(entity => entity!.MicroLoan)
+              .Include(entity => entity.Invoices)
+                .ThenInclude(entity => entity!.PaymentSubmissions)
               .OrderBy(entity => entity.FullName)
               .ToListAsync(cancellationToken);
 
           var rows = customers
-              .Where(entity => entity.MicroLoans.Count > 0 || entity.Transactions.Count > 0)
+              .Where(HasFinanceExposure)
               .Select(CreateCustomerFinanceRow)
               .ToArray();
 
           return Results.Ok(new TenantMlsCustomerFinanceWorkspaceResponse(
               new TenantMlsCustomerFinanceSummaryResponse(
                   rows.Length,
-                  rows.Count(entity => entity.ActiveLoanCount > 0),
+                  rows.Count(entity => entity.OutstandingBalance > 0m || entity.ActiveLoanCount > 0),
                   rows.Sum(entity => entity.OutstandingBalance),
                   rows.Sum(entity => entity.TotalCollectedAmount)),
               rows));
@@ -70,6 +78,13 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
               .Include(entity => entity.MicroLoans)
                 .ThenInclude(entity => entity!.AmortizationSchedules)
               .Include(entity => entity.Transactions)
+              .Include(entity => entity.Invoices)
+                .ThenInclude(entity => entity!.ServiceRequest)
+              .Include(entity => entity.Invoices)
+                .ThenInclude(entity => entity!.MicroLoan)
+              .Include(entity => entity.Invoices)
+                .ThenInclude(entity => entity!.PaymentSubmissions)
+                  .ThenInclude(entity => entity.ReviewedByUser)
               .FirstOrDefaultAsync(entity => entity.Id == customerId, cancellationToken);
           if (customer is null) {
             return Results.NotFound(new { error = "The selected borrower record was not found." });
@@ -101,31 +116,209 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
                   entity.Remarks))
               .ToArray();
 
+          var serviceInvoices = customer.Invoices
+              .OrderByDescending(entity => entity.InvoiceDateUtc)
+              .ThenByDescending(entity => entity.Id)
+              .Select(CreateServiceInvoiceRow)
+              .ToArray();
+
           return Results.Ok(new TenantMlsCustomerFinanceDetailResponse(
               CreateCustomerFinanceRow(customer),
               loans,
-              ledger));
+              ledger,
+              serviceInvoices));
+        });
+
+    tenantApi.MapPost("/mls/invoice-settlements/{submissionId:guid}/approve", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        HttpContext httpContext,
+        string tenantDomainSlug,
+        Guid submissionId,
+        [FromBody] ApproveTenantMlsInvoicePaymentSubmissionRequest request,
+        ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        CancellationToken cancellationToken) => {
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeFinancialRecords);
+          if (accessResult is not null) {
+            return accessResult;
+          }
+
+          if (!TryGetCurrentUserId(httpContext.User, out var currentUserId)) {
+            return Results.Unauthorized();
+          }
+
+          var reviewRemarks = NormalizeOptionalText(request.ReviewRemarks);
+          if ((reviewRemarks?.Length ?? 0) > ReviewRemarksMaxLength) {
+            return Results.BadRequest(new { error = $"Review remarks must be {ReviewRemarksMaxLength} characters or fewer." });
+          }
+
+          var approvedAmount = RoundCurrency(request.ApprovedAmount);
+          if (approvedAmount <= 0m) {
+            return Results.BadRequest(new { error = "Approved amount must be greater than zero." });
+          }
+
+          var submission = await dbContext.InvoicePaymentSubmissions
+              .Include(entity => entity.Invoice)
+                .ThenInclude(entity => entity!.PaymentSubmissions)
+              .Include(entity => entity.Invoice)
+                .ThenInclude(entity => entity!.MicroLoan)
+              .Include(entity => entity.Invoice)
+                .ThenInclude(entity => entity!.ServiceRequest)
+              .FirstOrDefaultAsync(entity => entity.Id == submissionId, cancellationToken);
+          if (submission is null || submission.Invoice is null) {
+            return Results.NotFound(new { error = "The selected settlement proof could not be found." });
+          }
+
+          if (!ServiceInvoiceFinancePolicy.IsManualReviewPendingStatus(submission.Status)) {
+            return Results.BadRequest(new { error = "Only pending settlement proofs can be approved." });
+          }
+
+          if (submission.Invoice.MicroLoan is not null) {
+            return Results.BadRequest(new { error = "This invoice has already been converted into an MLS loan account." });
+          }
+
+          if (approvedAmount > submission.AmountSubmitted) {
+            return Results.BadRequest(new { error = "Approved amount cannot be greater than the customer's submitted amount." });
+          }
+
+          if (approvedAmount > submission.Invoice.OutstandingAmount) {
+            return Results.BadRequest(new { error = "Approved amount cannot be greater than the invoice's outstanding balance." });
+          }
+
+          if (approvedAmount != submission.AmountSubmitted && string.IsNullOrWhiteSpace(reviewRemarks)) {
+            return Results.BadRequest(new { error = "Add review remarks when the approved amount differs from the submitted amount." });
+          }
+
+          var now = DateTime.UtcNow;
+          submission.Status = "Approved";
+          submission.ApprovedAmount = approvedAmount;
+          submission.ReviewRemarks = reviewRemarks;
+          submission.ReviewedByUserId = currentUserId;
+          submission.ReviewedAtUtc = now;
+
+          submission.Invoice.OutstandingAmount = RoundCurrency(submission.Invoice.OutstandingAmount - approvedAmount);
+          submission.Invoice.InvoiceStatus = ServiceInvoiceFinancePolicy.DeriveInvoiceStatus(submission.Invoice);
+
+          if (submission.Invoice.ServiceRequestId.HasValue) {
+            dbContext.StatusLogs.Add(new StatusLog {
+              ServiceRequestId = submission.Invoice.ServiceRequestId.Value,
+              Status = submission.Invoice.ServiceRequest?.CurrentStatus ?? "Completed",
+              Remarks = approvedAmount == submission.AmountSubmitted
+                ? $"Tenant finance approved payment proof for invoice {submission.Invoice.InvoiceNumber} amounting to {approvedAmount:0.00}."
+                : $"Tenant finance partially approved payment proof for invoice {submission.Invoice.InvoiceNumber}. Approved amount: {approvedAmount:0.00} from submitted amount {submission.AmountSubmitted:0.00}.",
+              ChangedByUserId = currentUserId,
+              ChangedAtUtc = now
+            });
+          }
+
+          await dbContext.SaveChangesAsync(cancellationToken);
+          return Results.NoContent();
+        });
+
+    tenantApi.MapPost("/mls/invoice-settlements/{submissionId:guid}/reject", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        HttpContext httpContext,
+        string tenantDomainSlug,
+        Guid submissionId,
+        [FromBody] RejectTenantMlsInvoicePaymentSubmissionRequest request,
+        ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        CancellationToken cancellationToken) => {
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeFinancialRecords);
+          if (accessResult is not null) {
+            return accessResult;
+          }
+
+          if (!TryGetCurrentUserId(httpContext.User, out var currentUserId)) {
+            return Results.Unauthorized();
+          }
+
+          var reviewRemarks = NormalizeOptionalText(request.ReviewRemarks);
+          if (string.IsNullOrWhiteSpace(reviewRemarks)) {
+            return Results.BadRequest(new { error = "Review remarks are required when rejecting a settlement proof." });
+          }
+
+          if (reviewRemarks.Length > ReviewRemarksMaxLength) {
+            return Results.BadRequest(new { error = $"Review remarks must be {ReviewRemarksMaxLength} characters or fewer." });
+          }
+
+          var submission = await dbContext.InvoicePaymentSubmissions
+              .Include(entity => entity.Invoice)
+                .ThenInclude(entity => entity!.PaymentSubmissions)
+              .Include(entity => entity.Invoice)
+                .ThenInclude(entity => entity!.MicroLoan)
+              .Include(entity => entity.Invoice)
+                .ThenInclude(entity => entity!.ServiceRequest)
+              .FirstOrDefaultAsync(entity => entity.Id == submissionId, cancellationToken);
+          if (submission is null || submission.Invoice is null) {
+            return Results.NotFound(new { error = "The selected settlement proof could not be found." });
+          }
+
+          if (!ServiceInvoiceFinancePolicy.IsManualReviewPendingStatus(submission.Status)) {
+            return Results.BadRequest(new { error = "Only pending settlement proofs can be rejected." });
+          }
+
+          var now = DateTime.UtcNow;
+          submission.Status = "Rejected";
+          submission.ApprovedAmount = null;
+          submission.ReviewRemarks = reviewRemarks;
+          submission.ReviewedByUserId = currentUserId;
+          submission.ReviewedAtUtc = now;
+
+          submission.Invoice.InvoiceStatus = ServiceInvoiceFinancePolicy.DeriveInvoiceStatus(submission.Invoice);
+
+          if (submission.Invoice.ServiceRequestId.HasValue) {
+            dbContext.StatusLogs.Add(new StatusLog {
+              ServiceRequestId = submission.Invoice.ServiceRequestId.Value,
+              Status = submission.Invoice.ServiceRequest?.CurrentStatus ?? "Completed",
+              Remarks = $"Tenant finance rejected payment proof for invoice {submission.Invoice.InvoiceNumber}. Remarks: {reviewRemarks}",
+              ChangedByUserId = currentUserId,
+              ChangedAtUtc = now
+            });
+          }
+
+          await dbContext.SaveChangesAsync(cancellationToken);
+          return Results.NoContent();
         });
 
     return tenantApi;
   }
 
+  private static bool HasFinanceExposure(Customer entity) =>
+    entity.MicroLoans.Count > 0 || entity.Transactions.Count > 0 || entity.Invoices.Count > 0;
+
   private static TenantMlsCustomerFinanceRowResponse CreateCustomerFinanceRow(Customer entity) {
     var activeLoanCount = entity.MicroLoans.Count(item => item.LoanStatus != "Paid");
     var settledLoanCount = entity.MicroLoans.Count(item => item.LoanStatus == "Paid");
-    var outstandingBalance = entity.MicroLoans.Sum(GetOutstandingBalance);
-    var activePaymentTransactions = GetActivePaymentTransactions(entity.Transactions);
-    var totalCollectedAmount = activePaymentTransactions.Sum(item => item.CreditAmount);
+    var serviceInvoiceOutstandingBalance = entity.Invoices
+        .Where(item => item.MicroLoan == null)
+        .Sum(item => item.OutstandingAmount);
+    var outstandingBalance = entity.MicroLoans.Sum(GetOutstandingBalance) + serviceInvoiceOutstandingBalance;
+    var loanPaymentTransactions = GetActiveLoanPaymentTransactions(entity.Transactions);
+    var totalCollectedAmount = loanPaymentTransactions.Sum(item => item.CreditAmount) + GetApprovedServiceInvoicePaymentTotal(entity.Invoices);
     var nextDueDate = entity.MicroLoans
         .SelectMany(item => item.AmortizationSchedules)
         .Where(item => item.InstallmentStatus != "Paid")
         .OrderBy(item => item.DueDate)
         .Select(item => DateOnly.FromDateTime(item.DueDate))
         .FirstOrDefault();
-    var lastPaymentDateUtc = activePaymentTransactions
+    var lastLoanPaymentDateUtc = loanPaymentTransactions
         .OrderByDescending(item => item.TransactionDateUtc)
         .Select(item => (DateTime?)item.TransactionDateUtc)
         .FirstOrDefault();
+    var lastServicePaymentDateUtc = entity.Invoices
+        .SelectMany(item => item.PaymentSubmissions)
+        .Where(item => item.Status == "Approved")
+        .OrderByDescending(item => item.ReviewedAtUtc ?? item.SubmittedAtUtc)
+        .Select(item => (DateTime?)(item.ReviewedAtUtc ?? item.SubmittedAtUtc))
+        .FirstOrDefault();
+    var lastPaymentDateUtc = GetLatestDate(lastLoanPaymentDateUtc, lastServicePaymentDateUtc);
 
     return new TenantMlsCustomerFinanceRowResponse(
         entity.Id,
@@ -163,12 +356,56 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         entity.CreatedAtUtc);
   }
 
+  private static TenantMlsCustomerServiceInvoiceRowResponse CreateServiceInvoiceRow(Invoice entity) {
+    var invoiceStatus = entity.MicroLoan is not null
+      ? "Converted to MLS Loan"
+      : entity.InvoiceStatus;
+
+    return new TenantMlsCustomerServiceInvoiceRowResponse(
+        entity.Id,
+        entity.ServiceRequestId,
+        entity.ServiceRequest?.RequestNumber,
+        entity.InvoiceNumber,
+        entity.InvoiceDateUtc,
+        entity.TotalAmount,
+        entity.OutstandingAmount,
+        invoiceStatus,
+        entity.MicroLoan is not null,
+        entity.MicroLoan?.LoanStatus,
+        entity.PaymentSubmissions
+            .OrderByDescending(item => item.SubmittedAtUtc)
+            .ThenByDescending(item => item.Id)
+            .Select(item => CreateInvoicePaymentSubmissionRow(item, entity.ServiceRequest?.RequestNumber))
+            .ToArray());
+  }
+
+  private static TenantMlsInvoicePaymentSubmissionRowResponse CreateInvoicePaymentSubmissionRow(
+    InvoicePaymentSubmission entity,
+    string? serviceRequestNumber) =>
+    new(
+        entity.Id,
+        entity.InvoiceId,
+        entity.ServiceRequestId,
+        serviceRequestNumber,
+        entity.AmountSubmitted,
+        entity.ApprovedAmount,
+        entity.PaymentMethod,
+        entity.ReferenceNumber,
+        entity.Status,
+        entity.Note,
+        entity.ReviewRemarks,
+        entity.ProofOriginalFileName,
+        entity.ProofRelativeUrl,
+        entity.SubmittedAtUtc,
+        entity.ReviewedAtUtc,
+        entity.ReviewedByUser?.FullName);
+
   private static decimal GetOutstandingBalance(MicroLoan entity) {
     var totalPaidAmount = entity.AmortizationSchedules.Sum(item => item.PaidAmount);
     return RoundCurrency(entity.TotalRepayableAmount - totalPaidAmount);
   }
 
-  private static IReadOnlyList<LedgerTransaction> GetActivePaymentTransactions(IEnumerable<LedgerTransaction> transactions) {
+  private static IReadOnlyList<LedgerTransaction> GetActiveLoanPaymentTransactions(IEnumerable<LedgerTransaction> transactions) {
     var reversedTransactionIds = transactions
         .Where(item => item.TransactionType == "LoanPaymentReversal" && item.ReversalOfTransactionId.HasValue)
         .Select(item => item.ReversalOfTransactionId!.Value)
@@ -177,6 +414,29 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
     return transactions
         .Where(item => item.TransactionType == "LoanPayment" && !reversedTransactionIds.Contains(item.Id))
         .ToArray();
+  }
+
+  private static decimal GetApprovedServiceInvoicePaymentTotal(IEnumerable<Invoice> invoices) =>
+    invoices
+        .SelectMany(item => item.PaymentSubmissions)
+        .Where(item => item.Status == "Approved")
+        .Sum(item => item.ApprovedAmount ?? item.AmountSubmitted);
+
+  private static DateTime? GetLatestDate(DateTime? first, DateTime? second) {
+    if (!first.HasValue) {
+      return second;
+    }
+
+    if (!second.HasValue) {
+      return first;
+    }
+
+    return first.Value >= second.Value ? first : second;
+  }
+
+  private static string? NormalizeOptionalText(string? value) {
+    var normalized = value?.Trim();
+    return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
   }
 
   private static decimal RoundCurrency(decimal value) =>

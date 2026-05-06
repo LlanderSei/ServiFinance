@@ -142,6 +142,7 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
             key: "commercial",
             title: "Commercial",
             items: [
+              { to: `${tenantBase}/sms/pricing`, label: "Pricing", icon: "subscriptions" as const },
               { to: `${tenantBase}/billing`, label: "Billing", icon: "subscriptions" as const }
             ]
           }

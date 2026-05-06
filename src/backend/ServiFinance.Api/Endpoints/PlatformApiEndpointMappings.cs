@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Stripe;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Application.Onboarding;
+using ServiFinance.Application.Payments;
 using ServiFinance.Application.Subscriptions;
 using ServiFinance.Infrastructure.Configuration;
 using AppCreatePlatformTenantCheckoutRequest = ServiFinance.Application.Onboarding.CreatePlatformTenantCheckoutRequest;
@@ -70,11 +71,16 @@ internal static class PlatformApiEndpointMappings {
     api.MapPost("/platform/stripe/webhook", [AllowAnonymous] async Task<IResult> (
         HttpContext httpContext,
         IPlatformTenantOnboardingService onboardingService,
+        IStripeServiceInvoicePaymentService stripeServiceInvoicePaymentService,
         CancellationToken cancellationToken) => {
           try {
             using var reader = new StreamReader(httpContext.Request.Body);
             var payload = await reader.ReadToEndAsync(cancellationToken);
             await onboardingService.ProcessWebhookAsync(
+                payload,
+                httpContext.Request.Headers["Stripe-Signature"],
+                cancellationToken);
+            await stripeServiceInvoicePaymentService.ProcessWebhookAsync(
                 payload,
                 httpContext.Request.Headers["Stripe-Signature"],
                 cancellationToken);
