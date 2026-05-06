@@ -5,6 +5,7 @@ import { createBrowserRouter, createHashRouter, useParams } from "react-router-d
 import { AppShell } from "./shell";
 import { CustomerLayout } from "@/features/customer/CustomerLayout";
 import { CustomerProtectedRoute } from "@/features/customer/CustomerProtectedRoute";
+import { RouteErrorPage } from "@/features/system/RouteErrorPage";
 import { isDesktopShell } from "@/platform/runtime";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { TenantDomainGuard } from "@/shared/tenant/TenantDomainGuard";
@@ -71,6 +72,7 @@ const browserRoutes = [
   {
     path: "/",
     element: <AppShell />,
+    errorElement: <RouteErrorPage />,
     children: [
       { index: true, element: <RootLandingPage /> },
       { path: "register", element: <RegisterPage /> },
@@ -152,6 +154,7 @@ const desktopRoutes = [
   {
     path: "/",
     element: <AppShell />,
+    errorElement: <RouteErrorPage />,
     children: [
       { index: true, element: <Navigate to="/t/mls/" replace /> },
       { path: "register", element: <RegisterPage /> },

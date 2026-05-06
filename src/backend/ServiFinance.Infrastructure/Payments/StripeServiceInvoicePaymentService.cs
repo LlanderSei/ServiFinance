@@ -89,9 +89,10 @@ public sealed class StripeServiceInvoicePaymentService(
         cancellationToken: cancellationToken);
 
     var now = GetUtcNow();
-    invoice.PaymentSubmissions.Add(new InvoicePaymentSubmission {
+    dbContext.InvoicePaymentSubmissions.Add(new InvoicePaymentSubmission {
       TenantId = invoice.TenantId,
       InvoiceId = invoice.Id,
+      Invoice = invoice,
       CustomerId = customerId,
       ServiceRequestId = invoice.ServiceRequestId,
       AmountSubmitted = outstandingAmount,
@@ -219,7 +220,8 @@ public sealed class StripeServiceInvoicePaymentService(
         Status = ServiceInvoiceFinancePolicy.CheckoutPendingStatus,
         SubmittedAtUtc = GetUtcNow()
       };
-      invoice.PaymentSubmissions.Add(submission);
+      submission.Invoice = invoice;
+      dbContext.InvoicePaymentSubmissions.Add(submission);
     }
 
     await ApplyPaidCheckoutSessionAsync(invoice, submission, session, cancellationToken);

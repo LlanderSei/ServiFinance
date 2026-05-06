@@ -9,6 +9,9 @@ using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantMlsStandaloneLoanEndpointMappings {
+  private const int LedgerReferenceNumberMaxLength = 100;
+  private const int LedgerRemarksMaxLength = 1000;
+
   public static RouteGroupBuilder MapTenantMlsStandaloneLoanEndpoints(this RouteGroupBuilder tenantApi) {
     tenantApi.MapGet("/mls/standalone-loans", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -102,6 +105,16 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
             return Results.BadRequest(new { error = validationError });
           }
 
+          var referenceNumber = NormalizeOptionalText(request.ReferenceNumber);
+          if ((referenceNumber?.Length ?? 0) > LedgerReferenceNumberMaxLength) {
+            return Results.BadRequest(new { error = $"Reference number must be {LedgerReferenceNumberMaxLength} characters or fewer." });
+          }
+
+          var remarks = NormalizeOptionalText(request.Remarks);
+          if ((remarks?.Length ?? 0) > LedgerRemarksMaxLength) {
+            return Results.BadRequest(new { error = $"Loan remarks must be {LedgerRemarksMaxLength} characters or fewer." });
+          }
+
           var customer = await dbContext.Customers
               .FirstOrDefaultAsync(entity => entity.Id == request.CustomerId, cancellationToken);
           if (customer is null) {
@@ -109,6 +122,30 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
           }
 
           var computation = TenantMlsLoanMath.Build(request.PrincipalAmount, request.AnnualInterestRate, request.TermMonths, request.LoanStartDate);
+          if (referenceNumber is not null &&
+              await dbContext.Transactions
+                  .AsNoTracking()
+                  .AnyAsync(entity =>
+                      entity.CustomerId == customer.Id &&
+                      entity.TransactionType == "StandaloneLoanCreation" &&
+                      entity.ReferenceNumber == referenceNumber,
+                      cancellationToken)) {
+            return Results.Conflict(new { error = "A standalone loan already uses this reference number for the selected customer." });
+          }
+
+          if (referenceNumber is null &&
+              await HasRecentMatchingStandaloneLoanAsync(
+                  dbContext,
+                  customer.Id,
+                  currentUserId,
+                  computation.Summary.PrincipalAmount,
+                  computation.Summary.AnnualInterestRate,
+                  computation.Summary.TermMonths,
+                  computation.Summary.LoanStartDate,
+                  cancellationToken)) {
+            return Results.Conflict(new { error = "A matching standalone loan was just created for this customer. Add a unique reference number if this is a separate loan." });
+          }
+
           var runningBalance = await dbContext.Transactions
               .Where(entity => entity.CustomerId == customer.Id)
               .OrderByDescending(entity => entity.TransactionDateUtc)
@@ -157,15 +194,15 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
             MicroLoanId = microLoanId,
             TransactionDateUtc = DateTime.UtcNow,
             TransactionType = "StandaloneLoanCreation",
-            ReferenceNumber = string.IsNullOrWhiteSpace(request.ReferenceNumber)
+            ReferenceNumber = referenceNumber is null
               ? GenerateReferenceCode("MLS-STDLN")
-              : request.ReferenceNumber.Trim(),
+              : referenceNumber,
             DebitAmount = computation.Summary.PrincipalAmount,
             CreditAmount = 0m,
             RunningBalance = TenantMlsLoanMath.RoundCurrency(runningBalance + computation.Summary.PrincipalAmount),
-            Remarks = string.IsNullOrWhiteSpace(request.Remarks)
+            Remarks = remarks is null
               ? $"Standalone loan created for {customer.FullName}"
-              : request.Remarks.Trim(),
+              : remarks,
             CreatedByUserId = currentUserId
           };
 
@@ -206,5 +243,35 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
     }
 
     return null;
+  }
+
+  private static async Task<bool> HasRecentMatchingStandaloneLoanAsync(
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      Guid customerId,
+      Guid createdByUserId,
+      decimal principalAmount,
+      decimal annualInterestRate,
+      int termMonths,
+      DateOnly loanStartDate,
+      CancellationToken cancellationToken) {
+    var duplicateWindowStartUtc = DateTime.UtcNow.AddMinutes(-5);
+    var loanStartDateUtc = loanStartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    return await dbContext.MicroLoans
+        .AsNoTracking()
+        .AnyAsync(entity =>
+            entity.InvoiceId == null &&
+            entity.CustomerId == customerId &&
+            entity.CreatedByUserId == createdByUserId &&
+            entity.PrincipalAmount == principalAmount &&
+            entity.AnnualInterestRate == annualInterestRate &&
+            entity.TermMonths == termMonths &&
+            entity.LoanStartDate == loanStartDateUtc &&
+            entity.CreatedAtUtc >= duplicateWindowStartUtc,
+            cancellationToken);
+  }
+
+  private static string? NormalizeOptionalText(string? value) {
+    var normalized = value?.Trim();
+    return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
   }
 }

@@ -62,3 +62,9 @@ C:\Users\PC\AppData\Local\Temp\servifinance-api-settlement-verify\ServiFinance.A
 C:\Users\PC\AppData\Local\Temp\servifinance-api-direct-settlement-verify\ServiFinance.Application.deps.json
 C:\Users\PC\AppData\Local\Temp\servifinance-api-direct-settlement-verify\ServiFinance.Application.dll
 C:\Users\PC\AppData\Local\Temp\servifinance-api-direct-settlement-verify\ServiFinance.Application.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-stripe-concurrency-fix-verify\ServiFinance.Application.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-stripe-concurrency-fix-verify\ServiFinance.Application.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-stripe-concurrency-fix-verify\ServiFinance.Application.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check\ServiFinance.Application.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check\ServiFinance.Application.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check\ServiFinance.Application.pdb

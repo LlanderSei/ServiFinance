@@ -1,24 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import type {
   TenantBillingOverviewResponse,
-  TenantBillingPortalSessionResponse,
-  TenantBillingRecordRow
+  TenantBillingPortalSessionResponse
 } from "@/shared/api/contracts";
-import { httpGet, httpPostFormData, httpPostJson } from "@/shared/api/http";
+import { httpGet, httpPostJson } from "@/shared/api/http";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { RecordTableStateRow } from "@/shared/records/RecordTable";
 import { RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import {
   WorkspaceActionButton,
-  WorkspaceField,
-  WorkspaceFieldGrid,
-  WorkspaceForm,
   WorkspaceInlineNote,
-  WorkspaceInput,
   WorkspaceNotice,
-  WorkspaceSelect,
   WorkspaceStatusPill
 } from "@/shared/records/WorkspaceControls";
 import {
@@ -35,47 +28,12 @@ import {
   WorkspaceSubtableShell
 } from "@/shared/records/WorkspacePanel";
 
-type BillingFormState = {
-  amountSubmitted: string;
-  paymentMethod: string;
-  referenceNumber: string;
-  note: string;
-  proofFile: File | null;
-};
-
-const initialFormState: BillingFormState = {
-  amountSubmitted: "",
-  paymentMethod: "Bank transfer",
-  referenceNumber: "",
-  note: "",
-  proofFile: null
-};
-
 export function TenantBillingPage() {
   const { tenantDomainSlug = "" } = useParams();
-  const queryClient = useQueryClient();
-  const proofInputRef = useRef<HTMLInputElement | null>(null);
-  const [formState, setFormState] = useState<BillingFormState>(initialFormState);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const billingQuery = useQuery({
     queryKey: ["tenant", tenantDomainSlug, "billing-overview"],
     queryFn: () => httpGet<TenantBillingOverviewResponse>(`/api/tenants/${tenantDomainSlug}/billing/overview`)
-  });
-
-  const submitMutation = useMutation<TenantBillingRecordRow, Error, FormData>({
-    mutationFn: (payload: FormData) =>
-      httpPostFormData<TenantBillingRecordRow>(`/api/tenants/${tenantDomainSlug}/billing/submissions`, payload),
-    onSuccess: async (record) => {
-      setSuccessMessage(`Submitted ${record.billingPeriodLabel} for billing review.`);
-      setFormState(initialFormState);
-      if (proofInputRef.current) {
-        proofInputRef.current.value = "";
-      }
-      await queryClient.invalidateQueries({
-        queryKey: ["tenant", tenantDomainSlug, "billing-overview"]
-      });
-    }
   });
   const portalMutation = useMutation({
     mutationFn: () =>
@@ -95,55 +53,32 @@ export function TenantBillingPage() {
   const desktopModuleCount = billingQuery.data?.plan.modules.filter((row) => row.channel === "Desktop").length ?? 0;
   const moduleCount = billingQuery.data?.plan.modules.length ?? 0;
   const expectedRenewalAmount = billingQuery.data?.standing.expectedRenewalAmount;
-  const canSubmitRenewalProof = billingQuery.data?.standing.canSubmitRenewalProof ?? true;
   const billingProvider = billingQuery.data?.standing.billingProvider ?? "Manual";
   const isStripeManaged = billingProvider === "Stripe";
+  const isAutorenewalManaged = billingProvider !== "Manual";
   const canOpenBillingPortal = billingQuery.data?.standing.canOpenBillingPortal ?? false;
-  const standingNotes = isStripeManaged
+  const renewalWarningMessage = buildRenewalWarning(
+    billingQuery.data?.standing.nextRenewalDateUtc,
+    isAutorenewalManaged,
+    billingProvider
+  );
+  const standingNotes = isAutorenewalManaged
     ? [
-        "This tenant is now Stripe-managed, so renewals and payment methods are handled through the Stripe billing portal instead of proof submission.",
-        "The payment ledger below is synchronized from Stripe invoice events, which keeps the tenant-side commercial history visible in the same workspace.",
-        "Subscription posture, suspension risk, and future plan-state changes still flow back into the tenant access model through webhook synchronization."
+        `${billingProvider} manages recurring renewal from the payment method used during registration or later billing-portal updates.`,
+        "Renewal history is synchronized into this ledger from provider events instead of tenant-uploaded proof files.",
+        "Subscription posture, suspension risk, and future plan-state changes still flow back into the tenant access model through provider synchronization."
       ]
     : [
-        "Only one billing proof can stay pending at a time, so tenant admins do not accidentally stack duplicate renewal submissions.",
-        "Submitted proof remains tenant-scoped here, while final review and confirmation can still evolve on the platform side later.",
-        "The current expected renewal amount is derived from the same subscription tier catalog used by the superadmin workspace."
+        "Manual renewal proof submission has been removed from this tenant workspace.",
+        "This tenant needs an online billing provider before future cycles can auto-renew.",
+        "Existing historical billing rows remain visible for audit continuity, but new renewals should come from provider events."
       ];
-
-  function updateField<TKey extends keyof BillingFormState>(key: TKey, value: BillingFormState[TKey]) {
-    setSuccessMessage(null);
-    setFormState((current) => ({
-      ...current,
-      [key]: value
-    }));
-  }
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSuccessMessage(null);
-
-    const normalizedAmount = formState.amountSubmitted.trim() === ""
-      ? expectedRenewalAmount ?? 0
-      : Number(formState.amountSubmitted);
-
-    const payload = new FormData();
-    payload.append("amountSubmitted", String(normalizedAmount));
-    payload.append("paymentMethod", formState.paymentMethod);
-    payload.append("referenceNumber", formState.referenceNumber.trim());
-    payload.append("note", formState.note.trim());
-    if (formState.proofFile) {
-      payload.append("proofFile", formState.proofFile);
-    }
-
-    submitMutation.mutate(payload);
-  }
 
   return (
     <RecordWorkspace
       breadcrumbs={`${tenantDomainSlug} / Billing`}
       title="Subscription and billing"
-      description="Review the tenant subscription standing, included delivery surface, renewal rhythm, and manual billing submissions from one commercial workspace."
+      description="Review tenant subscription standing, included delivery surface, auto-renewal timing, and provider-synced billing history from one commercial workspace."
       recordCount={history.length}
       singularLabel="billing record"
     >
@@ -153,21 +88,15 @@ export function TenantBillingPage() {
         </WorkspaceNotice>
       ) : null}
 
-      {submitMutation.isError ? (
-        <WorkspaceNotice tone="error" className="m-4 mb-0">
-          {submitMutation.error.message}
-        </WorkspaceNotice>
-      ) : null}
-
       {portalMutation.isError ? (
         <WorkspaceNotice tone="error" className="m-4 mb-0">
           {portalMutation.error.message}
         </WorkspaceNotice>
       ) : null}
 
-      {successMessage ? (
-        <WorkspaceNotice className="m-4 mb-0">
-          {successMessage}
+      {renewalWarningMessage ? (
+        <WorkspaceNotice tone={isAutorenewalManaged ? "info" : "error"} className="m-4 mb-0">
+          {renewalWarningMessage}
         </WorkspaceNotice>
       ) : null}
 
@@ -200,7 +129,7 @@ export function TenantBillingPage() {
                 <HeroStat
                   label="Next checkpoint"
                   value={formatDate(billingQuery.data?.standing.nextRenewalDateUtc)}
-                  description="Renewal or next submitted cycle date derived from the billing ledger."
+                  description="Auto-renewal checkpoint derived from subscription state and provider events."
                 />
                 <HeroStat
                   label="Expected renewal"
@@ -223,14 +152,14 @@ export function TenantBillingPage() {
               description="Subscription cycles already verified against the tenant's billing history."
             />
             <MetricCard
-              label="Pending review"
-              value={billingQuery.data?.standing.pendingReviewCount ?? 0}
-              description="Manual billing submissions still waiting for platform confirmation."
+              label="Renewal mode"
+              value={isAutorenewalManaged ? "Auto" : "Setup needed"}
+              description={isAutorenewalManaged ? `${billingProvider} handles recurring renewal.` : "No online renewal provider is attached to this tenant."}
             />
             <MetricCard
-              label="Submitted amount"
+              label="Collected amount"
               value={formatCurrency(totalSubmittedAmount)}
-              description="Cumulative billing amount currently recorded in the tenant ledger."
+              description="Cumulative billing amount currently recorded from provider or historical ledger events."
             />
             <MetricCard
               label="Module coverage"
@@ -286,7 +215,7 @@ export function TenantBillingPage() {
                 <WorkspaceDetailItem label="Subscription status" value={billingQuery.data?.plan.subscriptionStatus ?? "Loading..."} />
                 <WorkspaceDetailItem label="Billing provider" value={billingProvider} />
                 <WorkspaceDetailItem label="Next billing checkpoint" value={formatDate(billingQuery.data?.standing.nextRenewalDateUtc)} />
-                <WorkspaceDetailItem label="Latest submission" value={billingQuery.data?.standing.latestSubmissionStatus ?? "No submissions yet"} />
+                <WorkspaceDetailItem label="Latest billing event" value={billingQuery.data?.standing.latestSubmissionStatus ?? "No events yet"} />
                 <WorkspaceDetailItem label="Last confirmed coverage" value={formatDate(billingQuery.data?.standing.lastConfirmedCoverageEndUtc)} />
                 <WorkspaceDetailItem label="Latest activity" value={formatDateTime(billingQuery.data?.standing.latestSubmissionAtUtc)} />
               </WorkspaceDetailGrid>
@@ -308,7 +237,7 @@ export function TenantBillingPage() {
                       <th>Submitted</th>
                       <th>Method</th>
                       <th>Status</th>
-                      <th>Proof</th>
+                      <th>Reference</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -317,7 +246,7 @@ export function TenantBillingPage() {
                     ) : null}
 
                     {!billingQuery.isLoading && !history.length ? (
-                      <RecordTableStateRow colSpan={6}>No billing submissions have been recorded yet.</RecordTableStateRow>
+                      <RecordTableStateRow colSpan={6}>No billing events have been recorded yet.</RecordTableStateRow>
                     ) : null}
 
                     {history.map((row) => (
@@ -363,10 +292,10 @@ export function TenantBillingPage() {
                                 rel="noreferrer"
                                 className="text-sm font-semibold text-primary hover:underline"
                               >
-                                {row.proofOriginalFileName ?? "Open proof"}
+                                {row.proofOriginalFileName ?? "Open receipt"}
                               </a>
                             ) : (
-                              <span className="text-sm text-base-content/60">Reference-only</span>
+                              <span className="text-sm text-base-content/60">Provider event</span>
                             )}
                             {row.reviewRemarks ? (
                               <span className="text-xs text-base-content/60">{row.reviewRemarks}</span>
@@ -382,108 +311,39 @@ export function TenantBillingPage() {
 
             <WorkspacePanel>
               <WorkspacePanelHeader
-                eyebrow={isStripeManaged ? "Stripe billing" : "Manual renewal"}
-                title={isStripeManaged ? "Manage subscription in Stripe" : "Submit billing proof"}
+                eyebrow="Autorenewal"
+                title={isAutorenewalManaged ? `Managed by ${billingProvider}` : "Online renewal required"}
                 actions={
                   billingQuery.data ? (
-                    <WorkspaceStatusPill tone={isStripeManaged ? "progress" : canSubmitRenewalProof ? "progress" : "warning"}>
-                      {isStripeManaged
-                        ? "Stripe managed"
-                        : canSubmitRenewalProof
-                          ? "Ready to submit"
-                          : "Pending review exists"}
+                    <WorkspaceStatusPill tone={isAutorenewalManaged ? "progress" : "warning"}>
+                      {isAutorenewalManaged ? "Auto-renewal" : "Setup needed"}
                     </WorkspaceStatusPill>
                   ) : null
                 }
               />
 
-              {isStripeManaged ? (
-                <div className="grid gap-4">
-                  <WorkspaceInlineNote>
-                    This tenant now renews through Stripe. Open the hosted billing portal to update payment methods, review invoices, or manage the recurring subscription directly.
-                  </WorkspaceInlineNote>
+              <div className="grid gap-4">
+                <WorkspaceInlineNote>
+                  {isAutorenewalManaged
+                    ? `Renewals are handled automatically through ${billingProvider} using the payment method attached during registration or the hosted billing portal.`
+                    : "Manual renewal proof upload has been removed. Attach this tenant to an online billing provider so renewal can happen automatically."}
+                </WorkspaceInlineNote>
 
+                {isStripeManaged || canOpenBillingPortal ? (
                   <WorkspaceActionButton
                     type="button"
                     className="w-full justify-center"
                     disabled={!canOpenBillingPortal || portalMutation.isPending}
                     onClick={() => portalMutation.mutate()}
                   >
-                    {portalMutation.isPending ? "Opening Stripe portal..." : "Open Stripe billing portal"}
+                    {portalMutation.isPending ? "Opening billing portal..." : "Open billing portal"}
                   </WorkspaceActionButton>
-                </div>
-              ) : (
-                <WorkspaceForm onSubmit={handleSubmit}>
-                  <WorkspaceFieldGrid>
-                    <WorkspaceField label="Submitted amount">
-                      <WorkspaceInput
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={formState.amountSubmitted}
-                        onChange={(event) => updateField("amountSubmitted", event.target.value)}
-                        placeholder={expectedRenewalAmount ? String(expectedRenewalAmount) : "0.00"}
-                        disabled={!canSubmitRenewalProof || submitMutation.isPending}
-                      />
-                    </WorkspaceField>
-
-                    <WorkspaceField label="Payment method">
-                      <WorkspaceSelect
-                        value={formState.paymentMethod}
-                        onChange={(event) => updateField("paymentMethod", event.target.value)}
-                        disabled={!canSubmitRenewalProof || submitMutation.isPending}
-                      >
-                        <option>Bank transfer</option>
-                        <option>GCash</option>
-                        <option>Cash deposit</option>
-                        <option>Online banking</option>
-                      </WorkspaceSelect>
-                    </WorkspaceField>
-
-                    <WorkspaceField label="Reference number">
-                      <WorkspaceInput
-                        value={formState.referenceNumber}
-                        onChange={(event) => updateField("referenceNumber", event.target.value)}
-                        placeholder="Transaction or slip reference"
-                        disabled={!canSubmitRenewalProof || submitMutation.isPending}
-                      />
-                    </WorkspaceField>
-
-                    <WorkspaceField label="Proof file">
-                      <input
-                        ref={proofInputRef}
-                        type="file"
-                        accept="image/*,.pdf"
-                        className="file-input file-input-bordered w-full border-base-300/70 bg-base-100/95 text-base-content shadow-none"
-                        onChange={(event) => updateField("proofFile", event.target.files?.[0] ?? null)}
-                        disabled={!canSubmitRenewalProof || submitMutation.isPending}
-                      />
-                    </WorkspaceField>
-
-                    <WorkspaceField label="Notes" wide>
-                      <textarea
-                        className="textarea textarea-bordered min-h-28 w-full border-base-300/70 bg-base-100/95 text-base-content shadow-none"
-                        value={formState.note}
-                        onChange={(event) => updateField("note", event.target.value)}
-                        placeholder="Add transfer notes, payer context, or anything finance review should know."
-                        disabled={!canSubmitRenewalProof || submitMutation.isPending}
-                      />
-                    </WorkspaceField>
-                  </WorkspaceFieldGrid>
-
-                  <WorkspaceInlineNote>
-                    The current Phase 9 manual path still applies to this tenant: submit renewal proof here, and the commercial review loop can be tightened further on the platform side later.
+                ) : (
+                  <WorkspaceInlineNote className="rounded-box border border-warning/30 bg-warning/10 px-4 py-3 text-warning">
+                    No hosted billing portal is available for this tenant yet.
                   </WorkspaceInlineNote>
-
-                  <WorkspaceActionButton
-                    type="submit"
-                    className="w-full justify-center"
-                    disabled={!canSubmitRenewalProof || submitMutation.isPending}
-                  >
-                    {submitMutation.isPending ? "Submitting proof..." : "Submit billing proof"}
-                  </WorkspaceActionButton>
-                </WorkspaceForm>
-              )}
+                )}
+              </div>
             </WorkspacePanel>
           </WorkspacePanelGrid>
 
@@ -552,7 +412,35 @@ function buildHeroHeadline(planName?: string, accountStanding?: string) {
     return `Tenant billing is currently ${accountStanding?.toLowerCase()}.`;
   }
 
-  return `${planName} is currently ${accountStanding?.toLowerCase() ?? "active"}, with renewal and proof submission tracked from one workspace.`;
+  return `${planName} is currently ${accountStanding?.toLowerCase() ?? "active"}, with auto-renewal tracked from one workspace.`;
+}
+
+function buildRenewalWarning(value?: string | null, isAutorenewalManaged = false, billingProvider = "Manual") {
+  if (!value) {
+    return null;
+  }
+
+  const renewalDate = new Date(value);
+  if (Number.isNaN(renewalDate.valueOf())) {
+    return null;
+  }
+
+  const millisecondsUntilRenewal = renewalDate.getTime() - Date.now();
+  const daysUntilRenewal = Math.ceil(millisecondsUntilRenewal / 86_400_000);
+
+  if (daysUntilRenewal < 0) {
+    return isAutorenewalManaged
+      ? `${billingProvider} renewal checkpoint passed on ${formatDate(value)}. Check provider billing history if access did not update.`
+      : `Renewal checkpoint passed on ${formatDate(value)}. Connect online billing because manual renewal proof is no longer accepted here.`;
+  }
+
+  if (daysUntilRenewal <= 7) {
+    return isAutorenewalManaged
+      ? `${billingProvider} will auto-renew this tenant on ${formatDate(value)}. Review the payment method before the cycle closes.`
+      : `Renewal is due on ${formatDate(value)}. Connect an online billing provider before this cycle because manual proof submission is no longer available.`;
+  }
+
+  return null;
 }
 
 function getStandingTone(accountStanding: string) {

@@ -506,9 +506,10 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
 
           var now = DateTime.UtcNow;
           var resolvedReferenceNumber = referenceNumber ?? GenerateReferenceCode("PAY");
-          invoice.PaymentSubmissions.Add(new ServiFinance.Domain.InvoicePaymentSubmission {
+          dbContext.InvoicePaymentSubmissions.Add(new ServiFinance.Domain.InvoicePaymentSubmission {
             TenantId = invoice.TenantId,
             InvoiceId = invoice.Id,
+            Invoice = invoice,
             CustomerId = invoice.CustomerId,
             ServiceRequestId = serviceRequest.Id,
             AmountSubmitted = recordedAmount,

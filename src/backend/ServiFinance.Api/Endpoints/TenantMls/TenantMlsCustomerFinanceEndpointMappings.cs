@@ -3,6 +3,7 @@ namespace ServiFinance.Api.Endpoints.TenantMls;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Application.Auditing;
 using ServiFinance.Application.Payments;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Domain;
@@ -135,6 +136,7 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         Guid submissionId,
         [FromBody] ApproveTenantMlsInvoicePaymentSubmissionRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        IAuditLogService auditLogService,
         CancellationToken cancellationToken) => {
           var accessResult = await RequireTenantMlsAccessAsync(
               httpContext,
@@ -215,6 +217,17 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
           }
 
           await dbContext.SaveChangesAsync(cancellationToken);
+          await TenantMlsAuditLogging.WriteSystemAuditAsync(
+              auditLogService,
+              httpContext,
+              submission.TenantId,
+              "InvoiceSettlementApproval",
+              "Approved",
+              "InvoicePaymentSubmission",
+              submission.Id,
+              submission.ReferenceNumber,
+              $"Approved {approvedAmount:F2} for service invoice {submission.Invoice.InvoiceNumber}.");
+
           return Results.NoContent();
         });
 
@@ -224,6 +237,7 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         Guid submissionId,
         [FromBody] RejectTenantMlsInvoicePaymentSubmissionRequest request,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        IAuditLogService auditLogService,
         CancellationToken cancellationToken) => {
           var accessResult = await RequireTenantMlsAccessAsync(
               httpContext,
@@ -284,6 +298,17 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
           }
 
           await dbContext.SaveChangesAsync(cancellationToken);
+          await TenantMlsAuditLogging.WriteSystemAuditAsync(
+              auditLogService,
+              httpContext,
+              submission.TenantId,
+              "InvoiceSettlementRejection",
+              "Rejected",
+              "InvoicePaymentSubmission",
+              submission.Id,
+              submission.ReferenceNumber,
+              $"Rejected settlement proof for service invoice {submission.Invoice.InvoiceNumber}. Remarks: {reviewRemarks}");
+
           return Results.NoContent();
         });
 

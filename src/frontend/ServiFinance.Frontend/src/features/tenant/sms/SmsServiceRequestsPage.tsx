@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, type ReactNode, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type {
   CreateTenantServiceRequestRequest,
@@ -17,8 +17,8 @@ import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
 import { getCurrentSession } from "@/shared/auth/session";
 import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import { formatFullAddress } from "@/shared/location/formatAddress";
-import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
+import { RecordSurfaceModal } from "@/shared/records/RecordSurfaceModal";
 import {
   RecordTable,
   RecordTableActionButton,
@@ -37,6 +37,7 @@ import {
   WorkspaceStatusPill
 } from "@/shared/records/WorkspaceControls";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
+import { WorkspaceTopTabs } from "@/shared/records/WorkspaceTopTabs";
 import { useToast } from "@/shared/toast/ToastProvider";
 
 type InvoiceFormState = {
@@ -73,6 +74,23 @@ type CostSheetFormState = {
   lines: CostLineFormState[];
 };
 
+type DetailSection = {
+  title: string;
+  items: Array<{
+    label: string;
+    value: ReactNode;
+  }>;
+};
+
+type ServiceRequestDetailTab = "request" | "visit" | "finance" | "costing";
+
+const serviceRequestDetailTabs: Array<{ key: ServiceRequestDetailTab; label: string }> = [
+  { key: "request", label: "Request Details" },
+  { key: "visit", label: "Visit & Status" },
+  { key: "finance", label: "Finance Handoff" },
+  { key: "costing", label: "Service Costing" }
+];
+
 const currencyFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
   currency: "PHP"
@@ -89,6 +107,8 @@ export function SmsServiceRequestsPage() {
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [isCostingModalOpen, setIsCostingModalOpen] = useState(false);
   const [isRecordPaymentModalOpen, setIsRecordPaymentModalOpen] = useState(false);
+  const [activeDetailTab, setActiveDetailTab] = useState<ServiceRequestDetailTab>("request");
+  const [activeCostLineFilter, setActiveCostLineFilter] = useState("All");
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [form, setForm] = useState<CreateTenantServiceRequestRequest>({
     customerId: "",
@@ -153,6 +173,7 @@ export function SmsServiceRequestsPage() {
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-service-requests"] });
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-customers"] });
       setSelectedRequest(serviceRequest);
+      setActiveDetailTab("request");
       setIsCreateModalOpen(false);
       setForm({
         customerId: "",
@@ -293,8 +314,22 @@ export function SmsServiceRequestsPage() {
     () => [...new Set(["Base Charge", "Part Replacement", "Service", "Fee", "Other", ...costPresets.map((preset) => preset.category)])],
     [costPresets]
   );
+  const costLineFilterTabs = useMemo(
+    () => [
+      { key: "All", label: `All (${costSheetForm.lines.length})` },
+      ...costLineCategories.map((category) => ({
+        key: category,
+        label: `${category} (${costSheetForm.lines.filter((line) => line.category === category).length})`
+      }))
+    ],
+    [costLineCategories, costSheetForm.lines]
+  );
+  const visibleCostLines = useMemo(
+    () => costSheetForm.lines.filter((line) => activeCostLineFilter === "All" || line.category === activeCostLineFilter),
+    [activeCostLineFilter, costSheetForm.lines]
+  );
 
-  const requestDetails = useMemo(() => {
+  const requestDetails = useMemo<DetailSection[]>(() => {
     if (!activeRequest) {
       return [];
     }
@@ -526,6 +561,16 @@ export function SmsServiceRequestsPage() {
       }
     ];
   }, [activeCostSheet, activeRequest, requestDetailQuery.data?.attachments, requestDetailQuery.data?.auditTrail, requestDetailQuery.isLoading]);
+  const visibleRequestDetails = useMemo(() => {
+    const sectionMap: Record<ServiceRequestDetailTab, string[]> = {
+      request: ["Request summary", "Work details", "Provenance"],
+      visit: ["Visit and availability", "Cancellation state", "Customer feedback", "Customer pictures", "Audit trail"],
+      finance: ["Finance handoff"],
+      costing: ["Service costing"]
+    };
+    const allowedSections = sectionMap[activeDetailTab];
+    return requestDetails.filter((section) => allowedSections.includes(section.title));
+  }, [activeDetailTab, requestDetails]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -617,6 +662,7 @@ export function SmsServiceRequestsPage() {
       })) ?? []
     });
     setSelectedPresetId(detailResponse.costPresets[0]?.id ?? "");
+    setActiveCostLineFilter("All");
     setIsCostingModalOpen(true);
   }
 
@@ -665,7 +711,9 @@ export function SmsServiceRequestsPage() {
   }
 
   function addCustomCostLine() {
-    const defaultCategory = costLineCategories[0] ?? "Base Charge";
+    const defaultCategory = activeCostLineFilter === "All"
+      ? costLineCategories[0] ?? "Base Charge"
+      : activeCostLineFilter;
     setCostSheetForm((current) => ({
       ...current,
       lines: [
@@ -805,7 +853,10 @@ export function SmsServiceRequestsPage() {
                           : "-"}
                       </td>
                       <td>
-                        <RecordTableActionButton onClick={() => setSelectedRequest(serviceRequest)}>
+                        <RecordTableActionButton onClick={() => {
+                          setActiveDetailTab("request");
+                          setSelectedRequest(serviceRequest);
+                        }}>
                           View
                         </RecordTableActionButton>
                       </td>
@@ -1171,11 +1222,12 @@ export function SmsServiceRequestsPage() {
           </WorkspaceForm>
         </RecordFormModal>
 
-        <RecordFormModal
+        <RecordSurfaceModal
           open={isCostingModalOpen}
           eyebrow="Service costing"
           title={activeRequest ? `${activeRequest.requestNumber} costing` : "Service costing"}
           description="Draft the transparent commercial breakdown that technicians and customers can both track before invoice finalization."
+          maxWidthClassName="max-w-[min(78rem,calc(100vw-2rem))]"
           actions={(
             <>
               <WorkspaceModalButton onClick={() => setIsCostingModalOpen(false)}>
@@ -1193,186 +1245,188 @@ export function SmsServiceRequestsPage() {
           )}
           onClose={() => setIsCostingModalOpen(false)}
         >
-          <WorkspaceForm id="tenant-service-cost-sheet-form" onSubmit={handleCostSheetSubmit}>
-            <WorkspaceFieldGrid>
-              <WorkspaceField label="Tax label">
-                <WorkspaceInput
-                  value={costSheetForm.taxLabel}
-                  onChange={(event) => setCostSheetForm((current) => ({ ...current, taxLabel: event.target.value }))}
-                />
-              </WorkspaceField>
+          <WorkspaceForm id="tenant-service-cost-sheet-form" className="h-full min-h-0" onSubmit={handleCostSheetSubmit}>
+            <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.34fr)]">
+              <section className="flex min-h-0 flex-col overflow-hidden rounded-box border border-base-300/65 bg-base-100">
+                <div className="border-b border-base-300/65 px-3 pt-2">
+                  <WorkspaceTopTabs tabs={costLineFilterTabs} activeTab={activeCostLineFilter} onChange={setActiveCostLineFilter} />
+                </div>
 
-              <WorkspaceField label="Tax rate (%)">
-                <WorkspaceInput
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={costSheetForm.taxRate}
-                  onChange={(event) => setCostSheetForm((current) => ({ ...current, taxRate: event.target.value }))}
-                />
-              </WorkspaceField>
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                  <div className="grid gap-3 pb-14">
+                    {visibleCostLines.length ? (
+                      visibleCostLines.map((line) => {
+                        const lineIndex = costSheetForm.lines.findIndex((item) => item.clientId === line.clientId);
 
-              <WorkspaceField label="Tax toggle" wide>
-                <label className="flex items-center gap-3 rounded-box border border-base-300/65 bg-base-200/45 px-4 py-3 text-sm text-base-content">
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-sm border-base-300"
-                    checked={costSheetForm.isTaxEnabled}
-                    onChange={(event) => setCostSheetForm((current) => ({ ...current, isTaxEnabled: event.target.checked }))}
-                  />
-                  Include {costSheetForm.taxLabel || "tax"} in the draft customer-facing total.
-                </label>
-              </WorkspaceField>
+                        return (
+                          <article key={line.clientId} className="grid gap-4 rounded-box border border-base-300/65 bg-base-200/25 px-4 py-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">
+                                  Line {lineIndex + 1}
+                                </p>
+                                <h3 className="mt-1 text-lg text-base-content">{line.name || "Untitled line"}</h3>
+                              </div>
+                              <WorkspaceActionButton onClick={() => removeCostLine(line.clientId)}>
+                                Remove
+                              </WorkspaceActionButton>
+                            </div>
 
-              <WorkspaceField label="Costing notes" wide>
-                <textarea
-                  className="textarea textarea-bordered min-h-24 w-full border-base-300/70 bg-base-100/95 text-base-content shadow-none"
-                  value={costSheetForm.notes}
-                  onChange={(event) => setCostSheetForm((current) => ({ ...current, notes: event.target.value }))}
-                  placeholder="Optional technician or admin costing context shown to the customer as part of commercial transparency."
-                />
-              </WorkspaceField>
-            </WorkspaceFieldGrid>
+                            <WorkspaceFieldGrid className="xl:grid-cols-3">
+                              <WorkspaceField label="Category">
+                                <WorkspaceSelect
+                                  value={line.category}
+                                  onChange={(event) => updateCostLine(line.clientId, "category", event.target.value)}
+                                >
+                                  {costLineCategories.map((category) => (
+                                    <option key={category} value={category}>
+                                      {category}
+                                    </option>
+                                  ))}
+                                </WorkspaceSelect>
+                              </WorkspaceField>
 
-            <div className="grid gap-3 rounded-box border border-base-300/65 bg-base-200/35 px-4 py-4">
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="grid flex-1 gap-1.5">
-                  <span className="text-[0.8rem] font-bold uppercase tracking-[0.04em] text-base-content/60">Apply preset</span>
-                  <WorkspaceSelect
-                    value={selectedPresetId}
-                    onChange={(event) => setSelectedPresetId(event.target.value)}
-                    disabled={!costPresets.length}
-                  >
-                    <option value="">Select preset</option>
-                    {costPresets.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.category} / {preset.name}
-                      </option>
-                    ))}
-                  </WorkspaceSelect>
-                </label>
+                              <WorkspaceField label="Name">
+                                <WorkspaceInput
+                                  value={line.name}
+                                  onChange={(event) => updateCostLine(line.clientId, "name", event.target.value)}
+                                  required
+                                />
+                              </WorkspaceField>
 
-                <WorkspaceActionButton onClick={addPresetCostLine} disabled={!selectedPresetId}>
-                  Add preset line
-                </WorkspaceActionButton>
-                <WorkspaceActionButton onClick={addCustomCostLine}>
-                  Add custom line
-                </WorkspaceActionButton>
-              </div>
+                              <WorkspaceField label="Specification">
+                                <WorkspaceInput
+                                  value={line.specification}
+                                  onChange={(event) => updateCostLine(line.clientId, "specification", event.target.value)}
+                                  placeholder="Battery pack model, screen size, service scope"
+                                />
+                              </WorkspaceField>
 
-              <p className="text-sm text-base-content/65">
-                Keep reusable defaults in the Pricing workspace, then copy them into each live service request where technicians can still adjust specification, quantity, and price.
-              </p>
-            </div>
+                              <WorkspaceField label="Quantity">
+                                <WorkspaceInput
+                                  type="number"
+                                  min="0.01"
+                                  step="0.01"
+                                  value={line.quantity}
+                                  onChange={(event) => updateCostLine(line.clientId, "quantity", event.target.value)}
+                                  required
+                                />
+                              </WorkspaceField>
 
-            <div className="grid gap-3">
-              {costSheetForm.lines.length ? (
-                costSheetForm.lines.map((line, index) => (
-                  <article key={line.clientId} className="grid gap-4 rounded-box border border-base-300/65 bg-base-100 px-4 py-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">
-                          Line {index + 1}
-                        </p>
-                        <h3 className="mt-1 text-lg text-base-content">{line.name || "Untitled line"}</h3>
+                              <WorkspaceField label="Unit price">
+                                <WorkspaceInput
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={line.unitPrice}
+                                  onChange={(event) => updateCostLine(line.clientId, "unitPrice", event.target.value)}
+                                  required
+                                />
+                              </WorkspaceField>
+
+                              <WorkspaceField label="Line subtotal">
+                                <div className="rounded-box border border-base-300/65 bg-base-100/80 px-4 py-3 text-sm text-base-content">
+                                  <strong>{formatMoney(roundCurrency((Number(line.quantity) || 0) * (Number(line.unitPrice) || 0)))}</strong>
+                                </div>
+                              </WorkspaceField>
+                            </WorkspaceFieldGrid>
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-box border border-dashed border-base-300/70 bg-base-200/25 px-4 py-8 text-sm text-base-content/65">
+                        {costSheetForm.lines.length
+                          ? `No ${activeCostLineFilter} lines yet.`
+                          : "No commercial lines yet. Add a preset or create a custom line to start the transparent customer-facing breakdown."}
                       </div>
-                      <WorkspaceActionButton onClick={() => removeCostLine(line.clientId)}>
-                        Remove
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <aside className="min-h-0 overflow-y-auto rounded-box border border-base-300/65 bg-base-200/35 px-4 py-4">
+                <div className="grid gap-4">
+                  <WorkspaceField label="Tax label">
+                    <WorkspaceInput
+                      value={costSheetForm.taxLabel}
+                      onChange={(event) => setCostSheetForm((current) => ({ ...current, taxLabel: event.target.value }))}
+                    />
+                  </WorkspaceField>
+
+                  <WorkspaceField label="Tax rate (%)">
+                    <WorkspaceInput
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={costSheetForm.taxRate}
+                      onChange={(event) => setCostSheetForm((current) => ({ ...current, taxRate: event.target.value }))}
+                    />
+                  </WorkspaceField>
+
+                  <label className="flex items-center gap-3 rounded-box border border-base-300/65 bg-base-100/70 px-4 py-3 text-sm text-base-content">
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-sm border-base-300"
+                      checked={costSheetForm.isTaxEnabled}
+                      onChange={(event) => setCostSheetForm((current) => ({ ...current, isTaxEnabled: event.target.checked }))}
+                    />
+                    Include {costSheetForm.taxLabel || "tax"} in the customer-facing total.
+                  </label>
+
+                  <WorkspaceField label="Costing notes">
+                    <textarea
+                      className="textarea textarea-bordered min-h-28 w-full border-base-300/70 bg-base-100/95 text-base-content shadow-none"
+                      value={costSheetForm.notes}
+                      onChange={(event) => setCostSheetForm((current) => ({ ...current, notes: event.target.value }))}
+                      placeholder="Optional technician or admin costing context shown to the customer."
+                    />
+                  </WorkspaceField>
+
+                  <div className="grid gap-3 rounded-box border border-base-300/65 bg-base-100/70 px-4 py-4">
+                    <WorkspaceField label="Apply preset">
+                      <WorkspaceSelect
+                        value={selectedPresetId}
+                        onChange={(event) => setSelectedPresetId(event.target.value)}
+                        disabled={!costPresets.length}
+                      >
+                        <option value="">Select preset</option>
+                        {costPresets.map((preset) => (
+                          <option key={preset.id} value={preset.id}>
+                            {preset.category} / {preset.name}
+                          </option>
+                        ))}
+                      </WorkspaceSelect>
+                    </WorkspaceField>
+
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                      <WorkspaceActionButton className="justify-center" onClick={addPresetCostLine} disabled={!selectedPresetId}>
+                        Add preset
+                      </WorkspaceActionButton>
+                      <WorkspaceActionButton className="justify-center" onClick={addCustomCostLine}>
+                        Add custom
                       </WorkspaceActionButton>
                     </div>
+                  </div>
 
-                    <WorkspaceFieldGrid>
-                      <WorkspaceField label="Category">
-                        <WorkspaceSelect
-                          value={line.category}
-                          onChange={(event) => updateCostLine(line.clientId, "category", event.target.value)}
-                        >
-                          {costLineCategories.map((category) => (
-                            <option key={category} value={category}>
-                              {category}
-                            </option>
-                          ))}
-                        </WorkspaceSelect>
-                      </WorkspaceField>
-
-                      <WorkspaceField label="Name">
-                        <WorkspaceInput
-                          value={line.name}
-                          onChange={(event) => updateCostLine(line.clientId, "name", event.target.value)}
-                          required
-                        />
-                      </WorkspaceField>
-
-                      <WorkspaceField label="Specification">
-                        <WorkspaceInput
-                          value={line.specification}
-                          onChange={(event) => updateCostLine(line.clientId, "specification", event.target.value)}
-                          placeholder="Battery pack model, screen size, service scope"
-                        />
-                      </WorkspaceField>
-
-                      <WorkspaceField label="Quantity">
-                        <WorkspaceInput
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          value={line.quantity}
-                          onChange={(event) => updateCostLine(line.clientId, "quantity", event.target.value)}
-                          required
-                        />
-                      </WorkspaceField>
-
-                      <WorkspaceField label="Unit price">
-                        <WorkspaceInput
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={line.unitPrice}
-                          onChange={(event) => updateCostLine(line.clientId, "unitPrice", event.target.value)}
-                          required
-                        />
-                      </WorkspaceField>
-
-                      <WorkspaceField label="Line subtotal">
-                        <div className="rounded-box border border-base-300/65 bg-base-200/45 px-4 py-3 text-sm text-base-content">
-                          <strong>{formatMoney(roundCurrency((Number(line.quantity) || 0) * (Number(line.unitPrice) || 0)))}</strong>
-                        </div>
-                      </WorkspaceField>
-                    </WorkspaceFieldGrid>
-                  </article>
-                ))
-              ) : (
-                <div className="rounded-box border border-dashed border-base-300/70 bg-base-200/25 px-4 py-6 text-sm text-base-content/65">
-                  No commercial lines yet. Add a preset or create a custom line to start the transparent customer-facing breakdown.
+                  <div className="grid gap-3 rounded-box border border-base-300/65 bg-base-100/70 px-4 py-4">
+                    <CostTotal label="Subtotal" value={formatMoney(costingPreview.subtotalAmount)} />
+                    <CostTotal label={costSheetForm.taxLabel || "Tax"} value={formatMoney(costingPreview.taxAmount)} />
+                    <CostTotal label="Draft total" value={formatMoney(costingPreview.totalAmount)} strong />
+                  </div>
                 </div>
-              )}
-            </div>
-
-            <div className="grid gap-3 rounded-box border border-base-300/65 bg-base-200/35 px-4 py-4 md:grid-cols-3">
-              <div>
-                <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">Subtotal</p>
-                <strong className="mt-2 block text-xl text-base-content">{formatMoney(costingPreview.subtotalAmount)}</strong>
-              </div>
-              <div>
-                <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">
-                  {costSheetForm.taxLabel || "Tax"}
-                </p>
-                <strong className="mt-2 block text-xl text-base-content">{formatMoney(costingPreview.taxAmount)}</strong>
-              </div>
-              <div>
-                <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">Draft total</p>
-                <strong className="mt-2 block text-xl text-base-content">{formatMoney(costingPreview.totalAmount)}</strong>
-              </div>
+              </aside>
             </div>
           </WorkspaceForm>
-        </RecordFormModal>
+        </RecordSurfaceModal>
 
-        <RecordDetailsModal
+        <RecordSurfaceModal
           open={selectedRequest !== null}
           eyebrow="Service request details"
           title={activeRequest?.requestNumber ?? ""}
-          sections={requestDetails}
+          tabs={serviceRequestDetailTabs}
+          activeTabKey={activeDetailTab}
+          maxWidthClassName="max-w-[min(64rem,calc(100vw-2rem))]"
           actions={activeRequest ? (
             <>
               <WorkspaceModalButton onClick={() => setSelectedRequest(null)}>
@@ -1398,9 +1452,50 @@ export function SmsServiceRequestsPage() {
               ) : null}
             </>
           ) : null}
+          onTabChange={(tabKey) => setActiveDetailTab(tabKey as ServiceRequestDetailTab)}
           onClose={() => setSelectedRequest(null)}
-        />
+        >
+          <div className="h-full overflow-y-auto pr-1">
+            {requestDetailQuery.isLoading && selectedRequest ? (
+              <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-6 text-sm text-base-content/65">
+                Loading service request details...
+              </div>
+            ) : (
+              <DetailSections sections={visibleRequestDetails} />
+            )}
+          </div>
+        </RecordSurfaceModal>
     </>
+  );
+}
+
+function DetailSections({ sections }: { sections: DetailSection[] }) {
+  return (
+    <div className="grid gap-4">
+      {sections.map((section) => (
+        <section key={section.title} className="grid gap-3">
+          <h3 className="m-0 text-[0.82rem] font-extrabold uppercase tracking-[0.1em] text-base-content/60">{section.title}</h3>
+
+          <dl className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {section.items.map((item) => (
+              <div key={`${section.title}-${item.label}`} className="grid gap-1 rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
+                <dt className="text-[0.72rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">{item.label}</dt>
+                <dd className="m-0 min-w-0 text-sm leading-6 text-base-content">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function CostTotal({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-box border border-base-300/65 bg-base-200/45 px-3 py-3">
+      <span className="text-[0.72rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">{label}</span>
+      <strong className={strong ? "text-lg text-base-content" : "text-base-content"}>{value}</strong>
+    </div>
   );
 }
 

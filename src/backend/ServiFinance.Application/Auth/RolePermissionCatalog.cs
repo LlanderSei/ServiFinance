@@ -39,7 +39,7 @@ public static class RolePermissionCatalog {
     Permission("sms.roles-permissions.manage", "Manage SMS roles and permissions", "Administration", "Review and update mutable SMS role permission sets.", PlatformRolePolicy.SmsScope),
     Permission("sms.audits.view", "View SMS audits", "Administration", "Review SMS system and security audit events.", PlatformRolePolicy.SmsScope),
     Permission("sms.billing.view", "View tenant billing", "Commercial", "Review subscription standing and billing history.", PlatformRolePolicy.SmsScope),
-    Permission("sms.billing.manage", "Manage tenant billing", "Commercial", "Submit tenant billing proof or open Stripe billing portal sessions.", PlatformRolePolicy.SmsScope)
+    Permission("sms.billing.manage", "Manage tenant billing", "Commercial", "Open hosted billing portal sessions and review online renewal posture.", PlatformRolePolicy.SmsScope)
   ];
 
   private static readonly RolePermissionDefinition[] MlsPermissions = [

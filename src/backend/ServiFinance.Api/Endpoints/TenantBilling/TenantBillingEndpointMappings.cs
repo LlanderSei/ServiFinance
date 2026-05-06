@@ -110,132 +110,23 @@ internal static class TenantBillingEndpointMappings {
     tenantApi.MapPost("/billing/submissions", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
-        [FromForm] SubmitTenantBillingProofRequest request,
-        IWebHostEnvironment environment,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
           if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
             return Results.Forbid();
           }
 
-          if (!TryGetCurrentUserId(httpContext.User, out var currentUserId)) {
+          if (!TryGetCurrentUserId(httpContext.User, out _)) {
             return Results.Unauthorized();
           }
 
-          if (request.AmountSubmitted <= 0m) {
-            return Results.BadRequest(new { error = "Enter the submitted billing amount." });
-          }
-
-          var paymentMethod = request.PaymentMethod?.Trim();
-          if (string.IsNullOrWhiteSpace(paymentMethod)) {
-            return Results.BadRequest(new { error = "Select the payment method used for this billing submission." });
-          }
-
-          var referenceNumber = request.ReferenceNumber?.Trim();
-          if (string.IsNullOrWhiteSpace(referenceNumber)) {
-            return Results.BadRequest(new { error = "Enter the payment reference number for billing review." });
-          }
-
-          var tenant = await dbContext.Tenants
-              .SingleOrDefaultAsync(entity => entity.DomainSlug == tenantDomainSlug, cancellationToken);
-          if (tenant is null) {
+          var tenantExists = await dbContext.Tenants
+              .AnyAsync(entity => entity.DomainSlug == tenantDomainSlug, cancellationToken);
+          if (!tenantExists) {
             return Results.NotFound();
           }
 
-          if (string.Equals(tenant.BillingProvider, "Stripe", StringComparison.OrdinalIgnoreCase)) {
-            return Results.BadRequest(new { error = "This tenant uses Stripe-managed billing. Open the billing portal instead of submitting manual proof." });
-          }
-
-          var hasPendingReview = await dbContext.TenantBillingRecords
-              .AnyAsync(entity => entity.TenantId == tenant.Id && entity.Status == "Pending Review", cancellationToken);
-          if (hasPendingReview) {
-            return Results.BadRequest(new { error = "A billing submission is already pending review for this tenant." });
-          }
-
-          var currentTier = await ResolveCurrentTierAsync(dbContext, tenant, cancellationToken);
-          var expectedRenewalAmount = TryParseSubscriptionAmount(currentTier?.PriceDisplay) ?? request.AmountSubmitted;
-          var latestConfirmedRecord = await dbContext.TenantBillingRecords
-              .AsNoTracking()
-              .Where(entity => entity.TenantId == tenant.Id)
-              .Where(entity => entity.Status == "Confirmed")
-              .OrderByDescending(entity => entity.CoverageEndUtc)
-              .ThenByDescending(entity => entity.SubmittedAtUtc)
-              .FirstOrDefaultAsync(cancellationToken);
-
-          var utcToday = DateTime.UtcNow.Date;
-          var nextCoverageStartUtc = latestConfirmedRecord is null
-              ? utcToday
-              : latestConfirmedRecord.CoverageEndUtc.Date.AddDays(1);
-          if (nextCoverageStartUtc < utcToday) {
-            nextCoverageStartUtc = utcToday;
-          }
-
-          var nextCoverageEndUtc = nextCoverageStartUtc.AddMonths(1).AddDays(-1);
-          var billingRecord = new TenantBillingRecord {
-            TenantId = tenant.Id,
-            SubmittedByUserId = currentUserId,
-            BillingPeriodLabel = $"{nextCoverageStartUtc:MMMM yyyy} subscription cycle",
-            CoverageStartUtc = nextCoverageStartUtc,
-            CoverageEndUtc = nextCoverageEndUtc,
-            DueDateUtc = nextCoverageStartUtc,
-            AmountDue = expectedRenewalAmount,
-            AmountSubmitted = request.AmountSubmitted,
-            PaymentMethod = paymentMethod,
-            ReferenceNumber = referenceNumber,
-            Status = "Pending Review",
-            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
-            SubmittedAtUtc = DateTime.UtcNow
-          };
-
-          if (request.ProofFile is not null && request.ProofFile.Length > 0) {
-            if (request.ProofFile.Length > 8 * 1024 * 1024) {
-              return Results.BadRequest(new { error = "Proof of payment must be 8 MB or smaller." });
-            }
-
-            var webRootPath = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
-            var uploadDirectory = Path.Combine(
-                webRootPath,
-                "uploads",
-                "tenant-billing",
-                tenantDomainSlug,
-                billingRecord.Id.ToString("N"));
-            Directory.CreateDirectory(uploadDirectory);
-
-            var proofExtension = Path.GetExtension(request.ProofFile.FileName);
-            var storedFileName = $"billing-proof-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}{proofExtension}";
-            var absoluteFilePath = Path.Combine(uploadDirectory, storedFileName);
-
-            await using (var stream = File.Create(absoluteFilePath)) {
-              await request.ProofFile.CopyToAsync(stream, cancellationToken);
-            }
-
-            billingRecord.ProofOriginalFileName = request.ProofFile.FileName;
-            billingRecord.ProofStoredFileName = storedFileName;
-            billingRecord.ProofContentType = request.ProofFile.ContentType;
-            billingRecord.ProofRelativeUrl = $"/uploads/tenant-billing/{tenantDomainSlug}/{billingRecord.Id:N}/{storedFileName}";
-          }
-
-          dbContext.TenantBillingRecords.Add(billingRecord);
-          await dbContext.SaveChangesAsync(cancellationToken);
-
-          return Results.Ok(new TenantBillingRecordRowResponse(
-              billingRecord.Id,
-              billingRecord.BillingPeriodLabel,
-              billingRecord.CoverageStartUtc,
-              billingRecord.CoverageEndUtc,
-              billingRecord.DueDateUtc,
-              billingRecord.AmountDue,
-              billingRecord.AmountSubmitted,
-              billingRecord.PaymentMethod,
-              billingRecord.ReferenceNumber,
-              billingRecord.Status,
-              billingRecord.Note,
-              billingRecord.ReviewRemarks,
-              billingRecord.ProofOriginalFileName,
-              billingRecord.ProofRelativeUrl,
-              httpContext.User.Identity?.Name ?? "Tenant administrator",
-              billingRecord.SubmittedAtUtc,
-              billingRecord.ReviewedAtUtc));
+          return Results.BadRequest(new { error = "Manual tenant billing proof submission has been discontinued. Use the online billing provider and hosted billing portal for recurring renewal." });
         });
 
     return tenantApi;
@@ -296,7 +187,7 @@ internal static class TenantBillingEndpointMappings {
         latestSubmission?.Status,
         latestConfirmedCoverage?.CoverageEndUtc,
         pendingReviewCount,
-        !isStripeManaged && pendingReviewCount == 0,
+        false,
         isStripeManaged && stripeIsConfigured && !string.IsNullOrWhiteSpace(tenant.StripeCustomerId));
   }
 

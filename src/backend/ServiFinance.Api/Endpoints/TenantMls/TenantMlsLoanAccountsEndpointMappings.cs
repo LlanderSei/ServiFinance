@@ -9,6 +9,9 @@ using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantMlsLoanAccountsEndpointMappings {
+  private const int LedgerReferenceNumberMaxLength = 100;
+  private const int LedgerRemarksMaxLength = 1000;
+
   public static RouteGroupBuilder MapTenantMlsLoanAccountsEndpoints(this RouteGroupBuilder tenantApi) {
     tenantApi.MapGet("/mls/loans", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -116,6 +119,20 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
             return Results.BadRequest(new { error = "Payment amount must be greater than zero." });
           }
 
+          if (request.PaymentDate > DateOnly.FromDateTime(DateTime.UtcNow)) {
+            return Results.BadRequest(new { error = "Payment date cannot be in the future." });
+          }
+
+          var referenceNumber = NormalizeOptionalText(request.ReferenceNumber);
+          if ((referenceNumber?.Length ?? 0) > LedgerReferenceNumberMaxLength) {
+            return Results.BadRequest(new { error = $"Reference number must be {LedgerReferenceNumberMaxLength} characters or fewer." });
+          }
+
+          var remarks = NormalizeOptionalText(request.Remarks);
+          if ((remarks?.Length ?? 0) > LedgerRemarksMaxLength) {
+            return Results.BadRequest(new { error = $"Payment remarks must be {LedgerRemarksMaxLength} characters or fewer." });
+          }
+
           var loan = await dbContext.MicroLoans
               .Include(entity => entity.Customer)
               .Include(entity => entity.Invoice)
@@ -132,6 +149,11 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
           var outstandingBefore = RoundCurrency(loan.TotalRepayableAmount - totalPaidBefore);
           if (outstandingBefore <= 0m) {
             return Results.BadRequest(new { error = "This loan is already fully settled." });
+          }
+
+          var requestedAmount = RoundCurrency(request.Amount);
+          if (requestedAmount > outstandingBefore) {
+            return Results.BadRequest(new { error = "Payment amount cannot exceed the current outstanding loan balance." });
           }
 
           var payableInstallments = orderedSchedules
@@ -151,7 +173,23 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
             });
           }
 
-          var amountToApply = Math.Min(RoundCurrency(request.Amount), outstandingBefore);
+          if (await HasDuplicatePaymentAsync(
+              dbContext,
+              loan.Id,
+              currentUserId,
+              request.PaymentDate,
+              requestedAmount,
+              referenceNumber,
+              cancellationToken)) {
+            return Results.Conflict(new { error = "A matching payment was already posted for this loan on the selected date. Add a unique reference number if this is a separate collection." });
+          }
+
+          var latestLedgerCursor = await LoadLatestLedgerCursorAsync(dbContext, loan.CustomerId, cancellationToken);
+          if (latestLedgerCursor is not null && request.PaymentDate < DateOnly.FromDateTime(latestLedgerCursor.TransactionDateUtc)) {
+            return Results.BadRequest(new { error = "Payment date cannot be earlier than the latest customer ledger transaction date." });
+          }
+
+          var amountToApply = requestedAmount;
           var remainingAmount = amountToApply;
           var loanLabel = loan.Invoice?.InvoiceNumber ?? "standalone loan";
 
@@ -178,30 +216,23 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
             ? "Paid"
             : "Active";
 
-          var previousRunningBalance = await dbContext.Transactions
-              .Where(entity => entity.CustomerId == loan.CustomerId)
-              .OrderByDescending(entity => entity.TransactionDateUtc)
-              .ThenByDescending(entity => entity.Id)
-              .Select(entity => entity.RunningBalance)
-              .FirstOrDefaultAsync(cancellationToken);
-
           var paymentTransaction = new LedgerTransaction {
             Id = Guid.NewGuid(),
             CustomerId = loan.CustomerId,
             InvoiceId = loan.InvoiceId,
             MicroLoanId = loan.Id,
             AmortizationScheduleId = startingInstallment.Id,
-            TransactionDateUtc = request.PaymentDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            TransactionDateUtc = CreateLedgerTimestamp(request.PaymentDate, latestLedgerCursor?.TransactionDateUtc),
             TransactionType = "LoanPayment",
-            ReferenceNumber = string.IsNullOrWhiteSpace(request.ReferenceNumber)
+            ReferenceNumber = referenceNumber is null
               ? GenerateReferenceCode("MLS-PMT")
-              : request.ReferenceNumber.Trim(),
+              : referenceNumber,
             DebitAmount = 0m,
             CreditAmount = amountToApply,
-            RunningBalance = RoundCurrency(previousRunningBalance - amountToApply),
-            Remarks = string.IsNullOrWhiteSpace(request.Remarks)
+            RunningBalance = RoundCurrency((latestLedgerCursor?.RunningBalance ?? 0m) - amountToApply),
+            Remarks = remarks is null
               ? $"Payment posted for loan {loanLabel}"
-              : request.Remarks.Trim(),
+              : remarks,
             CreatedByUserId = currentUserId
           };
 
@@ -252,6 +283,20 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
 
           if (string.IsNullOrWhiteSpace(request.Remarks)) {
             return Results.BadRequest(new { error = "Reversal remarks are required so the correction is auditable." });
+          }
+
+          if (request.ReversalDate > DateOnly.FromDateTime(DateTime.UtcNow)) {
+            return Results.BadRequest(new { error = "Reversal date cannot be in the future." });
+          }
+
+          var reversalReferenceNumber = NormalizeOptionalText(request.ReferenceNumber);
+          if ((reversalReferenceNumber?.Length ?? 0) > LedgerReferenceNumberMaxLength) {
+            return Results.BadRequest(new { error = $"Reference number must be {LedgerReferenceNumberMaxLength} characters or fewer." });
+          }
+
+          var reversalRemarks = request.Remarks.Trim();
+          if (reversalRemarks.Length > LedgerRemarksMaxLength) {
+            return Results.BadRequest(new { error = $"Reversal remarks must be {LedgerRemarksMaxLength} characters or fewer." });
           }
 
           var loan = await dbContext.MicroLoans
@@ -305,12 +350,10 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
             ? "Paid"
             : "Active";
 
-          var previousRunningBalance = await dbContext.Transactions
-              .Where(entity => entity.CustomerId == loan.CustomerId)
-              .OrderByDescending(entity => entity.TransactionDateUtc)
-              .ThenByDescending(entity => entity.Id)
-              .Select(entity => entity.RunningBalance)
-              .FirstOrDefaultAsync(cancellationToken);
+          var latestLedgerCursor = await LoadLatestLedgerCursorAsync(dbContext, loan.CustomerId, cancellationToken);
+          if (latestLedgerCursor is not null && request.ReversalDate < DateOnly.FromDateTime(latestLedgerCursor.TransactionDateUtc)) {
+            return Results.BadRequest(new { error = "Reversal date cannot be earlier than the latest customer ledger transaction date." });
+          }
 
           var reversalTransaction = new LedgerTransaction {
             Id = Guid.NewGuid(),
@@ -319,15 +362,15 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
             MicroLoanId = loan.Id,
             AmortizationScheduleId = transaction.AmortizationScheduleId,
             ReversalOfTransactionId = transaction.Id,
-            TransactionDateUtc = request.ReversalDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            TransactionDateUtc = CreateLedgerTimestamp(request.ReversalDate, latestLedgerCursor?.TransactionDateUtc),
             TransactionType = "LoanPaymentReversal",
-            ReferenceNumber = string.IsNullOrWhiteSpace(request.ReferenceNumber)
+            ReferenceNumber = reversalReferenceNumber is null
               ? GenerateReferenceCode("MLS-RVS")
-              : request.ReferenceNumber.Trim(),
+              : reversalReferenceNumber,
             DebitAmount = amountToReverse,
             CreditAmount = 0m,
-            RunningBalance = RoundCurrency(previousRunningBalance + amountToReverse),
-            Remarks = request.Remarks.Trim(),
+            RunningBalance = RoundCurrency((latestLedgerCursor?.RunningBalance ?? 0m) + amountToReverse),
+            Remarks = reversalRemarks,
             CreatedByUserId = currentUserId
           };
 
@@ -369,6 +412,56 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
         entity.RunningBalance,
         entity.Remarks,
         reversiblePaymentTransactionId == entity.Id);
+  }
+
+  private static async Task<LedgerCursor?> LoadLatestLedgerCursorAsync(
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      Guid customerId,
+      CancellationToken cancellationToken) =>
+    await dbContext.Transactions
+        .AsNoTracking()
+        .Where(entity => entity.CustomerId == customerId)
+        .OrderByDescending(entity => entity.TransactionDateUtc)
+        .ThenByDescending(entity => entity.Id)
+        .Select(entity => new LedgerCursor(entity.TransactionDateUtc, entity.RunningBalance))
+        .FirstOrDefaultAsync(cancellationToken);
+
+  private static async Task<bool> HasDuplicatePaymentAsync(
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      Guid loanId,
+      Guid createdByUserId,
+      DateOnly paymentDate,
+      decimal amount,
+      string? referenceNumber,
+      CancellationToken cancellationToken) {
+    var dateFromUtc = paymentDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    var dateToUtc = dateFromUtc.AddDays(1);
+    var query = dbContext.Transactions
+        .AsNoTracking()
+        .Where(entity =>
+            entity.MicroLoanId == loanId &&
+            entity.CreatedByUserId == createdByUserId &&
+            entity.TransactionType == "LoanPayment" &&
+            entity.CreditAmount == amount &&
+            entity.TransactionDateUtc >= dateFromUtc &&
+            entity.TransactionDateUtc < dateToUtc);
+
+    query = referenceNumber is null
+      ? query.Where(entity => !dbContext.Transactions.Any(reversal => reversal.ReversalOfTransactionId == entity.Id))
+      : query.Where(entity => entity.ReferenceNumber == referenceNumber);
+
+    return await query.AnyAsync(cancellationToken);
+  }
+
+  private static DateTime CreateLedgerTimestamp(DateOnly selectedDate, DateTime? latestLedgerTimestampUtc) {
+    var timestamp = selectedDate.ToDateTime(TimeOnly.FromDateTime(DateTime.UtcNow), DateTimeKind.Utc);
+    if (latestLedgerTimestampUtc.HasValue &&
+        DateOnly.FromDateTime(latestLedgerTimestampUtc.Value) == selectedDate &&
+        timestamp <= latestLedgerTimestampUtc.Value) {
+      return latestLedgerTimestampUtc.Value.AddTicks(1);
+    }
+
+    return timestamp;
   }
 
   private static Guid? GetLatestReversiblePaymentTransactionId(IEnumerable<LedgerTransaction> transactions) {
@@ -443,4 +536,11 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
 
   private static decimal RoundCurrency(decimal value) =>
     Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+  private static string? NormalizeOptionalText(string? value) {
+    var normalized = value?.Trim();
+    return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+  }
+
+  private sealed record LedgerCursor(DateTime TransactionDateUtc, decimal RunningBalance);
 }

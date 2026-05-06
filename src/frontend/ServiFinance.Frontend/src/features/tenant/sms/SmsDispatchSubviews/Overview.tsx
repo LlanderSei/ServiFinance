@@ -22,6 +22,8 @@ interface OverviewProps {
   getFinanceTone: (status: string) => "active" | "warning" | "progress" | "neutral";
 }
 
+const dispatchTableActionClass = "h-8 min-h-8 w-full justify-center px-3 text-xs leading-none";
+
 export function SmsDispatchOverview({
   assignments,
   isLoading,
@@ -142,14 +144,14 @@ export function SmsDispatchOverview({
                     {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
                   </WorkspaceStatusPill>
                 </td>
-                <td>
-                  <div className="flex flex-wrap gap-1">
-                    <RecordTableActionButton onClick={() => onSelectAssignment(assignment)}>
+                <td className="min-w-32">
+                  <div className="flex w-28 flex-col items-stretch gap-1">
+                    <RecordTableActionButton className={dispatchTableActionClass} onClick={() => onSelectAssignment(assignment)}>
                       View
                     </RecordTableActionButton>
                     {canCancelAssignment(assignment) && (
                       <WorkspaceActionButton
-                        className="btn-xs text-error hover:bg-error/10"
+                        className={`${dispatchTableActionClass} text-error hover:bg-error/10`}
                         onClick={() => openCancelModal(assignment)}
                       >
                         Cancel
@@ -157,7 +159,7 @@ export function SmsDispatchOverview({
                     )}
                     {canHandoverAssignment(assignment) && (
                       <WorkspaceActionButton
-                        className="btn-xs text-warning hover:bg-warning/10"
+                        className={`${dispatchTableActionClass} text-warning hover:bg-warning/10`}
                         onClick={() => openHandoverModal(assignment)}
                       >
                         Handover
@@ -165,7 +167,7 @@ export function SmsDispatchOverview({
                     )}
                     {canAbandonAssignment(assignment) && (
                       <WorkspaceActionButton
-                        className="btn-xs text-error hover:bg-error/10"
+                        className={`${dispatchTableActionClass} text-error hover:bg-error/10`}
                         onClick={() => openAbandonModal(assignment)}
                       >
                         Abandon

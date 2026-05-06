@@ -247,10 +247,20 @@ internal static class ProgramEndpointSupport {
       return "Invoice finalized";
     }
 
+    if (IsFinanceHandoffNotApplicable(serviceStatus)) {
+      return "No finance action";
+    }
+
     return string.Equals(serviceStatus, "Completed", StringComparison.OrdinalIgnoreCase)
         ? "Ready for invoicing"
         : "Awaiting service completion";
   }
+
+  private static bool IsFinanceHandoffNotApplicable(string serviceStatus) =>
+    string.Equals(serviceStatus, "Cancelled", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(serviceStatus, "Cancellation Requested", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(serviceStatus, "Abandoned", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(serviceStatus, "Closed", StringComparison.OrdinalIgnoreCase);
 
   internal static bool CanFinalizeInvoice(string serviceStatus, bool hasInvoice) =>
     !hasInvoice && string.Equals(serviceStatus, "Completed", StringComparison.OrdinalIgnoreCase);

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type RecordSurfaceModalTab = {
   key: string;
@@ -36,17 +36,30 @@ export function RecordSurfaceModal({
   onClose,
   onTabChange
 }: RecordSurfaceModalProps) {
+  const [stackZIndex, setStackZIndex] = useState(90);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const nextModalStack = ((window as Window & { __sfRecordModalStack?: number }).__sfRecordModalStack ?? 80) + 2;
+    (window as Window & { __sfRecordModalStack?: number }).__sfRecordModalStack = nextModalStack;
+    setStackZIndex(nextModalStack);
+  }, [open]);
+
   if (!open) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/58 p-3 md:p-5" onClick={onClose}>
+    <div className="fixed inset-0 grid place-items-center bg-black/58 p-3 md:p-5" style={{ zIndex: stackZIndex }} onClick={onClose}>
       <div
         className={joinClasses(
-          "relative z-[91] flex h-[min(88vh,52rem)] w-full flex-col overflow-hidden rounded-[1.6rem] border border-base-300/70 bg-base-100 shadow-2xl md:h-[min(86vh,50rem)]",
+          "relative flex h-[min(88vh,52rem)] w-full flex-col overflow-hidden rounded-[1.6rem] border border-base-300/70 bg-base-100 shadow-2xl md:h-[min(86vh,50rem)]",
           maxWidthClassName
         )}
+        style={{ zIndex: stackZIndex + 1 }}
         role="dialog"
         aria-modal="true"
         aria-label={title}

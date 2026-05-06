@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Application.Auditing;
+using ServiFinance.Application.Payments;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
@@ -104,8 +105,18 @@ internal static class TenantMlsLoanConversionEndpointMappings {
               .Include(entity => entity.Customer)
               .Include(entity => entity.ServiceRequest)
               .Include(entity => entity.MicroLoan)
+              .Include(entity => entity.PaymentSubmissions)
               .FirstOrDefaultAsync(entity => entity.Id == request.InvoiceId, cancellationToken);
-          if (invoice is null || !CanConvertToLoan(true, invoice.MicroLoan != null, invoice.OutstandingAmount, invoice.InterestableAmount, invoice.InvoiceStatus)) {
+          var conversionBlockReason = GetConversionBlockReason(invoice);
+          if (conversionBlockReason is not null) {
+            return Results.BadRequest(new { error = conversionBlockReason });
+          }
+
+          if (request.LoanStartDate < DateOnly.FromDateTime(invoice!.InvoiceDateUtc)) {
+            return Results.BadRequest(new { error = "Loan start date cannot be earlier than the source invoice date." });
+          }
+
+          if (await dbContext.MicroLoans.AnyAsync(entity => entity.InvoiceId == request.InvoiceId, cancellationToken)) {
             return Results.BadRequest(new { error = "The selected invoice can no longer be converted into a loan." });
           }
 
@@ -170,7 +181,20 @@ internal static class TenantMlsLoanConversionEndpointMappings {
 
           dbContext.Transactions.Add(loanTransaction);
 
-          await dbContext.SaveChangesAsync(cancellationToken);
+          try {
+            await dbContext.SaveChangesAsync(cancellationToken);
+          }
+          catch (DbUpdateException) {
+            var wasConvertedByAnotherRequest = await dbContext.MicroLoans
+                .AsNoTracking()
+                .AnyAsync(entity => entity.InvoiceId == request.InvoiceId, cancellationToken);
+            if (wasConvertedByAnotherRequest) {
+              return Results.Conflict(new { error = "This invoice was already converted into an MLS loan. Refresh the loan conversion queue." });
+            }
+
+            throw;
+          }
+
           await TenantMlsAuditLogging.WriteSystemAuditAsync(
               auditLogService,
               httpContext,
@@ -198,11 +222,41 @@ internal static class TenantMlsLoanConversionEndpointMappings {
         .Include(entity => entity.Customer)
         .Include(entity => entity.ServiceRequest)
         .Include(entity => entity.MicroLoan)
-        .Where(entity => entity.InvoiceStatus == "Finalized")
+        .Include(entity => entity.PaymentSubmissions)
+        .Where(entity => entity.InvoiceStatus == ServiceInvoiceFinancePolicy.FinalizedStatus)
         .Where(entity => entity.MicroLoan == null)
         .Where(entity => entity.OutstandingAmount > 0m)
         .Where(entity => entity.InterestableAmount > 0m)
+        .Where(entity => !entity.PaymentSubmissions.Any(submission =>
+            submission.Status == ServiceInvoiceFinancePolicy.PaymentSubmittedStatus ||
+            submission.Status == ServiceInvoiceFinancePolicy.LegacyPendingReviewStatus ||
+            submission.Status == ServiceInvoiceFinancePolicy.CheckoutPendingStatus))
         .OrderByDescending(entity => entity.InvoiceDateUtc);
+
+  private static string? GetConversionBlockReason(Invoice? invoice) {
+    if (invoice is null) {
+      return "The selected invoice can no longer be converted into a loan.";
+    }
+
+    if (invoice.MicroLoan is not null) {
+      return "This invoice has already been converted into an MLS loan account.";
+    }
+
+    if (invoice.PaymentSubmissions.Any(entity => ServiceInvoiceFinancePolicy.IsManualReviewPendingStatus(entity.Status))) {
+      return "This invoice has a customer payment proof pending finance review. Review or reject the proof before converting it into a loan.";
+    }
+
+    if (invoice.PaymentSubmissions.Any(entity => string.Equals(entity.Status, ServiceInvoiceFinancePolicy.CheckoutPendingStatus, StringComparison.OrdinalIgnoreCase))) {
+      return "This invoice has a Stripe checkout session still in progress. Resolve the checkout before converting it into a loan.";
+    }
+
+    var derivedInvoiceStatus = ServiceInvoiceFinancePolicy.DeriveInvoiceStatus(invoice);
+    if (!CanConvertToLoan(true, false, invoice.OutstandingAmount, invoice.InterestableAmount, derivedInvoiceStatus)) {
+      return $"Only finalized invoices with unpaid interestable balances can be converted. Current invoice status: {derivedInvoiceStatus}.";
+    }
+
+    return null;
+  }
 
   private static string? ValidateTerms(decimal annualInterestRate, int termMonths) {
     if (annualInterestRate < 0m || annualInterestRate > 120m) {
