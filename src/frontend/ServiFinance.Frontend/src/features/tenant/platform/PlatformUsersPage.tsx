@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { useParams } from "react-router-dom";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
@@ -81,6 +82,9 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
   const { tenantDomainSlug: routeTenantDomainSlug = "" } = useParams();
   const currentSession = getCurrentSession();
   const { data: refreshedSession } = useRefreshSession(!currentSession);
+  const currentUser = (currentSession ?? refreshedSession)?.user ?? null;
+  const managePermissionKey = entrySurface === "mls" ? "mls.users.manage" : "sms.users.manage";
+  const canManageUsers = hasPermission(currentUser, managePermissionKey);
   const tenantDomainSlug = entrySurface === "mls"
     ? (currentSession ?? refreshedSession)?.user.tenantDomainSlug ?? ""
     : routeTenantDomainSlug;
@@ -175,12 +179,28 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
       roleIds.length === 0;
 
   function openCreateModal() {
+    if (!canManageUsers) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot create tenant platform users."
+      });
+      return;
+    }
+
     setEditingUser(null);
     setForm(emptyForm);
     setModalMode("create");
   }
 
   function openEditModal(user: UserListItem) {
+    if (!canManageUsers) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot update tenant platform users."
+      });
+      return;
+    }
+
     setEditingUser(user);
     setForm(createFormForUser(user, roles));
     setModalMode("edit");
@@ -194,6 +214,14 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageUsers) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot manage tenant platform users."
+      });
+      return;
+    }
+
     const selectedRoleIds = buildRoleIds(form);
     if (selectedRoleIds.length === 0) {
       toast.error({
@@ -273,7 +301,7 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
                     <td>{user.fullName}</td>
                     <td>{user.email}</td>
                     <td>
-                      <AccessPill category={getAccessCategory(user.roles)} />
+                      <AccessPill category={getAccessCategory(user.platformScopes.length ? user.platformScopes : user.roles)} />
                     </td>
                     <td>
                       <div className="flex flex-wrap gap-1.5">
@@ -297,13 +325,13 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
                       <div className="flex flex-wrap gap-2">
                         <RecordTableActionButton
                           onClick={() => openEditModal(user)}
-                          disabled={rolesQuery.isLoading || !hasSelectableRoles}
+                          disabled={!canManageUsers || rolesQuery.isLoading || !hasSelectableRoles}
                         >
                           Edit
                         </RecordTableActionButton>
                         <RecordTableActionButton
                           onClick={() => toggleMutation.mutate({ userId: user.id, isActive: !user.isActive })}
-                          disabled={toggleMutation.isPending}
+                          disabled={!canManageUsers || toggleMutation.isPending}
                         >
                           {user.isActive ? "Disable" : "Enable"}
                         </RecordTableActionButton>
@@ -331,7 +359,7 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
                 label: "Create platform user",
                 icon: "users",
                 onClick: openCreateModal,
-                disabled: rolesQuery.isLoading || !hasSelectableRoles
+                disabled: !canManageUsers || rolesQuery.isLoading || !hasSelectableRoles
               }
             ]}
           />
@@ -352,7 +380,7 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
               type="submit"
               form="platform-user-form"
               tone="primary"
-              disabled={isSubmitDisabled}
+              disabled={!canManageUsers || isSubmitDisabled}
             >
               {primaryActionLabel}
             </WorkspaceModalButton>
@@ -512,15 +540,20 @@ function getAccessCategory(roles: string[]): AccessCategory {
 }
 
 function isOwnerAdminRole(role: string) {
-  return role.toLowerCase() === "administrator" || role.toLowerCase() === "owner";
+  return role.toLowerCase() === "administrator" ||
+    role.toLowerCase() === "owner" ||
+    role.toLowerCase() === "owneradmin";
 }
 
 function isSmsRole(role: string) {
-  return role.toLowerCase() === "staff" || role.toLowerCase().startsWith("sms ");
+  return role.toLowerCase() === "staff" ||
+    role.toLowerCase() === "sms" ||
+    role.toLowerCase().startsWith("sms ");
 }
 
 function isMlsRole(role: string) {
-  return role.toLowerCase().startsWith("mls ");
+  return role.toLowerCase() === "mls" ||
+    role.toLowerCase().startsWith("mls ");
 }
 
 function AccessPill({ category }: { category: AccessCategory }) {
@@ -534,6 +567,6 @@ function AccessPill({ category }: { category: AccessCategory }) {
     case "both":
       return <WorkspaceStatusPill tone="warning">SMS + MLS</WorkspaceStatusPill>;
     default:
-      return <WorkspaceStatusPill>Unscoped</WorkspaceStatusPill>;
+      return <WorkspaceStatusPill tone="inactive">Scope required</WorkspaceStatusPill>;
   }
 }

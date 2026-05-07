@@ -4,6 +4,7 @@ using System;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Domain;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
@@ -56,6 +57,7 @@ internal static class RejectAssignment {
 
               await dbContext.SaveChangesAsync(cancellationToken);
               return Results.NoContent();
-            });
+            })
+            .RequireTenantSmsPermission("sms.dispatch.update-status", SmsModuleCodeJobUpdates);
     }
 }

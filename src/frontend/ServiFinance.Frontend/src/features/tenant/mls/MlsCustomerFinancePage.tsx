@@ -12,6 +12,7 @@ import {
 } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -106,7 +107,9 @@ export function MlsCustomerFinancePage() {
   const queryClient = useQueryClient();
   const currentSession = getCurrentSession();
   const { data } = useRefreshSession(!currentSession);
-  const tenantDomainSlug = (currentSession ?? data)?.user.tenantDomainSlug ?? "";
+  const currentUser = (currentSession ?? data)?.user ?? null;
+  const tenantDomainSlug = currentUser?.tenantDomainSlug ?? "";
+  const canManageSettlements = hasPermission(currentUser, "mls.settlements.manage");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<CustomerFinanceTab>("profile");
@@ -204,6 +207,10 @@ export function MlsCustomerFinancePage() {
   }
 
   function startSettlementAction(submission: TenantMlsInvoicePaymentSubmissionRow, action: Exclude<SettlementAction, null>) {
+    if (!canManageSettlements) {
+      return;
+    }
+
     setActiveSettlementActionKey(buildSettlementActionKey(submission.submissionId));
     setActiveSettlementAction(action);
     setApprovedAmount(submission.amountSubmitted.toFixed(2));
@@ -213,6 +220,9 @@ export function MlsCustomerFinancePage() {
   function handleApproveSettlementSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeSettlementActionKey) {
+      return;
+    }
+    if (!canManageSettlements) {
       return;
     }
 
@@ -230,6 +240,9 @@ export function MlsCustomerFinancePage() {
     if (!activeSettlementActionKey) {
       return;
     }
+    if (!canManageSettlements) {
+      return;
+    }
 
     rejectSettlementMutation.mutate({
       submissionId: activeSettlementActionKey,
@@ -242,6 +255,7 @@ export function MlsCustomerFinancePage() {
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
+      requirePermission="mls.customer-finance.view"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >
@@ -350,6 +364,7 @@ export function MlsCustomerFinancePage() {
           approveErrorMessage={approveSettlementMutation.isError ? approveSettlementMutation.error.message : null}
           rejectErrorMessage={rejectSettlementMutation.isError ? rejectSettlementMutation.error.message : null}
           isSettlementSubmitting={approveSettlementMutation.isPending || rejectSettlementMutation.isPending}
+          canManageSettlements={canManageSettlements}
           onChangeTab={handleTabChange}
           onStartSettlementAction={startSettlementAction}
           onCancelSettlementAction={resetSettlementAction}
@@ -423,6 +438,7 @@ type CustomerFinanceModalProps = {
   approveErrorMessage: string | null;
   rejectErrorMessage: string | null;
   isSettlementSubmitting: boolean;
+  canManageSettlements: boolean;
   onChangeTab: (tab: CustomerFinanceTab) => void;
   onStartSettlementAction: (submission: TenantMlsInvoicePaymentSubmissionRow, action: Exclude<SettlementAction, null>) => void;
   onCancelSettlementAction: () => void;
@@ -451,6 +467,7 @@ function CustomerFinanceModal({
   approveErrorMessage,
   rejectErrorMessage,
   isSettlementSubmitting,
+  canManageSettlements,
   onChangeTab,
   onStartSettlementAction,
   onCancelSettlementAction,
@@ -506,6 +523,7 @@ function CustomerFinanceModal({
               approveErrorMessage={approveErrorMessage}
               rejectErrorMessage={rejectErrorMessage}
               isSettlementSubmitting={isSettlementSubmitting}
+              canManageSettlements={canManageSettlements}
               onStartSettlementAction={onStartSettlementAction}
               onCancelSettlementAction={onCancelSettlementAction}
               onApprovedAmountChange={onApprovedAmountChange}
@@ -641,6 +659,7 @@ type CustomerSettlementsTabProps = {
   approveErrorMessage: string | null;
   rejectErrorMessage: string | null;
   isSettlementSubmitting: boolean;
+  canManageSettlements: boolean;
   onStartSettlementAction: (submission: TenantMlsInvoicePaymentSubmissionRow, action: Exclude<SettlementAction, null>) => void;
   onCancelSettlementAction: () => void;
   onApprovedAmountChange: (value: string) => void;
@@ -658,6 +677,7 @@ function CustomerSettlementsTab({
   approveErrorMessage,
   rejectErrorMessage,
   isSettlementSubmitting,
+  canManageSettlements,
   onStartSettlementAction,
   onCancelSettlementAction,
   onApprovedAmountChange,
@@ -746,10 +766,18 @@ function CustomerSettlementsTab({
                             <div className="mt-4 grid gap-3">
                               {!isActiveApproval && !isActiveRejection ? (
                                 <div className="flex flex-wrap gap-2">
-                                  <WorkspaceActionButton onClick={() => onStartSettlementAction(submission, "approve")}>
+                                  <WorkspaceActionButton
+                                    onClick={() => onStartSettlementAction(submission, "approve")}
+                                    disabled={!canManageSettlements}
+                                    title={!canManageSettlements ? "Requires mls.settlements.manage." : undefined}
+                                  >
                                     Approve
                                   </WorkspaceActionButton>
-                                  <WorkspaceActionButton onClick={() => onStartSettlementAction(submission, "reject")}>
+                                  <WorkspaceActionButton
+                                    onClick={() => onStartSettlementAction(submission, "reject")}
+                                    disabled={!canManageSettlements}
+                                    title={!canManageSettlements ? "Requires mls.settlements.manage." : undefined}
+                                  >
                                     Reject
                                   </WorkspaceActionButton>
                                 </div>
@@ -789,7 +817,7 @@ function CustomerSettlementsTab({
                                     <WorkspaceModalButton onClick={onCancelSettlementAction} disabled={isSettlementSubmitting}>
                                       Cancel
                                     </WorkspaceModalButton>
-                                    <WorkspaceModalButton type="submit" tone="primary" disabled={isSettlementSubmitting}>
+                                    <WorkspaceModalButton type="submit" tone="primary" disabled={isSettlementSubmitting || !canManageSettlements}>
                                       {isSettlementSubmitting ? "Approving..." : "Approve settlement"}
                                     </WorkspaceModalButton>
                                   </div>
@@ -821,7 +849,7 @@ function CustomerSettlementsTab({
                                     <WorkspaceModalButton onClick={onCancelSettlementAction} disabled={isSettlementSubmitting}>
                                       Cancel
                                     </WorkspaceModalButton>
-                                    <WorkspaceModalButton type="submit" tone="danger" disabled={isSettlementSubmitting}>
+                                    <WorkspaceModalButton type="submit" tone="danger" disabled={isSettlementSubmitting || !canManageSettlements}>
                                       {isSettlementSubmitting ? "Rejecting..." : "Reject settlement"}
                                     </WorkspaceModalButton>
                                   </div>

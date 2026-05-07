@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormEvent, type ReactNode, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useParams } from "react-router-dom";
 import type {
   CreateRoleRequest,
@@ -13,7 +13,7 @@ import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
-import { RecordContentStack, RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import {
   WorkspaceField,
   WorkspaceFieldGrid,
@@ -60,16 +60,12 @@ type RoleWorkspaceTabContentProps = {
   activeTab: string;
   targetScope: RolePermissionScope;
   workspace: RolePermissionWorkspaceResponse;
+  alternateWorkspace?: RolePermissionWorkspaceResponse;
+  showAlternatePlatform: boolean;
   isSaving: boolean;
   onEditRole: (targetScope: RolePermissionScope, roleId: string) => void;
   onViewUsers: (targetScope: RolePermissionScope, roleId: string) => void;
   onSave: (targetScope: RolePermissionScope, roleId: string, permissionKeys: string[]) => void;
-};
-
-type RoleScopeSectionProps = {
-  eyebrow: string;
-  title: string;
-  children: ReactNode;
 };
 
 const tabs = [
@@ -311,66 +307,28 @@ function RolesPermissionsPage({ scope }: RolesPermissionsPageProps) {
 
           {workspace ? (
             <>
-              {showAlternatePlatform && alternateScope ? (
-                <RecordScrollRegion>
-                  <div className="grid min-h-full gap-4">
-                    <RoleScopeSection
-                      eyebrow="Primary platform"
-                      title={`${workspace.scopeLabel} Roles & Permissions`}
-                    >
-                      <RoleWorkspaceTabContent
-                        activeTab={activeTab}
-                        targetScope={scope}
-                        workspace={workspace}
-                        isSaving={updateMutation.isPending}
-                        onEditRole={openEditRoleModal}
-                        onViewUsers={(targetScope, roleId) => setUsersRole({ scope: targetScope, roleId })}
-                        onSave={(targetScope, roleId, permissionKeys) =>
-                          updateMutation.mutate({ targetScope, roleId, permissionKeys })}
-                      />
-                    </RoleScopeSection>
+              {showAlternatePlatform && alternateScope && alternateWorkspaceQuery.isLoading ? (
+                <WorkspaceNotice>Loading {alternateScopeLabel} roles and permissions...</WorkspaceNotice>
+              ) : null}
 
-                    <RoleScopeSection
-                      eyebrow="Also visible"
-                      title={`${alternateScopeLabel} Roles & Permissions`}
-                    >
-                      {alternateWorkspaceQuery.isLoading ? (
-                        <WorkspaceNotice>Loading {alternateScopeLabel} roles and permissions...</WorkspaceNotice>
-                      ) : null}
+              {showAlternatePlatform && alternateScope && alternateWorkspaceQuery.isError ? (
+                <WorkspaceNotice tone="error">
+                  Unable to load {alternateScopeLabel} roles and permissions.
+                </WorkspaceNotice>
+              ) : null}
 
-                      {alternateWorkspaceQuery.isError ? (
-                        <WorkspaceNotice tone="error">
-                          Unable to load {alternateScopeLabel} roles and permissions.
-                        </WorkspaceNotice>
-                      ) : null}
-
-                      {alternateWorkspace ? (
-                        <RoleWorkspaceTabContent
-                          activeTab={activeTab}
-                          targetScope={alternateScope}
-                          workspace={alternateWorkspace}
-                          isSaving={updateMutation.isPending}
-                          onEditRole={openEditRoleModal}
-                          onViewUsers={(targetScope, roleId) => setUsersRole({ scope: targetScope, roleId })}
-                          onSave={(targetScope, roleId, permissionKeys) =>
-                            updateMutation.mutate({ targetScope, roleId, permissionKeys })}
-                        />
-                      ) : null}
-                    </RoleScopeSection>
-                  </div>
-                </RecordScrollRegion>
-              ) : (
-                <RoleWorkspaceTabContent
-                  activeTab={activeTab}
-                  targetScope={scope}
-                  workspace={workspace}
-                  isSaving={updateMutation.isPending}
-                  onEditRole={openEditRoleModal}
-                  onViewUsers={(targetScope, roleId) => setUsersRole({ scope: targetScope, roleId })}
-                  onSave={(targetScope, roleId, permissionKeys) =>
-                    updateMutation.mutate({ targetScope, roleId, permissionKeys })}
-                />
-              )}
+              <RoleWorkspaceTabContent
+                activeTab={activeTab}
+                targetScope={scope}
+                workspace={workspace}
+                alternateWorkspace={showAlternatePlatform ? alternateWorkspace : undefined}
+                showAlternatePlatform={showAlternatePlatform}
+                isSaving={updateMutation.isPending}
+                onEditRole={openEditRoleModal}
+                onViewUsers={(targetScope, roleId) => setUsersRole({ scope: targetScope, roleId })}
+                onSave={(targetScope, roleId, permissionKeys) =>
+                  updateMutation.mutate({ targetScope, roleId, permissionKeys })}
+              />
             </>
           ) : null}
 
@@ -511,21 +469,32 @@ function RoleWorkspaceTabContent({
   activeTab,
   targetScope,
   workspace,
+  alternateWorkspace,
+  showAlternatePlatform,
   isSaving,
   onEditRole,
   onViewUsers,
   onSave
 }: RoleWorkspaceTabContentProps) {
   if (activeTab === "permissions") {
-    return <PermissionCatalogTab workspace={workspace} />;
+    return (
+      <PermissionCatalogTab
+        workspace={workspace}
+        alternateWorkspace={alternateWorkspace}
+        showAlternatePlatform={showAlternatePlatform}
+      />
+    );
   }
 
   if (activeTab === "matrix") {
     return (
       <RolePermissionMatrixTab
         workspace={workspace}
+        alternateWorkspace={alternateWorkspace}
+        showAlternatePlatform={showAlternatePlatform}
         isSaving={isSaving}
-        onSave={(roleId, permissionKeys) => onSave(targetScope, roleId, permissionKeys)}
+        onSave={(roleId, permissionKeys, roleScope) =>
+          onSave(resolveScopeFromPlatformScope(targetScope, roleScope), roleId, permissionKeys)}
       />
     );
   }
@@ -533,31 +502,11 @@ function RoleWorkspaceTabContent({
   return (
     <RoleCatalogTab
       workspace={workspace}
-      onEditRole={(roleId) => onEditRole(targetScope, roleId)}
-      onViewUsers={(roleId) => onViewUsers(targetScope, roleId)}
+      alternateWorkspace={alternateWorkspace}
+      showAlternatePlatform={showAlternatePlatform}
+      onEditRole={(roleId, roleScope) => onEditRole(resolveScopeFromPlatformScope(targetScope, roleScope), roleId)}
+      onViewUsers={(roleId, roleScope) => onViewUsers(resolveScopeFromPlatformScope(targetScope, roleScope), roleId)}
     />
-  );
-}
-
-function RoleScopeSection({
-  eyebrow,
-  title,
-  children
-}: RoleScopeSectionProps) {
-  return (
-    <section className="grid min-h-[36rem] gap-3 rounded-box border border-base-300/70 bg-base-100/82 p-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/58">
-            {eyebrow}
-          </p>
-          <h2 className="text-lg font-bold tracking-[-0.03em] text-base-content">{title}</h2>
-        </div>
-      </div>
-      <div className="flex min-h-[31rem] flex-col">
-        {children}
-      </div>
-    </section>
   );
 }
 

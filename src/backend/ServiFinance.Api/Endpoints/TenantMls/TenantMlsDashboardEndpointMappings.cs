@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Application.Payments;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantMlsDashboardEndpointMappings {
@@ -111,7 +112,8 @@ internal static class TenantMlsDashboardEndpointMappings {
               readyFinanceQueue,
               recentLoans,
               handoffDistribution));
-        });
+        })
+        .RequireTenantMlsPermission("mls.dashboard.view");
 
     return tenantApi;
   }

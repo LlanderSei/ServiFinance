@@ -61,7 +61,11 @@ export function SmsDispatchPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const currentUser = getCurrentSession()?.user ?? null;
-  const isAdmin = currentUser?.roles.includes("Administrator") ?? false;
+  const permissionKeys = new Set(currentUser?.permissionKeys ?? []);
+  const canViewRegister = permissionKeys.has("sms.dispatch.view");
+  const canScheduleAssignments = permissionKeys.has("sms.dispatch.schedule");
+  const canUpdateAssignments = permissionKeys.has("sms.dispatch.update-status");
+  const canManageDispatchEvidence = permissionKeys.has("sms.dispatch.evidence.manage");
   
   const [selectedAssignment, setSelectedAssignment] = useState<TenantDispatchAssignmentRow | null>(null);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -102,7 +106,7 @@ export function SmsDispatchPage() {
   const dispatchMetaQuery = useQuery({
     queryKey: ["tenant", tenantDomainSlug, "sms-dispatch-meta"],
     queryFn: () => httpGet<TenantDispatchMetaResponse>(`/api/tenants/${tenantDomainSlug}/sms/dispatch/meta`),
-    enabled: isAdmin
+    enabled: canScheduleAssignments
   });
 
   const assignmentDetailQuery = useQuery({
@@ -334,6 +338,14 @@ export function SmsDispatchPage() {
   );
 
   function handleStatusUpdate(assignment: TenantDispatchAssignmentRow, assignmentStatus: string, serviceStatus?: string) {
+    if (!canUpdateAssignments) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot update dispatch assignment status."
+      });
+      return;
+    }
+
     updateAssignmentStatusMutation.mutate({
       assignmentId: assignment.id,
       payload: {
@@ -345,27 +357,34 @@ export function SmsDispatchPage() {
   }
 
   function canManageEvidence(evidence: TenantDispatchAssignmentEvidenceRow) {
-    return isAdmin || evidence.submittedByUserId === currentUser?.userId;
+    return canManageDispatchEvidence && (
+      canScheduleAssignments ||
+      evidence.submittedByUserId === currentUser?.userId
+    );
   }
 
   function canCancelAssignment(assignment: TenantDispatchAssignmentRow): boolean {
-    return (isAdmin || assignment.assignedUserId === currentUser?.userId) &&
+    return canScheduleAssignments &&
+      (assignment.assignedUserId === currentUser?.userId || canScheduleAssignments) &&
       !["Completed", "Cancelled", "Abandoned", "In Progress"].includes(assignment.assignmentStatus);
   }
 
   function canHandoverAssignment(assignment: TenantDispatchAssignmentRow): boolean {
-    return (isAdmin || assignment.assignedUserId === currentUser?.userId) &&
+    return canScheduleAssignments &&
+      (assignment.assignedUserId === currentUser?.userId || canScheduleAssignments) &&
       !["Completed", "Cancelled", "In Progress"].includes(assignment.assignmentStatus);
   }
 
   function canAbandonAssignment(assignment: TenantDispatchAssignmentRow): boolean {
-    return (isAdmin || assignment.assignedUserId === currentUser?.userId) &&
+    return canScheduleAssignments &&
+      (assignment.assignedUserId === currentUser?.userId || canScheduleAssignments) &&
       !["Completed", "Cancelled", "Abandoned", "In Progress"].includes(assignment.assignmentStatus);
   }
 
   function canRespondToAssignment(assignment: TenantDispatchAssignmentRow): boolean {
-    return assignment.assignmentStatus === "Pending Acceptance" &&
-      (isAdmin || assignment.assignedUserId === currentUser?.userId);
+    return canUpdateAssignments &&
+      assignment.assignmentStatus === "Pending Acceptance" &&
+      (canScheduleAssignments || assignment.assignedUserId === currentUser?.userId);
   }
 
   function handleRejectAssignment(assignment: TenantDispatchAssignmentRow) {
@@ -452,7 +471,7 @@ export function SmsDispatchPage() {
         singularLabel="assignment"
         headerBottom={
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <WorkspaceTopTabs tabs={getDispatchTabs(isAdmin)} activeTab={activeTab} onChange={setActiveTab} />
+            <WorkspaceTopTabs tabs={getDispatchTabs(canViewRegister, canScheduleAssignments)} activeTab={activeTab} onChange={setActiveTab} />
             <WorkspaceToggleGroup className="w-max max-w-full overflow-x-auto">
               <WorkspaceToggleButton active={viewMode === "all"} onClick={() => setViewMode("all")}>
                 All assignments
@@ -470,7 +489,7 @@ export function SmsDispatchPage() {
               filters={filters}
               setFilters={setFilters}
               meta={dispatchMetaQuery.data}
-              isAdmin={isAdmin}
+              canFilterStaff={canScheduleAssignments}
             />
           ) : null}
           {renderTabContent()}
@@ -482,10 +501,10 @@ export function SmsDispatchPage() {
                 icon: "refresh" as const,
                 onClick: () => {
                   void dispatchQuery.refetch();
-                  if (isAdmin) void dispatchMetaQuery.refetch();
+                  if (canScheduleAssignments) void dispatchMetaQuery.refetch();
                 }
               },
-              ...(isAdmin ? [{
+              ...(canScheduleAssignments ? [{
                 key: "schedule-dispatch",
                 label: "Schedule assignment",
                 icon: "calendar" as const,
@@ -563,8 +582,10 @@ export function SmsDispatchPage() {
         assignment={selectedAssignment}
         detailData={assignmentDetailQuery.data}
         isLoadingDetail={assignmentDetailQuery.isLoading}
-        isAdmin={isAdmin}
         currentUserId={currentUser?.userId}
+        canAddEvidenceAction={canManageDispatchEvidence}
+        canRescheduleAction={canScheduleAssignments}
+        canUpdateStatusAction={canUpdateAssignments}
         onAddEvidence={() => setIsEvidenceModalOpen(true)}
         onReschedule={() => setIsRescheduleModalOpen(true)}
         onStatusUpdate={handleStatusUpdate}
@@ -623,14 +644,14 @@ export function SmsDispatchPage() {
   );
 }
 
-function getDispatchTabs(isAdmin: boolean) {
+function getDispatchTabs(canViewRegister: boolean, canScheduleAssignments: boolean) {
   return [
     { key: "overview", label: "Overview" },
     { key: "pending", label: "Pending Tasks" },
-    ...(isAdmin ? [{ key: "assignments", label: "Register" }] : []),
+    ...(canViewRegister ? [{ key: "assignments", label: "Register" }] : []),
     { key: "mytasks", label: "My Tasks" },
     { key: "timeline", label: "Timeline" },
-    ...(isAdmin ? [{ key: "archive", label: "Archive" }] : []),
+    ...(canScheduleAssignments ? [{ key: "archive", label: "Archive" }] : []),
   ];
 }
 
@@ -638,12 +659,12 @@ function DispatchFilterPanel({
   filters,
   setFilters,
   meta,
-  isAdmin
+  canFilterStaff
 }: {
   filters: DispatchFilterState;
   setFilters: (filters: DispatchFilterState) => void;
   meta?: TenantDispatchMetaResponse;
-  isAdmin: boolean;
+  canFilterStaff: boolean;
 }) {
   return (
     <WorkspacePanel className="shrink-0">
@@ -665,7 +686,7 @@ function DispatchFilterPanel({
         )}
       />
       <WorkspaceFieldGrid className="sm:grid-cols-2 lg:grid-cols-5">
-        {isAdmin ? (
+        {canFilterStaff ? (
           <WorkspaceField label="Assigned staff">
             <WorkspaceSelect
               value={filters.assignedUserId}

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
@@ -62,7 +63,9 @@ export function RootUsersPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const currentSession = getCurrentSession();
-  const currentUserId = currentSession?.user.userId ?? "";
+  const currentUser = currentSession?.user ?? null;
+  const currentUserId = currentUser?.userId ?? "";
+  const canManageRootUsers = hasPermission(currentUser, "root.users.manage");
   const [modalMode, setModalMode] = useState<ModalMode | null>(null);
   const [editingUser, setEditingUser] = useState<RootUserRow | null>(null);
   const [form, setForm] = useState<RootUserFormState>(emptyForm);
@@ -139,12 +142,28 @@ export function RootUsersPage() {
       });
 
   function openCreateModal() {
+    if (!canManageRootUsers) {
+      toast.warning({
+        title: "Permission required",
+        message: "Creating root users requires root.users.manage."
+      });
+      return;
+    }
+
     setEditingUser(null);
     setForm(emptyForm);
     setModalMode("create");
   }
 
   function openEditModal(user: RootUserRow) {
+    if (!canManageRootUsers) {
+      toast.warning({
+        title: "Permission required",
+        message: "Updating root users requires root.users.manage."
+      });
+      return;
+    }
+
     setEditingUser(user);
     setForm({
       fullName: user.fullName,
@@ -162,6 +181,13 @@ export function RootUsersPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageRootUsers) {
+      toast.warning({
+        title: "Permission required",
+        message: "Managing root users requires root.users.manage."
+      });
+      return;
+    }
 
     if (modalMode === "edit" && editingUser) {
       updateMutation.mutate({
@@ -247,13 +273,27 @@ export function RootUsersPage() {
                       <td>{new Date(user.createdAtUtc).toLocaleDateString("en-PH")}</td>
                       <td>
                         <div className="flex flex-wrap gap-2">
-                          <RecordTableActionButton onClick={() => openEditModal(user)}>
+                          <RecordTableActionButton
+                            onClick={() => openEditModal(user)}
+                            disabled={!canManageRootUsers}
+                            title={!canManageRootUsers ? "Requires root.users.manage." : undefined}
+                          >
                             Edit
                           </RecordTableActionButton>
                           <RecordTableActionButton
-                            onClick={() => toggleMutation.mutate({ userId: user.id, isActive: !user.isActive })}
-                            disabled={toggleMutation.isPending || isCurrentUser}
-                            title={isCurrentUser ? "Current root session cannot disable itself from this screen." : undefined}
+                            onClick={() => {
+                              if (!canManageRootUsers) {
+                                toast.warning({
+                                  title: "Permission required",
+                                  message: "Updating root users requires root.users.manage."
+                                });
+                                return;
+                              }
+
+                              toggleMutation.mutate({ userId: user.id, isActive: !user.isActive });
+                            }}
+                            disabled={toggleMutation.isPending || isCurrentUser || !canManageRootUsers}
+                            title={!canManageRootUsers ? "Requires root.users.manage." : isCurrentUser ? "Current root session cannot disable itself from this screen." : undefined}
                           >
                             {user.isActive ? "Disable" : "Enable"}
                           </RecordTableActionButton>
@@ -280,7 +320,8 @@ export function RootUsersPage() {
                 key: "add-root-user",
                 label: "Create root user",
                 icon: "users",
-                onClick: openCreateModal
+                onClick: openCreateModal,
+                disabled: !canManageRootUsers
               }
             ]}
           />
@@ -301,7 +342,7 @@ export function RootUsersPage() {
               type="submit"
               form="root-user-form"
               tone="primary"
-              disabled={isSubmitDisabled}
+              disabled={isSubmitDisabled || !canManageRootUsers}
             >
               {primaryActionLabel}
             </WorkspaceModalButton>

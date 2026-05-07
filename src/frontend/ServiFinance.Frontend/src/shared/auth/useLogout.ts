@@ -4,7 +4,7 @@ import { webSessionStorage } from "@/platform/web/sessionStorage";
 import { clearSession, getAccessToken } from "./session";
 
 export function useLogout() {
-  return async function logout() {
+  return async function logout(returnTo = "/") {
     const refreshToken = isDesktopShell()
       ? await desktopBridge.getRefreshToken()
       : webSessionStorage.getRefreshToken();
@@ -21,6 +21,6 @@ export function useLogout() {
     });
 
     await clearSession();
-    window.location.assign(toPlatformRoute("/"));
+    window.location.assign(toPlatformRoute(returnTo));
   };
 }

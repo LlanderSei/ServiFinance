@@ -7,6 +7,7 @@ import {
 } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -147,7 +148,9 @@ export function MlsCollectionsPage() {
   const toast = useToast();
   const currentSession = getCurrentSession();
   const { data } = useRefreshSession(!currentSession);
-  const tenantDomainSlug = (currentSession ?? data)?.user.tenantDomainSlug ?? "";
+  const currentUser = (currentSession ?? data)?.user ?? null;
+  const tenantDomainSlug = currentUser?.tenantDomainSlug ?? "";
+  const canManageCollections = hasPermission(currentUser, "mls.collections.manage");
 
   const [collectionState, setCollectionState] = useState("");
   const [selectedLoanId, setSelectedLoanId] = useState("");
@@ -224,6 +227,14 @@ export function MlsCollectionsPage() {
   });
 
   function openCollectionModal(group: CollectionGroupRow) {
+    if (!canManageCollections) {
+      toast.warning({
+        title: "Permission required",
+        message: "Collection posting requires mls.collections.manage."
+      });
+      return;
+    }
+
     setSelectedLoanId(group.microLoanId);
     const firstEntry = group.entries[0] ?? null;
     setSelectedEntryKey(firstEntry ? getEntryKey(firstEntry) : "");
@@ -236,12 +247,21 @@ export function MlsCollectionsPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageCollections) {
+      toast.warning({
+        title: "Permission required",
+        message: "Collection posting requires mls.collections.manage."
+      });
+      return;
+    }
+
     paymentMutation.mutate();
   }
 
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
+      requirePermission="mls.collections.manage"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >
@@ -326,7 +346,11 @@ export function MlsCollectionsPage() {
                             </WorkspaceStatusPill>
                           </td>
                           <td>
-                            <RecordTableActionButton onClick={() => openCollectionModal(group)}>
+                            <RecordTableActionButton
+                              onClick={() => openCollectionModal(group)}
+                              disabled={!canManageCollections}
+                              title={!canManageCollections ? "Requires mls.collections.manage." : undefined}
+                            >
                               Post Collection
                             </RecordTableActionButton>
                           </td>
@@ -355,7 +379,8 @@ export function MlsCollectionsPage() {
               type="submit"
               form="mls-collection-post-form"
               tone="primary"
-              disabled={paymentMutation.isPending || !selectedLoanId || !selectedEntry}
+              disabled={paymentMutation.isPending || !selectedLoanId || !selectedEntry || !canManageCollections}
+              title={!canManageCollections ? "Requires mls.collections.manage." : undefined}
             >
               {paymentMutation.isPending ? "Posting Collection..." : "Post Collection"}
             </WorkspaceModalButton>
@@ -433,16 +458,16 @@ export function MlsCollectionsPage() {
                 <WorkspaceForm id="mls-collection-post-form" onSubmit={handleSubmit}>
                   <WorkspaceFieldGrid>
                     <WorkspaceField label="Amount">
-                      <WorkspaceInput type="number" min="0.01" step="0.01" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} required />
+                      <WorkspaceInput type="number" min="0.01" step="0.01" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} disabled={!canManageCollections} required />
                     </WorkspaceField>
                     <WorkspaceField label="Collection date">
-                      <WorkspaceInput type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
+                      <WorkspaceInput type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} disabled={!canManageCollections} required />
                     </WorkspaceField>
                     <WorkspaceField label="Reference number">
-                      <WorkspaceInput value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} />
+                      <WorkspaceInput value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} disabled={!canManageCollections} />
                     </WorkspaceField>
                     <WorkspaceField label="Remarks">
-                      <WorkspaceInput value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+                      <WorkspaceInput value={remarks} onChange={(event) => setRemarks(event.target.value)} disabled={!canManageCollections} />
                     </WorkspaceField>
                   </WorkspaceFieldGrid>
 

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Application.Auditing;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -38,7 +39,8 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
               .ToListAsync(cancellationToken);
 
           return Results.Ok(new TenantMlsStandaloneLoanWorkspaceResponse(customers));
-        });
+        })
+        .RequireTenantMlsPermission("mls.standalone-loans.manage", MlsModuleCodeStandaloneLoans);
 
     tenantApi.MapGet("/mls/standalone-loans/preview", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -77,7 +79,8 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
               new TenantMlsStandaloneLoanCustomerResponse(customer.Id, customer.CustomerCode, customer.FullName),
               computation.Summary,
               computation.Schedule));
-        });
+        })
+        .RequireTenantMlsPermission("mls.standalone-loans.manage", MlsModuleCodeStandaloneLoans);
 
     tenantApi.MapPost("/mls/standalone-loans", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -224,7 +227,8 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
               microLoanId,
               customer.FullName,
               computation.Summary));
-        });
+        })
+        .RequireTenantMlsPermission("mls.standalone-loans.manage", MlsModuleCodeStandaloneLoans);
 
     return tenantApi;
   }

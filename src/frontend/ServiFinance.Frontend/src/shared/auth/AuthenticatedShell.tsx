@@ -19,6 +19,7 @@ type ShellTheme = "light" | "dark";
 export function AuthenticatedShell({ user, children }: Props) {
   const sections = useMemo(() => buildAuthSections(user), [user]);
   const desktopShell = isDesktopShell();
+  const hasAnyVisiblePermission = user.surface === "CustomerWeb" || sections.some((section) => section.items.length > 0);
 
   const [isExpanded, setIsExpanded] = useState(() => {
     if (typeof window === "undefined") {
@@ -118,7 +119,21 @@ export function AuthenticatedShell({ user, children }: Props) {
       />
 
       <section className="min-w-0 min-h-0 overflow-hidden bg-base-100 text-base-content">
-        {children}
+        {hasAnyVisiblePermission ? children : (
+          <main className="grid h-full place-items-center p-6">
+            <section className="max-w-xl rounded-[2rem] border border-base-300/70 bg-base-100 p-8 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+              <p className="text-[0.75rem] font-extrabold uppercase tracking-[0.14em] text-base-content/55">
+                No workspace views
+              </p>
+              <h1 className="mt-3 text-3xl font-black tracking-[-0.05em] text-base-content">
+                This account has no view permissions yet.
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-base-content/68">
+                The account can sign in, but its assigned roles do not grant any visible workspace screens. Ask an owner or administrator to add at least one view permission to the role.
+              </p>
+            </section>
+          </main>
+        )}
       </section>
     </div>
   );

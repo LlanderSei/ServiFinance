@@ -28,7 +28,10 @@ public static class RolePermissionCatalog {
     Permission("sms.customers.manage", "Manage customers", "Customer Records", "Create and update tenant customer records.", PlatformRolePolicy.SmsScope),
     Permission("sms.service-requests.view", "View service requests", "Service Requests", "Review service request intake and status records.", PlatformRolePolicy.SmsScope),
     Permission("sms.service-requests.manage", "Manage service requests", "Service Requests", "Create, update, and progress service requests.", PlatformRolePolicy.SmsScope),
+    Permission("sms.costing.manage", "Manage service costing", "Service Requests", "Draft and update transparent service-cost line items before invoice finalization.", PlatformRolePolicy.SmsScope),
     Permission("sms.invoices.finalize", "Finalize service invoices", "Service Requests", "Finalize finance-ready invoices from completed service work.", PlatformRolePolicy.SmsScope),
+    Permission("sms.invoices.settle", "Confirm service invoice payments", "Service Requests", "Record direct customer settlement for finalized service invoices.", PlatformRolePolicy.SmsScope),
+    Permission("sms.pricing.manage", "Manage service pricing", "Commercial", "Maintain service costing policy, tax defaults, and reusable line presets.", PlatformRolePolicy.SmsScope),
     Permission("sms.dispatch.view", "View dispatch", "Dispatch", "Review assignment workspace, pending tasks, register, timeline, and archive.", PlatformRolePolicy.SmsScope),
     Permission("sms.dispatch.schedule", "Schedule assignments", "Dispatch", "Create and reschedule technician or staff assignments.", PlatformRolePolicy.SmsScope),
     Permission("sms.dispatch.update-status", "Update dispatch status", "Dispatch", "Start work, put assignments on hold, and mark assignments completed.", PlatformRolePolicy.SmsScope),
@@ -45,6 +48,7 @@ public static class RolePermissionCatalog {
   private static readonly RolePermissionDefinition[] MlsPermissions = [
     Permission("mls.dashboard.view", "View MLS dashboard", "Micro-Lending", "Review the finance desktop dashboard and queues.", PlatformRolePolicy.MlsScope),
     Permission("mls.customer-finance.view", "View customer finance", "Customer Finance", "Review borrower records, balances, and finance history.", PlatformRolePolicy.MlsScope),
+    Permission("mls.settlements.manage", "Manage invoice settlements", "Customer Finance", "Approve or reject customer-submitted service-invoice settlement proofs.", PlatformRolePolicy.MlsScope),
     Permission("mls.loan-conversion.manage", "Manage loan conversion", "Loan Processing", "Convert finance-ready service invoices into micro-loans.", PlatformRolePolicy.MlsScope),
     Permission("mls.standalone-loans.manage", "Manage standalone loans", "Loan Processing", "Create and manage loans outside the service invoice flow.", PlatformRolePolicy.MlsScope),
     Permission("mls.loan-accounts.view", "View loan accounts", "Loan Accounts", "Review active loans, amortization, and ledger detail.", PlatformRolePolicy.MlsScope),
@@ -112,6 +116,7 @@ public static class RolePermissionCatalog {
         "sms.customers.manage",
         "sms.service-requests.view",
         "sms.service-requests.manage",
+        "sms.costing.manage",
         "sms.invoices.finalize",
         "sms.dispatch.view",
         "sms.reports.view"
@@ -125,6 +130,7 @@ public static class RolePermissionCatalog {
       [
         "sms.dashboard.view",
         "sms.service-requests.view",
+        "sms.costing.manage",
         "sms.dispatch.view",
         "sms.dispatch.update-status",
         "sms.dispatch.evidence.manage"
@@ -138,6 +144,7 @@ public static class RolePermissionCatalog {
       [
         "mls.dashboard.view",
         "mls.customer-finance.view",
+        "mls.settlements.manage",
         "mls.loan-conversion.manage",
         "mls.standalone-loans.manage",
         "mls.loan-accounts.view",
@@ -155,6 +162,7 @@ public static class RolePermissionCatalog {
       [
         "mls.dashboard.view",
         "mls.customer-finance.view",
+        "mls.settlements.manage",
         "mls.loan-accounts.view",
         "mls.loan-accounts.manage",
         "mls.collections.manage",

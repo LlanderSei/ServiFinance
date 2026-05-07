@@ -8,6 +8,8 @@ import type {
   UpsertServiceCostPresetRequest
 } from "@/shared/api/contracts";
 import { httpDelete, httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
+import { hasPermission } from "@/shared/auth/permissions";
+import { getCurrentSession } from "@/shared/auth/session";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
 import { RecordTableStateRow } from "@/shared/records/RecordTable";
@@ -77,6 +79,8 @@ export function SmsPricingPage() {
   const { tenantDomainSlug = "" } = useParams();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const currentUser = getCurrentSession()?.user ?? null;
+  const canManagePricing = hasPermission(currentUser, "sms.pricing.manage");
   const [policyForm, setPolicyForm] = useState<PolicyFormState>(initialPolicyForm);
   const [presetForm, setPresetForm] = useState<PresetFormState>(initialPresetForm);
   const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
@@ -183,6 +187,14 @@ export function SmsPricingPage() {
 
   function handlePolicySubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManagePricing) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot change tenant pricing policy."
+      });
+      return;
+    }
+
     savePolicyMutation.mutate({
       taxLabel: policyForm.taxLabel,
       defaultTaxRate: Number(policyForm.defaultTaxRate),
@@ -191,6 +203,14 @@ export function SmsPricingPage() {
   }
 
   function openCreatePresetModal() {
+    if (!canManagePricing) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot create pricing presets."
+      });
+      return;
+    }
+
     setEditingPresetId(null);
     setPresetForm({
       ...initialPresetForm,
@@ -200,6 +220,14 @@ export function SmsPricingPage() {
   }
 
   function openEditPresetModal(preset: ServiceCostPreset) {
+    if (!canManagePricing) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot edit pricing presets."
+      });
+      return;
+    }
+
     setEditingPresetId(preset.id);
     setPresetForm({
       category: preset.category,
@@ -215,6 +243,14 @@ export function SmsPricingPage() {
 
   function handlePresetSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManagePricing) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot save pricing presets."
+      });
+      return;
+    }
+
     savePresetMutation.mutate({
       category: presetForm.category,
       name: presetForm.name,
@@ -317,7 +353,7 @@ export function SmsPricingPage() {
                   <WorkspaceActionButton
                     type="submit"
                     className="w-full justify-center sm:w-max"
-                    disabled={savePolicyMutation.isPending}
+                    disabled={!canManagePricing || savePolicyMutation.isPending}
                   >
                     {savePolicyMutation.isPending ? "Saving policy..." : "Save costing policy"}
                   </WorkspaceActionButton>
@@ -383,12 +419,15 @@ export function SmsPricingPage() {
                           </td>
                           <td>
                             <div className="flex flex-wrap gap-2">
-                              <WorkspaceActionButton onClick={() => openEditPresetModal(preset)}>
+                              <WorkspaceActionButton
+                                onClick={() => openEditPresetModal(preset)}
+                                disabled={!canManagePricing}
+                              >
                                 Edit
                               </WorkspaceActionButton>
                               <WorkspaceActionButton
                                 onClick={() => deletePresetMutation.mutate(preset.id)}
-                                disabled={deletePresetMutation.isPending}
+                                disabled={!canManagePricing || deletePresetMutation.isPending}
                               >
                                 Delete
                               </WorkspaceActionButton>
@@ -424,7 +463,8 @@ export function SmsPricingPage() {
               key: "add-pricing-preset",
               label: "Add pricing preset",
               icon: "plus",
-              onClick: openCreatePresetModal
+              onClick: openCreatePresetModal,
+              disabled: !canManagePricing
             }
           ]}
         />
@@ -444,7 +484,7 @@ export function SmsPricingPage() {
               type="submit"
               form="sms-pricing-preset-form"
               tone="primary"
-              disabled={savePresetMutation.isPending}
+              disabled={!canManagePricing || savePresetMutation.isPending}
             >
               {savePresetMutation.isPending ? "Saving..." : editingPresetId ? "Save preset" : "Add preset"}
             </WorkspaceModalButton>

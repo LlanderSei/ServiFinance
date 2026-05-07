@@ -3,8 +3,9 @@ namespace ServiFinance.Api.Endpoints;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ServiFinance.Application.Auth;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
+using ServiFinance.Application.Auth;
 using ServiFinance.Domain;
 using ServiFinance.Infrastructure.Configuration;
 using ServiFinance.Infrastructure.Data;
@@ -13,11 +14,16 @@ internal static class SuperadminRootUsersEndpointMappings {
   private const int EmailMaxLength = 50;
 
   public static RouteGroupBuilder MapSuperadminRootUsersEndpoints(this RouteGroupBuilder superadminApi) {
-    superadminApi.MapGet("/root/users", GetRootUsersAsync);
-    superadminApi.MapGet("/root/roles", GetRootRolesAsync);
-    superadminApi.MapPost("/root/users", CreateRootUserAsync);
-    superadminApi.MapPut("/root/users/{userId:guid}", UpdateRootUserAsync);
-    superadminApi.MapPost("/root/users/{userId:guid}/toggle", ToggleRootUserAsync);
+    superadminApi.MapGet("/root/users", GetRootUsersAsync)
+        .RequireRootPermission("root.users.manage");
+    superadminApi.MapGet("/root/roles", GetRootRolesAsync)
+        .RequireRootPermission("root.users.manage");
+    superadminApi.MapPost("/root/users", CreateRootUserAsync)
+        .RequireRootPermission("root.users.manage");
+    superadminApi.MapPut("/root/users/{userId:guid}", UpdateRootUserAsync)
+        .RequireRootPermission("root.users.manage");
+    superadminApi.MapPost("/root/users/{userId:guid}/toggle", ToggleRootUserAsync)
+        .RequireRootPermission("root.users.manage");
 
     return superadminApi;
   }

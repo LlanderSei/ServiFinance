@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using ServiFinance.Application.Auditing;
 using ServiFinance.Application.Payments;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -41,7 +42,8 @@ internal static class TenantMlsLoanConversionEndpointMappings {
               .ToListAsync(cancellationToken);
 
           return Results.Ok(new TenantMlsLoanConversionWorkspaceResponse(candidates));
-        });
+        })
+        .RequireTenantMlsPermission("mls.loan-conversion.manage", MlsModuleCodeServiceLinkedLoans);
 
     tenantApi.MapGet("/mls/loan-conversion/{invoiceId:guid}/preview", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -73,7 +75,8 @@ internal static class TenantMlsLoanConversionEndpointMappings {
 
           var preview = BuildLoanPreview(invoice, request.AnnualInterestRate, request.TermMonths, request.LoanStartDate);
           return Results.Ok(preview);
-        });
+        })
+        .RequireTenantMlsPermission("mls.loan-conversion.manage", MlsModuleCodeServiceLinkedLoans);
 
     tenantApi.MapPost("/mls/loan-conversion", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -211,7 +214,8 @@ internal static class TenantMlsLoanConversionEndpointMappings {
               invoice.InvoiceNumber,
               invoice.Customer!.FullName,
               preview.Summary));
-        });
+        })
+        .RequireTenantMlsPermission("mls.loan-conversion.manage", MlsModuleCodeServiceLinkedLoans);
 
     return tenantApi;
   }

@@ -100,7 +100,8 @@ internal static class SuperadminApiEndpointMappings {
             RecentTenants = recentTenants,
             Warnings = warnings
           });
-        });
+        })
+        .RequireRootPermission("root.dashboard.view");
     superadminApi.MapGet("/system-health", async Task<IResult> (
         IWebHostEnvironment environment,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
@@ -178,7 +179,8 @@ internal static class SuperadminApiEndpointMappings {
             },
             Warnings = warnings
           });
-        });
+        })
+        .RequireRootPermission("root.system-health.view");
     superadminApi.MapGet("/tenants", async Task<IResult> (
         string? segment,
         string? edition,
@@ -227,7 +229,8 @@ internal static class SuperadminApiEndpointMappings {
           .ToListAsync(cancellationToken);
 
           return Results.Ok(tenants);
-        });
+        })
+        .RequireRootPermission("root.tenants.view");
     superadminApi.MapPost("/tenants/{tenantId:guid}/status", async Task<IResult> (
         Guid tenantId,
         [FromBody] ToggleTenantStateRequest request,
@@ -260,7 +263,8 @@ internal static class SuperadminApiEndpointMappings {
             tenant.CreatedAtUtc,
             tenant.IsActive
           });
-        });
+        })
+        .RequireRootPermission("root.tenants.manage");
     superadminApi.MapGet("/modules", async Task<IResult> (
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
@@ -282,7 +286,8 @@ internal static class SuperadminApiEndpointMappings {
           .ToListAsync(cancellationToken);
 
           return Results.Ok(modules);
-        });
+        })
+        .RequireRootPermission("root.modules.manage");
 
     return superadminApi;
   }

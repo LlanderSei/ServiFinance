@@ -38,6 +38,7 @@ public sealed class UserAuthenticationService(
         .Include(entity => entity.Tenant)
         .Include(entity => entity.UserRoles)
         .ThenInclude(entity => entity.Role)
+        .ThenInclude(entity => entity!.Permissions)
         .SingleOrDefaultAsync(cancellationToken);
 
     if (user is null) {
@@ -61,12 +62,20 @@ public sealed class UserAuthenticationService(
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(entity => entity)
         .ToArray();
+    var roleRows = user.UserRoles
+        .Select(entity => entity.Role)
+        .Where(entity => entity is not null)
+        .Cast<Role>()
+        .ToArray();
+    var platformScopes = ResolvePlatformScopes(roleRows);
+    var permissionKeys = ResolvePermissionKeys(roleRows);
 
     var tenantDomainSlug = user.Tenant?.DomainSlug ?? string.Empty;
     if (!IsAllowedForSurface(
             user.TenantId,
             tenantDomainSlug,
             roles,
+            platformScopes,
             request with { TenantDomainSlug = normalizedTenantSlug })) {
       return null;
     }
@@ -77,29 +86,62 @@ public sealed class UserAuthenticationService(
         tenantDomainSlug,
         user.Email,
         user.FullName,
-        roles);
+        roles,
+        platformScopes,
+        permissionKeys);
   }
 
   private static bool IsAllowedForSurface(
       Guid tenantId,
       string tenantDomainSlug,
       IReadOnlyCollection<string> roles,
+      IReadOnlyCollection<string> platformScopes,
       AuthenticationRequest request) {
     return request.Surface switch {
       AuthenticationSurface.Root =>
           tenantId == ServiFinanceDatabaseDefaults.PlatformTenantId &&
-          roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase),
+          (roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase) ||
+            platformScopes.Contains(PlatformRolePolicy.RootScope, StringComparer.OrdinalIgnoreCase)),
       AuthenticationSurface.TenantWeb =>
           tenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
           !string.IsNullOrWhiteSpace(request.TenantDomainSlug) &&
           string.Equals(tenantDomainSlug, request.TenantDomainSlug, StringComparison.OrdinalIgnoreCase) &&
-          PlatformRolePolicy.HasTenantWebAccess(roles),
+          (PlatformRolePolicy.HasTenantWebAccess(roles) ||
+            platformScopes.Contains(PlatformRolePolicy.SmsScope, StringComparer.OrdinalIgnoreCase) ||
+            platformScopes.Contains(PlatformRolePolicy.OwnerAdminScope, StringComparer.OrdinalIgnoreCase)),
       AuthenticationSurface.TenantDesktop =>
           tenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
           !string.IsNullOrWhiteSpace(tenantDomainSlug) &&
-          PlatformRolePolicy.HasTenantDesktopAccess(roles),
+          (PlatformRolePolicy.HasTenantDesktopAccess(roles) ||
+            platformScopes.Contains(PlatformRolePolicy.MlsScope, StringComparer.OrdinalIgnoreCase) ||
+            platformScopes.Contains(PlatformRolePolicy.OwnerAdminScope, StringComparer.OrdinalIgnoreCase)),
       _ => false
     };
+  }
+
+  private static string[] ResolvePlatformScopes(IEnumerable<Role> roles) =>
+    roles
+      .Select(role => PlatformRolePolicy.ResolveRoleScope(role.Name, role.PlatformScope))
+      .Where(scope => scope != PlatformRolePolicy.UnknownScope)
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .OrderBy(scope => scope)
+      .ToArray();
+
+  private static string[] ResolvePermissionKeys(IEnumerable<Role> roles) =>
+    roles
+      .SelectMany(role => ResolveRolePermissionKeys(role))
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .OrderBy(permissionKey => permissionKey)
+      .ToArray();
+
+  private static IEnumerable<string> ResolveRolePermissionKeys(Role role) {
+    if (role.Permissions.Count > 0 && !role.IsPermissionSetLocked) {
+      return role.Permissions.Select(permission => permission.PermissionKey);
+    }
+
+    var definition = RolePermissionCatalog.FindDefaultRole(role.Name)
+      ?? RolePermissionCatalog.FindLegacyDefaultRole(role.Name);
+    return definition?.PermissionKeys ?? role.Permissions.Select(permission => permission.PermissionKey).ToArray();
   }
 }
 

@@ -5,12 +5,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class GetDispatchMeta {
     public static void MapGetDispatchMeta(this RouteGroupBuilder tenantApi) {
-        tenantApi.MapGet("/sms/dispatch/meta", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        tenantApi.MapGet("/sms/dispatch/meta", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
             HttpContext httpContext,
             string tenantDomainSlug,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
@@ -53,6 +54,7 @@ internal static class GetDispatchMeta {
                 AssignableUsers = assignableUsers,
                 ServiceRequests = schedulableRequests
               });
-            });
+            })
+            .RequireTenantSmsPermission("sms.dispatch.schedule", SmsModuleCodeScheduling);
     }
 }

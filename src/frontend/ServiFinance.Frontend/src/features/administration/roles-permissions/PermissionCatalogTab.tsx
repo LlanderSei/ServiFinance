@@ -1,14 +1,34 @@
 import type { RolePermissionDefinition, RolePermissionWorkspaceResponse } from "@/shared/api/contracts";
 import { MetricCard } from "@/shared/records/MetricCard";
+import { RecordTable, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
 import { WorkspaceKpiRailLayout, WorkspacePanel, WorkspacePanelHeader } from "@/shared/records/WorkspacePanel";
 
 type PermissionCatalogTabProps = {
   workspace: RolePermissionWorkspaceResponse;
+  alternateWorkspace?: RolePermissionWorkspaceResponse;
+  showAlternatePlatform: boolean;
 };
 
-export function PermissionCatalogTab({ workspace }: PermissionCatalogTabProps) {
-  const categories = groupPermissionsByCategory(workspace.permissions);
-  const mutableRoles = workspace.roles.filter(role => !role.isPermissionSetLocked).length;
+export function PermissionCatalogTab({
+  workspace,
+  alternateWorkspace,
+  showAlternatePlatform
+}: PermissionCatalogTabProps) {
+  const workspaces = [
+    workspace,
+    ...(showAlternatePlatform && alternateWorkspace ? [alternateWorkspace] : [])
+  ];
+  const permissions = workspaces.flatMap(item => item.permissions);
+  const primaryCount = workspace.permissions.length;
+  const alternateCount = showAlternatePlatform ? alternateWorkspace?.permissions.length ?? 0 : 0;
+  const primaryCategoryCount = new Set(workspace.permissions.map(permission => permission.category)).size;
+  const alternateCategoryCount = showAlternatePlatform && alternateWorkspace
+    ? new Set(alternateWorkspace.permissions.map(permission => permission.category)).size
+    : 0;
+  const primaryEditableRoles = workspace.roles.filter(role => !role.isPermissionSetLocked).length;
+  const alternateEditableRoles = showAlternatePlatform && alternateWorkspace
+    ? alternateWorkspace.roles.filter(role => !role.isPermissionSetLocked).length
+    : 0;
 
   return (
     <WorkspaceKpiRailLayout
@@ -16,17 +36,17 @@ export function PermissionCatalogTab({ workspace }: PermissionCatalogTabProps) {
         <>
           <MetricCard
             label="Permissions"
-            value={workspace.permissions.length}
-            description="Permission keys defined for this scope."
+            value={showAlternatePlatform && alternateWorkspace ? `${primaryCount} + ${alternateCount}` : primaryCount}
+            description="Permission keys defined for the visible scope set."
           />
           <MetricCard
             label="Categories"
-            value={categories.length}
+            value={showAlternatePlatform && alternateWorkspace ? `${primaryCategoryCount} + ${alternateCategoryCount}` : primaryCategoryCount}
             description="Functional groupings used by the matrix editor."
           />
           <MetricCard
             label="Editable roles"
-            value={mutableRoles}
+            value={showAlternatePlatform && alternateWorkspace ? `${primaryEditableRoles} + ${alternateEditableRoles}` : primaryEditableRoles}
             description="Roles below the current authority rank can be edited."
           />
           <MetricCard
@@ -37,44 +57,76 @@ export function PermissionCatalogTab({ workspace }: PermissionCatalogTabProps) {
         </>
       )}
     >
-      <div className="min-h-0 overflow-y-auto pr-1">
-        <div className="grid gap-4">
-          {categories.map((category) => (
-            <WorkspacePanel key={category.name}>
-              <WorkspacePanelHeader
-                eyebrow="Permission category"
-                title={category.name}
-              />
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {category.permissions.map((permission) => (
-                  <article
-                    key={permission.key}
-                    className="rounded-2xl border border-base-300/65 bg-base-200/45 p-4"
-                  >
-                    <p className="text-[0.72rem] font-extrabold uppercase tracking-[0.08em] text-base-content/55">
-                      {permission.key}
-                    </p>
-                    <h3 className="mt-2 text-base font-bold text-base-content">{permission.name}</h3>
-                    <p className="mt-2 text-sm leading-6 text-base-content/68">{permission.description}</p>
-                  </article>
-                ))}
-              </div>
-            </WorkspacePanel>
-          ))}
-        </div>
-      </div>
+      <WorkspacePanel className="h-full">
+        <WorkspacePanelHeader
+          eyebrow="Permission catalog"
+          title="Scoped permission register"
+        />
+        <RecordTableShell>
+          <RecordTable>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Permission name</th>
+                <th>Description</th>
+                <th>Permission key</th>
+                <th>Scope</th>
+              </tr>
+            </thead>
+            <tbody>
+              {permissions.length === 0 ? (
+                <RecordTableStateRow colSpan={5}>No permissions are available.</RecordTableStateRow>
+              ) : null}
+
+              {workspaces.map((item) => (
+                <PermissionScopeRows
+                  key={item.scope}
+                  workspace={item}
+                  showScopeHeader={showAlternatePlatform && Boolean(alternateWorkspace)}
+                />
+              ))}
+            </tbody>
+          </RecordTable>
+        </RecordTableShell>
+      </WorkspacePanel>
     </WorkspaceKpiRailLayout>
   );
 }
 
-function groupPermissionsByCategory(permissions: RolePermissionDefinition[]) {
-  return Object.entries(
-    permissions.reduce<Record<string, RolePermissionDefinition[]>>((groups, permission) => {
-      groups[permission.category] = [...(groups[permission.category] ?? []), permission];
-      return groups;
-    }, {})
-  ).map(([name, groupedPermissions]) => ({
-    name,
-    permissions: groupedPermissions
-  }));
+function PermissionScopeRows({
+  workspace,
+  showScopeHeader
+}: {
+  workspace: RolePermissionWorkspaceResponse;
+  showScopeHeader: boolean;
+}) {
+  const rows = workspace.permissions
+    .slice()
+    .sort((left, right) =>
+      left.category.localeCompare(right.category) ||
+      left.name.localeCompare(right.name));
+
+  return (
+    <>
+      {showScopeHeader ? (
+        <tr>
+          <td colSpan={5} className="bg-base-200/70 font-extrabold uppercase tracking-[0.1em] text-base-content/60">
+            {workspace.scopeLabel} Permissions
+          </td>
+        </tr>
+      ) : null}
+
+      {rows.map((permission: RolePermissionDefinition) => (
+        <tr key={permission.key}>
+          <td>{permission.category}</td>
+          <td>
+            <strong>{permission.name}</strong>
+          </td>
+          <td className="max-w-[28rem] text-base-content/68">{permission.description}</td>
+          <td className="font-mono text-xs">{permission.key}</td>
+          <td>{permission.scope}</td>
+        </tr>
+      ))}
+    </>
+  );
 }

@@ -76,6 +76,7 @@ export function MlsLedgerPage() {
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
+      requirePermission="mls.ledger.view"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >

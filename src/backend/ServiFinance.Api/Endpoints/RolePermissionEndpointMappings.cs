@@ -2,37 +2,47 @@ namespace ServiFinance.Api.Endpoints;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class RolePermissionEndpointMappings {
   public static RouteGroupBuilder MapSuperadminRolePermissionEndpoints(this RouteGroupBuilder superadminApi) {
-    superadminApi.MapGet("/roles-permissions", GetRootWorkspaceAsync);
-    superadminApi.MapPost("/roles-permissions/roles", CreateRootRoleAsync);
-    superadminApi.MapPut("/roles-permissions/roles/{roleId:guid}", UpdateRootRoleAsync);
-    superadminApi.MapGet("/roles-permissions/roles/{roleId:guid}/users", GetRootRoleUsersAsync);
-    superadminApi.MapPut("/roles-permissions/roles/{roleId:guid}/permissions", UpdateRootRolePermissionsAsync);
+    superadminApi.MapGet("/roles-permissions", GetRootWorkspaceAsync)
+        .RequireRootPermission("root.roles-permissions.manage");
+    superadminApi.MapPost("/roles-permissions/roles", CreateRootRoleAsync)
+        .RequireRootPermission("root.roles-permissions.manage");
+    superadminApi.MapPut("/roles-permissions/roles/{roleId:guid}", UpdateRootRoleAsync)
+        .RequireRootPermission("root.roles-permissions.manage");
+    superadminApi.MapGet("/roles-permissions/roles/{roleId:guid}/users", GetRootRoleUsersAsync)
+        .RequireRootPermission("root.roles-permissions.manage");
+    superadminApi.MapPut("/roles-permissions/roles/{roleId:guid}/permissions", UpdateRootRolePermissionsAsync)
+        .RequireRootPermission("root.roles-permissions.manage");
     return superadminApi;
   }
 
   public static RouteGroupBuilder MapTenantRolePermissionEndpoints(this RouteGroupBuilder tenantApi) {
-    var authorization = CreateOwnerAdminAuthorization();
+    var authorization = CreateTenantAuthorization();
     tenantApi.MapGet("/roles-permissions", GetTenantWorkspaceAsync)
-        .RequireAuthorization(authorization);
+        .RequireAuthorization(authorization)
+        .RequireTenantRolePermissionManagement();
     tenantApi.MapPost("/roles-permissions/roles", CreateTenantRoleAsync)
-        .RequireAuthorization(authorization);
+        .RequireAuthorization(authorization)
+        .RequireTenantRolePermissionManagement();
     tenantApi.MapPut("/roles-permissions/roles/{roleId:guid}", UpdateTenantRoleAsync)
-        .RequireAuthorization(authorization);
+        .RequireAuthorization(authorization)
+        .RequireTenantRolePermissionManagement();
     tenantApi.MapGet("/roles-permissions/roles/{roleId:guid}/users", GetTenantRoleUsersAsync)
-        .RequireAuthorization(authorization);
+        .RequireAuthorization(authorization)
+        .RequireTenantRolePermissionManagement();
     tenantApi.MapPut("/roles-permissions/roles/{roleId:guid}/permissions", UpdateTenantRolePermissionsAsync)
-        .RequireAuthorization(authorization);
+        .RequireAuthorization(authorization)
+        .RequireTenantRolePermissionManagement();
     return tenantApi;
   }
 
-  private static AuthorizeAttribute CreateOwnerAdminAuthorization() =>
+  private static AuthorizeAttribute CreateTenantAuthorization() =>
     new() {
-      Roles = $"{PlatformRolePolicy.AdministratorRole},{PlatformRolePolicy.OwnerRole}",
       AuthenticationSchemes = ApiAuthenticationSchemes
     };
 

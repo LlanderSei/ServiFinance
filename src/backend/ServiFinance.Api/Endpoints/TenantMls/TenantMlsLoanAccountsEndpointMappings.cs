@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Application.Auditing;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -38,7 +39,8 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               .ToListAsync(cancellationToken);
 
           return Results.Ok(new TenantMlsLoanAccountsWorkspaceResponse(loans));
-        });
+        })
+        .RequireTenantMlsPermission("mls.loan-accounts.view", MlsModuleCodeFinancialRecords);
 
     tenantApi.MapGet("/mls/loans/{loanId:guid}", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -91,7 +93,8 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               CreateLoanAccountRow(loan),
               schedule,
               ledger));
-        });
+        })
+        .RequireTenantMlsPermission("mls.loan-accounts.view", MlsModuleCodeFinancialRecords);
 
     tenantApi.MapPost("/mls/loans/{loanId:guid}/payments", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -256,7 +259,8 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               outstandingAfter,
               orderedSchedules.Count(entity => entity.InstallmentStatus != "Paid"),
               loan.LoanStatus));
-        });
+        })
+        .RequireTenantMlsPermission("mls.loan-accounts.manage", MlsModuleCodeFinancialRecords);
 
     tenantApi.MapPost("/mls/loans/{loanId:guid}/payments/{transactionId:guid}/reverse", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -394,7 +398,8 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               outstandingAfter,
               orderedSchedules.Count(entity => entity.InstallmentStatus != "Paid"),
               loan.LoanStatus));
-        });
+        })
+        .RequireTenantMlsPermission("mls.loan-accounts.manage", MlsModuleCodeFinancialRecords);
 
     return tenantApi;
   }

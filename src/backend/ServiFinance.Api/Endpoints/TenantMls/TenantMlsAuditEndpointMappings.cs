@@ -3,6 +3,7 @@ namespace ServiFinance.Api.Endpoints.TenantMls;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -155,7 +156,8 @@ internal static class TenantMlsAuditEndpointMappings {
                   events.Count(entity => entity.ActionType == "LoanPayment"),
                   events.Count(entity => entity.ActionType == "LoanPaymentReversal")),
               events));
-        });
+        })
+        .RequireTenantMlsPermission("mls.audits.view", MlsModuleCodeAuditLogs);
 
     return tenantApi;
   }

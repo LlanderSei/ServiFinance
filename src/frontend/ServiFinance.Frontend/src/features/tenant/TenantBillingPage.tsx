@@ -5,6 +5,8 @@ import type {
   TenantBillingPortalSessionResponse
 } from "@/shared/api/contracts";
 import { httpGet, httpPostJson } from "@/shared/api/http";
+import { hasPermission } from "@/shared/auth/permissions";
+import { getCurrentSession } from "@/shared/auth/session";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { RecordTableStateRow } from "@/shared/records/RecordTable";
 import { RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
@@ -30,6 +32,8 @@ import {
 
 export function TenantBillingPage() {
   const { tenantDomainSlug = "" } = useParams();
+  const currentUser = getCurrentSession()?.user ?? null;
+  const canManageBilling = hasPermission(currentUser, "sms.billing.manage");
 
   const billingQuery = useQuery({
     queryKey: ["tenant", tenantDomainSlug, "billing-overview"],
@@ -56,7 +60,7 @@ export function TenantBillingPage() {
   const billingProvider = billingQuery.data?.standing.billingProvider ?? "Manual";
   const isStripeManaged = billingProvider === "Stripe";
   const isAutorenewalManaged = billingProvider !== "Manual";
-  const canOpenBillingPortal = billingQuery.data?.standing.canOpenBillingPortal ?? false;
+  const canOpenBillingPortal = canManageBilling && (billingQuery.data?.standing.canOpenBillingPortal ?? false);
   const renewalWarningMessage = buildRenewalWarning(
     billingQuery.data?.standing.nextRenewalDateUtc,
     isAutorenewalManaged,

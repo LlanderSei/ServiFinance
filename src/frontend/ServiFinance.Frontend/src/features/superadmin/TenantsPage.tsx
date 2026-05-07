@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SuperadminTenantRow } from "@/shared/api/contracts";
 import { httpGet, httpPostJson } from "@/shared/api/http";
+import { hasPermission } from "@/shared/auth/permissions";
+import { getCurrentSession } from "@/shared/auth/session";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import {
   RecordTable,
@@ -45,6 +47,8 @@ function buildTenantPath(filters: { segment: string; edition: string; status: st
 
 export function TenantsPage() {
   const queryClient = useQueryClient();
+  const currentUser = getCurrentSession()?.user ?? null;
+  const canManageTenants = hasPermission(currentUser, "root.tenants.manage");
   const [selectedTenant, setSelectedTenant] = useState<SuperadminTenantRow | null>(null);
   const [filters, setFilters] = useState({
     segment: "",
@@ -218,8 +222,13 @@ export function TenantsPage() {
             </WorkspaceModalButton>
             <WorkspaceModalButton
               tone={selectedTenant.isActive ? "danger" : "primary"}
-              disabled={tenantStatusMutation.isPending}
+              disabled={tenantStatusMutation.isPending || !canManageTenants}
+              title={!canManageTenants ? "Requires root.tenants.manage." : undefined}
               onClick={() => {
+                if (!canManageTenants) {
+                  return;
+                }
+
                 void tenantStatusMutation.mutateAsync({
                   tenantId: selectedTenant.id,
                   isActive: !selectedTenant.isActive

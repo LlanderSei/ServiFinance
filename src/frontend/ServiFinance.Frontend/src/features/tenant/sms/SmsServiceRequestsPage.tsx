@@ -14,6 +14,7 @@ import type {
   TenantServiceRequestRow
 } from "@/shared/api/contracts";
 import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import { formatFullAddress } from "@/shared/location/formatAddress";
@@ -101,7 +102,10 @@ export function SmsServiceRequestsPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const currentUser = getCurrentSession()?.user ?? null;
-  const isAdmin = (currentUser?.roles.includes("Administrator") ?? false) || (currentUser?.roles.includes("Owner") ?? false);
+  const canManageRequests = hasPermission(currentUser, "sms.service-requests.manage");
+  const canManageCosting = hasPermission(currentUser, "sms.costing.manage");
+  const canFinalizeInvoices = hasPermission(currentUser, "sms.invoices.finalize");
+  const canSettleInvoices = hasPermission(currentUser, "sms.invoices.settle");
   const [selectedRequest, setSelectedRequest] = useState<TenantServiceRequestRow | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
@@ -303,7 +307,7 @@ export function SmsServiceRequestsPage() {
   const costingPolicy = requestDetailQuery.data?.costingPolicy ?? null;
   const costPresets = requestDetailQuery.data?.costPresets ?? [];
   const canRecordDirectPayment = Boolean(
-    isAdmin &&
+    canSettleInvoices &&
     activeRequest?.invoiceId &&
     !activeRequest.hasMicroLoan &&
     (activeRequest.invoiceOutstandingAmount ?? 0) > 0 &&
@@ -574,6 +578,14 @@ export function SmsServiceRequestsPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageRequests) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot create service requests."
+      });
+      return;
+    }
+
     createRequestMutation.mutate({
       ...form,
       requestedServiceDate: form.requestedServiceDate || null,
@@ -591,6 +603,14 @@ export function SmsServiceRequestsPage() {
   function handleFinalizeInvoiceSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeRequest) {
+      return;
+    }
+
+    if (!canFinalizeInvoices) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot finalize service invoices."
+      });
       return;
     }
 
@@ -614,6 +634,14 @@ export function SmsServiceRequestsPage() {
       return;
     }
 
+    if (!canFinalizeInvoices) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot finalize service invoices."
+      });
+      return;
+    }
+
     setInvoiceForm({
       subtotalAmount: activeCostSheet?.lines.length ? String(activeCostSheet.subtotalAmount) : "",
       interestableAmount: "",
@@ -625,6 +653,14 @@ export function SmsServiceRequestsPage() {
 
   function openRecordPaymentModal() {
     if (!activeRequest || activeRequest.invoiceOutstandingAmount === null) {
+      return;
+    }
+
+    if (!canSettleInvoices) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot record invoice payments."
+      });
       return;
     }
 
@@ -640,6 +676,14 @@ export function SmsServiceRequestsPage() {
   function openCostingModal() {
     const detailResponse = requestDetailQuery.data;
     if (!activeRequest || !detailResponse) {
+      return;
+    }
+
+    if (!canManageCosting) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot edit service costing."
+      });
       return;
     }
 
@@ -672,6 +716,14 @@ export function SmsServiceRequestsPage() {
       return;
     }
 
+    if (!canManageCosting) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot save service costing."
+      });
+      return;
+    }
+
     saveCostSheetMutation.mutate({
       serviceRequestId: activeRequest.id,
       payload: {
@@ -699,6 +751,14 @@ export function SmsServiceRequestsPage() {
       return;
     }
 
+    if (!canSettleInvoices) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot record invoice payments."
+      });
+      return;
+    }
+
     recordPaymentMutation.mutate({
       serviceRequestId: activeRequest.id,
       payload: {
@@ -711,6 +771,10 @@ export function SmsServiceRequestsPage() {
   }
 
   function addCustomCostLine() {
+    if (!canManageCosting) {
+      return;
+    }
+
     const defaultCategory = activeCostLineFilter === "All"
       ? costLineCategories[0] ?? "Base Charge"
       : activeCostLineFilter;
@@ -729,6 +793,10 @@ export function SmsServiceRequestsPage() {
   }
 
   function addPresetCostLine() {
+    if (!canManageCosting) {
+      return;
+    }
+
     const preset = costPresets.find((entity) => entity.id === selectedPresetId);
     if (!preset) {
       return;
@@ -752,6 +820,10 @@ export function SmsServiceRequestsPage() {
   }
 
   function updateCostLine(clientId: string, field: keyof Omit<CostLineFormState, "clientId">, value: string | number | null) {
+    if (!canManageCosting) {
+      return;
+    }
+
     setCostSheetForm((current) => ({
       ...current,
       lines: current.lines.map((line) =>
@@ -765,6 +837,10 @@ export function SmsServiceRequestsPage() {
   }
 
   function removeCostLine(clientId: string) {
+    if (!canManageCosting) {
+      return;
+    }
+
     setCostSheetForm((current) => ({
       ...current,
       lines: current.lines
@@ -882,7 +958,7 @@ export function SmsServiceRequestsPage() {
                   label: "Create service request",
                   icon: "request",
                   onClick: () => setIsCreateModalOpen(true),
-                  disabled: customersQuery.isLoading || !customersQuery.data?.length
+                  disabled: !canManageRequests || customersQuery.isLoading || !customersQuery.data?.length
                 }
               ]}
             />
@@ -903,7 +979,7 @@ export function SmsServiceRequestsPage() {
                 type="submit"
                 form="tenant-service-request-form"
                 tone="primary"
-                disabled={createRequestMutation.isPending || !customersQuery.data?.length}
+                disabled={!canManageRequests || createRequestMutation.isPending || !customersQuery.data?.length}
               >
                 {createRequestMutation.isPending ? "Creating..." : "Create service request"}
               </WorkspaceModalButton>
@@ -1057,7 +1133,7 @@ export function SmsServiceRequestsPage() {
                 type="submit"
                 form="tenant-finalize-invoice-form"
                 tone="primary"
-                disabled={finalizeInvoiceMutation.isPending}
+                disabled={!canFinalizeInvoices || finalizeInvoiceMutation.isPending}
               >
                 {finalizeInvoiceMutation.isPending ? "Finalizing..." : "Finalize invoice"}
               </WorkspaceModalButton>
@@ -1158,7 +1234,7 @@ export function SmsServiceRequestsPage() {
                 type="submit"
                 form="tenant-record-payment-form"
                 tone="primary"
-                disabled={recordPaymentMutation.isPending}
+                disabled={!canSettleInvoices || recordPaymentMutation.isPending}
               >
                 {recordPaymentMutation.isPending ? "Recording..." : "Record payment"}
               </WorkspaceModalButton>
@@ -1237,7 +1313,7 @@ export function SmsServiceRequestsPage() {
                 type="submit"
                 form="tenant-service-cost-sheet-form"
                 tone="primary"
-                disabled={saveCostSheetMutation.isPending}
+                disabled={!canManageCosting || saveCostSheetMutation.isPending}
               >
                 {saveCostSheetMutation.isPending ? "Saving..." : "Save cost sheet"}
               </WorkspaceModalButton>
@@ -1267,7 +1343,10 @@ export function SmsServiceRequestsPage() {
                                 </p>
                                 <h3 className="mt-1 text-lg text-base-content">{line.name || "Untitled line"}</h3>
                               </div>
-                              <WorkspaceActionButton onClick={() => removeCostLine(line.clientId)}>
+                              <WorkspaceActionButton
+                                onClick={() => removeCostLine(line.clientId)}
+                                disabled={!canManageCosting}
+                              >
                                 Remove
                               </WorkspaceActionButton>
                             </div>
@@ -1388,7 +1467,7 @@ export function SmsServiceRequestsPage() {
                       <WorkspaceSelect
                         value={selectedPresetId}
                         onChange={(event) => setSelectedPresetId(event.target.value)}
-                        disabled={!costPresets.length}
+                          disabled={!canManageCosting || !costPresets.length}
                       >
                         <option value="">Select preset</option>
                         {costPresets.map((preset) => (
@@ -1400,10 +1479,10 @@ export function SmsServiceRequestsPage() {
                     </WorkspaceField>
 
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                      <WorkspaceActionButton className="justify-center" onClick={addPresetCostLine} disabled={!selectedPresetId}>
+                      <WorkspaceActionButton className="justify-center" onClick={addPresetCostLine} disabled={!canManageCosting || !selectedPresetId}>
                         Add preset
                       </WorkspaceActionButton>
-                      <WorkspaceActionButton className="justify-center" onClick={addCustomCostLine}>
+                      <WorkspaceActionButton className="justify-center" onClick={addCustomCostLine} disabled={!canManageCosting}>
                         Add custom
                       </WorkspaceActionButton>
                     </div>
@@ -1432,7 +1511,7 @@ export function SmsServiceRequestsPage() {
               <WorkspaceModalButton onClick={() => setSelectedRequest(null)}>
                 Close
               </WorkspaceModalButton>
-              {!activeRequest.invoiceId && !["Cancelled", "Cancellation Requested", "Closed"].includes(activeRequest.currentStatus) ? (
+              {canManageCosting && !activeRequest.invoiceId && !["Cancelled", "Cancellation Requested", "Closed"].includes(activeRequest.currentStatus) ? (
                 <WorkspaceModalButton
                   onClick={openCostingModal}
                   disabled={requestDetailQuery.isLoading || !requestDetailQuery.data}
@@ -1440,7 +1519,7 @@ export function SmsServiceRequestsPage() {
                   Edit costing
                 </WorkspaceModalButton>
               ) : null}
-              {isAdmin && activeRequest.canFinalizeInvoice ? (
+              {canFinalizeInvoices && activeRequest.canFinalizeInvoice ? (
                 <WorkspaceModalButton tone="primary" onClick={openFinalizeInvoiceModal}>
                   Finalize invoice
                 </WorkspaceModalButton>

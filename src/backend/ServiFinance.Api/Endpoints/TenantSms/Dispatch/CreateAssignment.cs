@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -12,7 +13,7 @@ internal static class CreateAssignment {
   private const int FeedbackWindowDays = 7;
 
     public static void MapCreateAssignment(this RouteGroupBuilder tenantApi) {
-        tenantApi.MapPost("/sms/dispatch", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        tenantApi.MapPost("/sms/dispatch", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
             HttpContext httpContext,
             string tenantDomainSlug,
             [FromBody] CreateTenantAssignmentRequest request,
@@ -139,7 +140,8 @@ internal static class CreateAssignment {
               null,
               scheduleConflictCount,
               false));
-            });
+            })
+            .RequireTenantSmsPermission("sms.dispatch.schedule", SmsModuleCodeScheduling);
     }
 
   private static bool IsFeedbackEligibleStatus(string status) =>

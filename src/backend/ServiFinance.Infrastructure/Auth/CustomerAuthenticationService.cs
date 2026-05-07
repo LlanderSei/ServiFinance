@@ -39,7 +39,9 @@ public sealed class CustomerAuthenticationService(
         TenantDomainSlug: customer.Tenant.DomainSlug,
         Email: customer.Email,
         FullName: customer.FullName,
-        Roles: ["Customer"]);
+        Roles: ["Customer"],
+        PlatformScopes: [],
+        PermissionKeys: []);
   }
 
   public async Task<AuthenticatedUser> RegisterAsync(CustomerRegisterRequest request, CancellationToken cancellationToken = default) {
@@ -98,7 +100,9 @@ public sealed class CustomerAuthenticationService(
         TenantDomainSlug: tenant.DomainSlug,
         Email: customer.Email,
         FullName: customer.FullName,
-        Roles: ["Customer"]);
+        Roles: ["Customer"],
+        PlatformScopes: [],
+        PermissionKeys: []);
   }
 
   private static string? NormalizeOptionalText(string? value) {

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { TenantMlsReportsWorkspaceResponse } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -59,7 +60,9 @@ function buildReportsQueryString(dateFrom: string, dateTo: string) {
 export function MlsReportsPage() {
   const currentSession = getCurrentSession();
   const { data } = useRefreshSession(!currentSession);
-  const tenantDomainSlug = (currentSession ?? data)?.user.tenantDomainSlug ?? "";
+  const currentUser = (currentSession ?? data)?.user ?? null;
+  const tenantDomainSlug = currentUser?.tenantDomainSlug ?? "";
+  const canExportReports = hasPermission(currentUser, "mls.reports.export");
   const [preset, setPreset] = useState<ReportRangePreset>("30d");
   const [dateFrom, setDateFrom] = useState(defaultDateFrom);
   const [dateTo, setDateTo] = useState(defaultDateTo);
@@ -89,6 +92,10 @@ export function MlsReportsPage() {
   }
 
   function handleExportCsv() {
+    if (!canExportReports) {
+      return;
+    }
+
     if (!reportsQuery.data) {
       return;
     }
@@ -134,6 +141,10 @@ export function MlsReportsPage() {
   }
 
   function handlePrintPacket() {
+    if (!canExportReports) {
+      return;
+    }
+
     if (!reportsQuery.data) {
       return;
     }
@@ -239,6 +250,7 @@ export function MlsReportsPage() {
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
+      requirePermission="mls.reports.view"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >
@@ -281,10 +293,18 @@ export function MlsReportsPage() {
                     <WorkspaceActionButton onClick={handleResetToThirtyDays}>
                       Reset to 30 days
                     </WorkspaceActionButton>
-                    <WorkspaceActionButton onClick={handleExportCsv} disabled={!reportsQuery.data || isWindowInvalid}>
+                    <WorkspaceActionButton
+                      onClick={handleExportCsv}
+                      disabled={!reportsQuery.data || isWindowInvalid || !canExportReports}
+                      title={!canExportReports ? "Requires mls.reports.export." : undefined}
+                    >
                       Export CSV
                     </WorkspaceActionButton>
-                    <WorkspaceActionButton onClick={handlePrintPacket} disabled={!reportsQuery.data || isWindowInvalid}>
+                    <WorkspaceActionButton
+                      onClick={handlePrintPacket}
+                      disabled={!reportsQuery.data || isWindowInvalid || !canExportReports}
+                      title={!canExportReports ? "Requires mls.reports.export." : undefined}
+                    >
                       Print packet
                     </WorkspaceActionButton>
                   </>

@@ -227,8 +227,8 @@ public sealed class UserManagementService(
         .OrderBy(name => name)
         .ToArray();
 
-    var platformScopes = roleNames
-        .Select(roleName => PlatformRolePolicy.ResolveTenantRoleScope(roleName))
+    var platformScopes = roles
+        .Select(role => PlatformRolePolicy.ResolveRoleScope(role.Name, role.PlatformScope))
         .Where(scope => scope != PlatformRolePolicy.UnknownScope)
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(scope => scope)

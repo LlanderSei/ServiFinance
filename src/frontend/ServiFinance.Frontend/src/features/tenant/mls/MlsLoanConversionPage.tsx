@@ -8,6 +8,7 @@ import {
 } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -62,7 +63,9 @@ export function MlsLoanConversionPage() {
   const toast = useToast();
   const currentSession = getCurrentSession();
   const { data } = useRefreshSession(!currentSession);
-  const tenantDomainSlug = (currentSession ?? data)?.user.tenantDomainSlug ?? "";
+  const currentUser = (currentSession ?? data)?.user ?? null;
+  const tenantDomainSlug = currentUser?.tenantDomainSlug ?? "";
+  const canManageLoanConversion = hasPermission(currentUser, "mls.loan-conversion.manage");
 
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -133,6 +136,14 @@ export function MlsLoanConversionPage() {
   }, [workspaceQuery.data]);
 
   function openConversionModal(invoiceId: string) {
+    if (!canManageLoanConversion) {
+      toast.warning({
+        title: "Permission required",
+        message: "Loan conversion requires mls.loan-conversion.manage."
+      });
+      return;
+    }
+
     setSelectedInvoiceId(invoiceId);
     setIsModalOpen(true);
   }
@@ -143,12 +154,21 @@ export function MlsLoanConversionPage() {
 
   function handleCreateLoan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageLoanConversion) {
+      toast.warning({
+        title: "Permission required",
+        message: "Loan conversion requires mls.loan-conversion.manage."
+      });
+      return;
+    }
+
     createMutation.mutate();
   }
 
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
+      requirePermission="mls.loan-conversion.manage"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >
@@ -232,6 +252,7 @@ export function MlsLoanConversionPage() {
                           <ConvertibleInvoiceRow
                             key={candidate.invoiceId}
                             candidate={candidate}
+                            canManageLoanConversion={canManageLoanConversion}
                             onConvert={openConversionModal}
                           />
                         ))
@@ -260,6 +281,7 @@ export function MlsLoanConversionPage() {
           isPreviewError={previewQuery.isError}
           previewErrorMessage={getApiErrorMessage(previewQuery.error, "The loan preview could not be generated for the current term setup.")}
           isSubmitting={createMutation.isPending}
+          canManageLoanConversion={canManageLoanConversion}
           onAnnualInterestRateChange={setAnnualInterestRate}
           onTermMonthsChange={setTermMonths}
           onLoanStartDateChange={setLoanStartDate}
@@ -273,10 +295,11 @@ export function MlsLoanConversionPage() {
 
 type ConvertibleInvoiceRowProps = {
   candidate: TenantMlsLoanConversionCandidate;
+  canManageLoanConversion: boolean;
   onConvert: (invoiceId: string) => void;
 };
 
-function ConvertibleInvoiceRow({ candidate, onConvert }: ConvertibleInvoiceRowProps) {
+function ConvertibleInvoiceRow({ candidate, canManageLoanConversion, onConvert }: ConvertibleInvoiceRowProps) {
   return (
     <tr>
       <td>
@@ -291,7 +314,11 @@ function ConvertibleInvoiceRow({ candidate, onConvert }: ConvertibleInvoiceRowPr
       <td>{formatCurrency(candidate.outstandingAmount)}</td>
       <td>{formatCurrency(candidate.interestableAmount)}</td>
       <td>
-        <RecordTableActionButton onClick={() => onConvert(candidate.invoiceId)}>
+        <RecordTableActionButton
+          onClick={() => onConvert(candidate.invoiceId)}
+          disabled={!canManageLoanConversion}
+          title={!canManageLoanConversion ? "Requires mls.loan-conversion.manage." : undefined}
+        >
           Convert
         </RecordTableActionButton>
       </td>
@@ -311,6 +338,7 @@ type LoanConversionModalProps = {
   isPreviewError: boolean;
   previewErrorMessage?: string;
   isSubmitting: boolean;
+  canManageLoanConversion: boolean;
   onAnnualInterestRateChange: (value: string) => void;
   onTermMonthsChange: (value: string) => void;
   onLoanStartDateChange: (value: string) => void;
@@ -330,6 +358,7 @@ function LoanConversionModal({
   isPreviewError,
   previewErrorMessage,
   isSubmitting,
+  canManageLoanConversion,
   onAnnualInterestRateChange,
   onTermMonthsChange,
   onLoanStartDateChange,
@@ -350,7 +379,8 @@ function LoanConversionModal({
             tone="primary"
             type="submit"
             form="mls-loan-conversion-modal-form"
-            disabled={!selectedInvoice || !preview || isSubmitting}
+            disabled={!selectedInvoice || !preview || isSubmitting || !canManageLoanConversion}
+            title={!canManageLoanConversion ? "Requires mls.loan-conversion.manage." : undefined}
           >
             {isSubmitting ? "Confirming..." : "Confirm Conversion"}
           </WorkspaceModalButton>

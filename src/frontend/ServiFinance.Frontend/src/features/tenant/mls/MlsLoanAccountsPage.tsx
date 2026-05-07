@@ -9,6 +9,7 @@ import {
 } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -63,7 +64,9 @@ export function MlsLoanAccountsPage() {
   const toast = useToast();
   const currentSession = getCurrentSession();
   const { data } = useRefreshSession(!currentSession);
-  const tenantDomainSlug = (currentSession ?? data)?.user.tenantDomainSlug ?? "";
+  const currentUser = (currentSession ?? data)?.user ?? null;
+  const tenantDomainSlug = currentUser?.tenantDomainSlug ?? "";
+  const canManageLoanAccounts = hasPermission(currentUser, "mls.loan-accounts.manage");
 
   const [selectedLoanId, setSelectedLoanId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -194,17 +197,34 @@ export function MlsLoanAccountsPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageLoanAccounts) {
+      toast.warning({
+        title: "Permission required",
+        message: "Posting loan payments requires mls.loan-accounts.manage."
+      });
+      return;
+    }
+
     paymentMutation.mutate();
   }
 
   function handleReversalSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageLoanAccounts) {
+      toast.warning({
+        title: "Permission required",
+        message: "Reversing loan payments requires mls.loan-accounts.manage."
+      });
+      return;
+    }
+
     reversePaymentMutation.mutate();
   }
 
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
+      requirePermission="mls.loan-accounts.view"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >
@@ -306,6 +326,7 @@ export function MlsLoanAccountsPage() {
           reversibleLedgerRow={reversibleLedgerRow}
           isPosting={paymentMutation.isPending}
           isReversing={reversePaymentMutation.isPending}
+          canManageLoanAccounts={canManageLoanAccounts}
           onChangeTab={(tabKey) => setActiveTab(tabKey)}
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleSubmit}
@@ -379,6 +400,7 @@ type LoanAccountModalProps = {
   reversibleLedgerRow: TenantMlsLoanDetailResponse["ledger"][number] | null;
   isPosting: boolean;
   isReversing: boolean;
+  canManageLoanAccounts: boolean;
   onChangeTab: (tab: LoanAccountsTab) => void;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -411,6 +433,7 @@ function LoanAccountModal({
   reversibleLedgerRow,
   isPosting,
   isReversing,
+  canManageLoanAccounts,
   onChangeTab,
   onClose,
   onSubmit,
@@ -444,7 +467,8 @@ function LoanAccountModal({
           type="submit"
           form="mls-loan-payment-form"
           tone="primary"
-          disabled={isPosting || !selectedLoan}
+          disabled={isPosting || !selectedLoan || !canManageLoanAccounts}
+          title={!canManageLoanAccounts ? "Requires mls.loan-accounts.manage." : undefined}
         >
           {isPosting ? "Posting Payment..." : "Post Payment"}
         </WorkspaceModalButton>
@@ -478,6 +502,7 @@ function LoanAccountModal({
               onPaymentDateChange={onPaymentDateChange}
               onReferenceNumberChange={onReferenceNumberChange}
               onRemarksChange={onRemarksChange}
+              canManageLoanAccounts={canManageLoanAccounts}
             />
           ) : null}
           {activeTab === "amortization" ? <LoanAmortizationTab detail={detail} /> : null}
@@ -489,6 +514,7 @@ function LoanAccountModal({
               reversalRemarks={reversalRemarks}
               reversibleLedgerRow={reversibleLedgerRow}
               isReversing={isReversing}
+              canManageLoanAccounts={canManageLoanAccounts}
               onSubmit={onReversalSubmit}
               onReversalDateChange={onReversalDateChange}
               onReversalReferenceNumberChange={onReversalReferenceNumberChange}
@@ -512,6 +538,7 @@ type LoanPaymentPostingTabProps = {
   onPaymentDateChange: (value: string) => void;
   onReferenceNumberChange: (value: string) => void;
   onRemarksChange: (value: string) => void;
+  canManageLoanAccounts: boolean;
 };
 
 function LoanPaymentPostingTab({
@@ -524,7 +551,8 @@ function LoanPaymentPostingTab({
   onPaymentAmountChange,
   onPaymentDateChange,
   onReferenceNumberChange,
-  onRemarksChange
+  onRemarksChange,
+  canManageLoanAccounts
 }: LoanPaymentPostingTabProps) {
   return (
     <div className="grid auto-rows-max gap-4">
@@ -565,6 +593,7 @@ function LoanPaymentPostingTab({
                   step="0.01"
                   value={paymentAmount}
                   onChange={(event) => onPaymentAmountChange(event.target.value)}
+                  disabled={!canManageLoanAccounts}
                   required
                 />
               </WorkspaceField>
@@ -573,6 +602,7 @@ function LoanPaymentPostingTab({
                   type="date"
                   value={paymentDate}
                   onChange={(event) => onPaymentDateChange(event.target.value)}
+                  disabled={!canManageLoanAccounts}
                   required
                 />
               </WorkspaceField>
@@ -580,12 +610,14 @@ function LoanPaymentPostingTab({
                 <WorkspaceInput
                   value={referenceNumber}
                   onChange={(event) => onReferenceNumberChange(event.target.value)}
+                  disabled={!canManageLoanAccounts}
                 />
               </WorkspaceField>
               <WorkspaceField label="Remarks">
                 <WorkspaceInput
                   value={remarks}
                   onChange={(event) => onRemarksChange(event.target.value)}
+                  disabled={!canManageLoanAccounts}
                 />
               </WorkspaceField>
             </WorkspaceFieldGrid>
@@ -656,6 +688,7 @@ type LoanLedgerTabProps = {
   reversalRemarks: string;
   reversibleLedgerRow: TenantMlsLoanDetailResponse["ledger"][number] | null;
   isReversing: boolean;
+  canManageLoanAccounts: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onReversalDateChange: (value: string) => void;
   onReversalReferenceNumberChange: (value: string) => void;
@@ -669,6 +702,7 @@ function LoanLedgerTab({
   reversalRemarks,
   reversibleLedgerRow,
   isReversing,
+  canManageLoanAccounts,
   onSubmit,
   onReversalDateChange,
   onReversalReferenceNumberChange,
@@ -691,6 +725,7 @@ function LoanLedgerTab({
                   type="date"
                   value={reversalDate}
                   onChange={(event) => onReversalDateChange(event.target.value)}
+                  disabled={!canManageLoanAccounts}
                   required
                 />
               </WorkspaceField>
@@ -698,6 +733,7 @@ function LoanLedgerTab({
                 <WorkspaceInput
                   value={reversalReferenceNumber}
                   onChange={(event) => onReversalReferenceNumberChange(event.target.value)}
+                  disabled={!canManageLoanAccounts}
                 />
               </WorkspaceField>
               <WorkspaceField label="Correction remarks" wide={true}>
@@ -705,13 +741,19 @@ function LoanLedgerTab({
                   value={reversalRemarks}
                   onChange={(event) => onReversalRemarksChange(event.target.value)}
                   placeholder="Reason for reversing this payment entry"
+                  disabled={!canManageLoanAccounts}
                   required
                 />
               </WorkspaceField>
             </WorkspaceFieldGrid>
 
             <div className="flex justify-end">
-              <WorkspaceModalButton type="submit" tone="danger" disabled={isReversing}>
+              <WorkspaceModalButton
+                type="submit"
+                tone="danger"
+                disabled={isReversing || !canManageLoanAccounts}
+                title={!canManageLoanAccounts ? "Requires mls.loan-accounts.manage." : undefined}
+              >
                 {isReversing ? "Reversing Payment..." : "Reverse Payment"}
               </WorkspaceModalButton>
             </div>

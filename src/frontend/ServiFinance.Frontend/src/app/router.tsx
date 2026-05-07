@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactElement } from "react";
 import { Navigate } from "react-router-dom";
 import { createBrowserRouter, createHashRouter, useParams } from "react-router-dom";
 import { AppShell } from "./shell";
@@ -7,6 +7,7 @@ import { CustomerLayout } from "@/features/customer/CustomerLayout";
 import { CustomerProtectedRoute } from "@/features/customer/CustomerProtectedRoute";
 import { RouteErrorPage } from "@/features/system/RouteErrorPage";
 import { isDesktopShell } from "@/platform/runtime";
+import { PermissionGate } from "@/shared/auth/PermissionGate";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { TenantDomainGuard } from "@/shared/tenant/TenantDomainGuard";
 
@@ -68,6 +69,14 @@ const ForbiddenPage = lazyPage(() => import("@/features/system/ForbiddenPage"), 
 const ErrorPage = lazyPage(() => import("@/features/system/ErrorPage"), "ErrorPage");
 const NotFoundPage = lazyPage(() => import("@/features/system/NotFoundPage"), "NotFoundPage");
 
+function withPermission(element: ReactElement, permissionKey: string, title?: string) {
+  return (
+    <PermissionGate permissionKey={permissionKey} title={title}>
+      {element}
+    </PermissionGate>
+  );
+}
+
 const browserRoutes = [
   {
     path: "/",
@@ -79,14 +88,14 @@ const browserRoutes = [
       {
         element: <SuperadminProtectedLayout />,
         children: [
-          { path: "dashboard", element: <DashboardPage /> },
-          { path: "system-health", element: <SystemHealthPage /> },
-          { path: "tenants", element: <TenantsPage /> },
-          { path: "root-users", element: <RootUsersPage /> },
-          { path: "subscriptions", element: <SubscriptionsPage /> },
-          { path: "modules", element: <ModulesPage /> },
-          { path: "roles-permissions", element: <PlatformRolesPermissionsPage /> },
-          { path: "audits", element: <PlatformAuditsPage /> }
+          { path: "dashboard", element: withPermission(<DashboardPage />, "root.dashboard.view") },
+          { path: "system-health", element: withPermission(<SystemHealthPage />, "root.system-health.view") },
+          { path: "tenants", element: withPermission(<TenantsPage />, "root.tenants.view") },
+          { path: "root-users", element: withPermission(<RootUsersPage />, "root.users.manage") },
+          { path: "subscriptions", element: withPermission(<SubscriptionsPage />, "root.subscriptions.manage") },
+          { path: "modules", element: withPermission(<ModulesPage />, "root.modules.manage") },
+          { path: "roles-permissions", element: withPermission(<PlatformRolesPermissionsPage />, "root.roles-permissions.manage") },
+          { path: "audits", element: withPermission(<PlatformAuditsPage />, "root.audits.view") }
         ]
       },
       { path: "desktop-required", element: <DesktopRequiredPage /> },
@@ -124,21 +133,21 @@ const browserRoutes = [
           {
             element: <TenantSmsProtectedLayout />,
             children: [
-              { path: "sms/dashboard", element: <SmsDashboardPage /> },
-              { path: "sms/customers", element: <SmsCustomersPage /> },
-              { path: "sms/service-requests", element: <SmsServiceRequestsPage /> },
-              { path: "sms/dispatch", element: <SmsDispatchPage /> },
-              { path: "sms/reports", element: <SmsReportsPage /> }
+              { path: "sms/dashboard", element: withPermission(<SmsDashboardPage />, "sms.dashboard.view") },
+              { path: "sms/customers", element: withPermission(<SmsCustomersPage />, "sms.customers.view") },
+              { path: "sms/service-requests", element: withPermission(<SmsServiceRequestsPage />, "sms.service-requests.view") },
+              { path: "sms/dispatch", element: withPermission(<SmsDispatchPage />, "sms.dispatch.view") },
+              { path: "sms/reports", element: withPermission(<SmsReportsPage />, "sms.reports.view") }
             ]
           },
           {
             element: <TenantAdminProtectedLayout />,
             children: [
-              { path: "billing", element: <TenantBillingPage /> },
-              { path: "sms/pricing", element: <SmsPricingPage /> },
-              { path: "sms/audits", element: <TenantSmsAuditsPage /> },
-              { path: "sms/roles-permissions", element: <TenantSmsRolesPermissionsPage /> },
-              { path: "sms/users", element: <SmsUsersPage /> }
+              { path: "billing", element: withPermission(<TenantBillingPage />, "sms.billing.view") },
+              { path: "sms/pricing", element: withPermission(<SmsPricingPage />, "sms.pricing.manage") },
+              { path: "sms/audits", element: withPermission(<TenantSmsAuditsPage />, "sms.audits.view") },
+              { path: "sms/roles-permissions", element: withPermission(<TenantSmsRolesPermissionsPage />, "sms.roles-permissions.manage") },
+              { path: "sms/users", element: withPermission(<SmsUsersPage />, "sms.users.manage") }
             ]
           },
           { path: "mls", element: <Navigate to="/desktop-required" replace /> },
@@ -161,14 +170,14 @@ const desktopRoutes = [
       {
         element: <SuperadminProtectedLayout />,
         children: [
-          { path: "dashboard", element: <DashboardPage /> },
-          { path: "system-health", element: <SystemHealthPage /> },
-          { path: "tenants", element: <TenantsPage /> },
-          { path: "root-users", element: <RootUsersPage /> },
-          { path: "subscriptions", element: <SubscriptionsPage /> },
-          { path: "modules", element: <ModulesPage /> },
-          { path: "roles-permissions", element: <PlatformRolesPermissionsPage /> },
-          { path: "audits", element: <PlatformAuditsPage /> }
+          { path: "dashboard", element: withPermission(<DashboardPage />, "root.dashboard.view") },
+          { path: "system-health", element: withPermission(<SystemHealthPage />, "root.system-health.view") },
+          { path: "tenants", element: withPermission(<TenantsPage />, "root.tenants.view") },
+          { path: "root-users", element: withPermission(<RootUsersPage />, "root.users.manage") },
+          { path: "subscriptions", element: withPermission(<SubscriptionsPage />, "root.subscriptions.manage") },
+          { path: "modules", element: withPermission(<ModulesPage />, "root.modules.manage") },
+          { path: "roles-permissions", element: withPermission(<PlatformRolesPermissionsPage />, "root.roles-permissions.manage") },
+          { path: "audits", element: withPermission(<PlatformAuditsPage />, "root.audits.view") }
         ]
       },
       { path: "desktop-required", element: <DesktopRequiredPage /> },
@@ -216,21 +225,21 @@ const desktopRoutes = [
           {
             element: <TenantSmsProtectedLayout />,
             children: [
-              { path: "sms/dashboard", element: <SmsDashboardPage /> },
-              { path: "sms/customers", element: <SmsCustomersPage /> },
-              { path: "sms/service-requests", element: <SmsServiceRequestsPage /> },
-              { path: "sms/dispatch", element: <SmsDispatchPage /> },
-              { path: "sms/reports", element: <SmsReportsPage /> }
+              { path: "sms/dashboard", element: withPermission(<SmsDashboardPage />, "sms.dashboard.view") },
+              { path: "sms/customers", element: withPermission(<SmsCustomersPage />, "sms.customers.view") },
+              { path: "sms/service-requests", element: withPermission(<SmsServiceRequestsPage />, "sms.service-requests.view") },
+              { path: "sms/dispatch", element: withPermission(<SmsDispatchPage />, "sms.dispatch.view") },
+              { path: "sms/reports", element: withPermission(<SmsReportsPage />, "sms.reports.view") }
             ]
           },
           {
             element: <TenantAdminProtectedLayout />,
             children: [
-              { path: "billing", element: <TenantBillingPage /> },
-              { path: "sms/pricing", element: <SmsPricingPage /> },
-              { path: "sms/audits", element: <TenantSmsAuditsPage /> },
-              { path: "sms/roles-permissions", element: <TenantSmsRolesPermissionsPage /> },
-              { path: "sms/users", element: <SmsUsersPage /> }
+              { path: "billing", element: withPermission(<TenantBillingPage />, "sms.billing.view") },
+              { path: "sms/pricing", element: withPermission(<SmsPricingPage />, "sms.pricing.manage") },
+              { path: "sms/audits", element: withPermission(<TenantSmsAuditsPage />, "sms.audits.view") },
+              { path: "sms/roles-permissions", element: withPermission(<TenantSmsRolesPermissionsPage />, "sms.roles-permissions.manage") },
+              { path: "sms/users", element: withPermission(<SmsUsersPage />, "sms.users.manage") }
             ]
           },
           { path: "mls", element: <Navigate to="/t/mls/" replace /> },
@@ -253,7 +262,7 @@ function TenantSmsProtectedLayout() {
 
 function TenantAdminProtectedLayout() {
   const { tenantDomainSlug = "" } = useParams();
-  return <ProtectedRoute tenantSlug={tenantDomainSlug} requireSurface="TenantWeb" requireAnyRole={["Administrator", "Owner"]} />;
+  return <ProtectedRoute tenantSlug={tenantDomainSlug} requireSurface="TenantWeb" />;
 }
 
 function TenantRootRedirect() {

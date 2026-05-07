@@ -2,17 +2,17 @@ namespace ServiFinance.Api.Endpoints.TenantBilling;
 
 using System.Globalization;
 using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Application.Onboarding;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantBillingEndpointMappings {
   public static RouteGroupBuilder MapTenantBillingEndpoints(this RouteGroupBuilder tenantApi) {
-    tenantApi.MapGet("/billing/overview", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+    tenantApi.MapGet("/billing/overview", async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
         IPlatformTenantOnboardingService onboardingService,
@@ -80,8 +80,9 @@ internal static class TenantBillingEndpointMappings {
                   modules),
               standing,
               history));
-        });
-    tenantApi.MapPost("/billing/portal-session", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        })
+        .RequireTenantSmsPermission("sms.billing.view");
+    tenantApi.MapPost("/billing/portal-session", async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
         IPlatformTenantOnboardingService onboardingService,
@@ -105,9 +106,10 @@ internal static class TenantBillingEndpointMappings {
           } catch (InvalidOperationException ex) {
             return Results.BadRequest(new { error = ex.Message });
           }
-        });
+        })
+        .RequireTenantSmsPermission("sms.billing.manage");
 
-    tenantApi.MapPost("/billing/submissions", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+    tenantApi.MapPost("/billing/submissions", async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
@@ -127,7 +129,8 @@ internal static class TenantBillingEndpointMappings {
           }
 
           return Results.BadRequest(new { error = "Manual tenant billing proof submission has been discontinued. Use the online billing provider and hosted billing portal for recurring renewal." });
-        });
+        })
+        .RequireTenantSmsPermission("sms.billing.manage");
 
     return tenantApi;
   }

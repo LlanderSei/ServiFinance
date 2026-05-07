@@ -11,6 +11,13 @@ using ServiFinance.Domain;
 
 internal static class ProgramEndpointSupport {
   internal const string ApiAuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme + "," + Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+  internal const string SmsModuleCodeServiceIntake = "W1_SERVICE_INTAKE";
+  internal const string SmsModuleCodeStaffAccounts = "W2_STAFF_ACCOUNTS";
+  internal const string SmsModuleCodeScheduling = "W3_SCHEDULING";
+  internal const string SmsModuleCodeJobUpdates = "W4_JOB_UPDATES";
+  internal const string SmsModuleCodeInvoicing = "W5_INVOICING";
+  internal const string SmsModuleCodeReports = "W6_REPORTS";
+  internal const string SmsModuleCodeWorkforceOverview = "W7_WORKFORCE_OVERVIEW";
   internal const string MlsModuleCodeServiceLinkedLoans = "D1_SERVICE_LINKED_LOANS";
   internal const string MlsModuleCodeStandaloneLoans = "D2_STANDALONE_LOANS";
   internal const string MlsModuleCodeFinancialRecords = "D3_FINANCIAL_RECORDS";
@@ -55,7 +62,16 @@ internal static class ProgramEndpointSupport {
   }
 
   internal static CurrentSessionUser ToCurrentSessionUser(AuthenticatedUser user, AuthenticationSurface surface) =>
-    new(user.UserId, user.TenantId, user.TenantDomainSlug, user.Email, user.FullName, user.Roles, surface);
+    new(
+      user.UserId,
+      user.TenantId,
+      user.TenantDomainSlug,
+      user.Email,
+      user.FullName,
+      user.Roles,
+      user.PlatformScopes,
+      user.PermissionKeys,
+      surface);
 
   internal static string SanitizeReturnUrl(string? returnUrl, string fallbackPath = "/dashboard") {
     if (string.IsNullOrWhiteSpace(returnUrl)) {
@@ -129,6 +145,127 @@ internal static class ProgramEndpointSupport {
 
   internal static bool TryGetCurrentUserId(ClaimsPrincipal principal, out Guid userId) =>
     Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
+
+  internal static async Task<IResult?> RequireTenantSmsAccessAsync(
+      HttpContext httpContext,
+      string tenantDomainSlug,
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      IRolePermissionAuthorizationService rolePermissionAuthorizationService,
+      CancellationToken cancellationToken,
+      string permissionKey,
+      string? requiredModuleCode = null) {
+    if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "This SMS session is not allowed to access the selected tenant route.");
+    }
+
+    if (!Guid.TryParse(httpContext.User.FindFirstValue("tenant_id"), out var tenantId)) {
+      return Results.Unauthorized();
+    }
+
+    if (!TryGetCurrentUserId(httpContext.User, out var userId)) {
+      return Results.Unauthorized();
+    }
+
+    var tenant = await dbContext.Tenants
+        .AsNoTracking()
+        .SingleOrDefaultAsync(
+            entity => entity.Id == tenantId && entity.DomainSlug == tenantDomainSlug,
+            cancellationToken);
+    if (tenant is null) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "The tenant context for this SMS session could not be resolved.");
+    }
+
+    if (!tenant.IsActive) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "This tenant is inactive and cannot access the SMS web workspace.");
+    }
+
+    if (string.Equals(tenant.SubscriptionStatus, "Suspended", StringComparison.OrdinalIgnoreCase)) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "SMS web access is suspended for this tenant until subscription standing is restored.");
+    }
+
+    var currentTier = await ResolveCurrentTierAsync(dbContext, tenant, cancellationToken);
+    if (currentTier is null || !currentTier.IsActive || !currentTier.IncludesServiceManagementWeb) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "SMS web access is not included in the current tenant subscription.");
+    }
+
+    if (!string.IsNullOrWhiteSpace(requiredModuleCode) && !HasTenantSmsModuleAccess(currentTier, requiredModuleCode)) {
+      return CreateJsonError(
+        StatusCodes.Status403Forbidden,
+        $"The current tenant subscription does not include the {GetTenantSmsModuleLabel(requiredModuleCode)} module.");
+    }
+
+    if (!await rolePermissionAuthorizationService.HasPermissionAsync(
+      userId,
+      PlatformRolePolicy.SmsScope,
+      permissionKey,
+      cancellationToken)) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "Your role does not include the required SMS permission for this action.");
+    }
+
+    return null;
+  }
+
+  internal static async Task<IResult?> RequireTenantWorkspacePermissionAsync(
+      HttpContext httpContext,
+      string tenantDomainSlug,
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      IRolePermissionAuthorizationService rolePermissionAuthorizationService,
+      CancellationToken cancellationToken,
+      string workspaceScope,
+      string permissionKey) {
+    if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "This tenant session is not allowed to access the selected tenant route.");
+    }
+
+    if (!Guid.TryParse(httpContext.User.FindFirstValue("tenant_id"), out var tenantId)) {
+      return Results.Unauthorized();
+    }
+
+    if (!TryGetCurrentUserId(httpContext.User, out var userId)) {
+      return Results.Unauthorized();
+    }
+
+    var normalizedScope = RolePermissionCatalog.NormalizeWorkspaceScope(workspaceScope);
+    var tenant = await dbContext.Tenants
+        .AsNoTracking()
+        .SingleOrDefaultAsync(
+            entity => entity.Id == tenantId && entity.DomainSlug == tenantDomainSlug,
+            cancellationToken);
+    if (tenant is null) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "The tenant context for this session could not be resolved.");
+    }
+
+    if (!tenant.IsActive) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "This tenant is inactive and cannot access tenant administration.");
+    }
+
+    if (string.Equals(tenant.SubscriptionStatus, "Suspended", StringComparison.OrdinalIgnoreCase)) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "Tenant administration is suspended until subscription standing is restored.");
+    }
+
+    var currentTier = await ResolveCurrentTierAsync(dbContext, tenant, cancellationToken);
+    if (currentTier is null || !currentTier.IsActive) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "The current tenant subscription could not be resolved.");
+    }
+
+    if (normalizedScope == PlatformRolePolicy.SmsScope && !currentTier.IncludesServiceManagementWeb) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "SMS web administration is not included in the current tenant subscription.");
+    }
+
+    if (normalizedScope == PlatformRolePolicy.MlsScope && !currentTier.IncludesMicroLendingDesktop) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "MLS desktop administration is not included in the current tenant subscription.");
+    }
+
+    if (!await rolePermissionAuthorizationService.HasPermissionAsync(
+      userId,
+      normalizedScope,
+      permissionKey,
+      cancellationToken)) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, "Your role does not include the required tenant permission for this action.");
+    }
+
+    return null;
+  }
 
   internal static async Task<IResult?> RequireTenantMlsAccessAsync(
       HttpContext httpContext,
@@ -639,6 +776,29 @@ internal static class ProgramEndpointSupport {
         !string.Equals(accessLevel, "Excluded", StringComparison.OrdinalIgnoreCase) &&
         !string.Equals(accessLevel, "None", StringComparison.OrdinalIgnoreCase);
   }
+
+  private static bool HasTenantSmsModuleAccess(SubscriptionTier tier, string requiredModuleCode) {
+    var accessLevel = tier.Modules
+        .Where(entity => entity.PlatformModule != null && entity.PlatformModule.IsActive)
+        .FirstOrDefault(entity => string.Equals(entity.PlatformModule!.Code, requiredModuleCode, StringComparison.OrdinalIgnoreCase))
+        ?.AccessLevel;
+
+    return !string.IsNullOrWhiteSpace(accessLevel) &&
+        !string.Equals(accessLevel, "Excluded", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(accessLevel, "None", StringComparison.OrdinalIgnoreCase);
+  }
+
+  private static string GetTenantSmsModuleLabel(string requiredModuleCode) =>
+    requiredModuleCode switch {
+      SmsModuleCodeServiceIntake => "service intake and customer records",
+      SmsModuleCodeStaffAccounts => "staff accounts and role assignment",
+      SmsModuleCodeScheduling => "scheduling and dispatch",
+      SmsModuleCodeJobUpdates => "job status updates and evidence",
+      SmsModuleCodeInvoicing => "invoicing and customer self-service",
+      SmsModuleCodeReports => "operational reports",
+      SmsModuleCodeWorkforceOverview => "workforce overview",
+      _ => "requested SMS"
+    };
 
   private static string GetTenantMlsModuleLabel(string requiredModuleCode) =>
     requiredModuleCode switch {

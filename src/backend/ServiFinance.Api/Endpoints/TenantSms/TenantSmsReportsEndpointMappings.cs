@@ -1,6 +1,7 @@
 namespace ServiFinance.Api.Endpoints.TenantSms;
 
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Api.Infrastructure;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantSmsReportsEndpointMappings {
@@ -354,7 +355,8 @@ internal static class TenantSmsReportsEndpointMappings {
               CompletedAssignments = completedAssignmentCount
             }
           });
-        });
+        })
+        .RequireTenantSmsPermission("sms.reports.view", SmsModuleCodeReports);
 
     return tenantApi;
   }

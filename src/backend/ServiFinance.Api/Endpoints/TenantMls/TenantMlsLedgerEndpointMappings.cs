@@ -3,6 +3,7 @@ namespace ServiFinance.Api.Endpoints.TenantMls;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantMlsLedgerEndpointMappings {
@@ -128,7 +129,8 @@ internal static class TenantMlsLedgerEndpointMappings {
                   totalCollections,
                   currentRunningBalance),
               entries));
-        });
+        })
+        .RequireTenantMlsPermission("mls.ledger.view", MlsModuleCodeLedgerReports);
 
     return tenantApi;
   }

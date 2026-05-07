@@ -5,12 +5,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class RescheduleAssignment {
     public static void MapRescheduleAssignment(this RouteGroupBuilder tenantApi) {
-        tenantApi.MapPost("/sms/dispatch/{assignmentId:guid}/reschedule", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        tenantApi.MapPost("/sms/dispatch/{assignmentId:guid}/reschedule", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
             HttpContext httpContext,
             string tenantDomainSlug,
             Guid assignmentId,
@@ -137,6 +138,7 @@ internal static class RescheduleAssignment {
                   .FirstOrDefault(),
               scheduleConflictCount,
               assignment.ServiceRequest.Invoices.Any(invoice => invoice.MicroLoan != null)));
-            });
+            })
+            .RequireTenantSmsPermission("sms.dispatch.schedule", SmsModuleCodeScheduling);
     }
 }

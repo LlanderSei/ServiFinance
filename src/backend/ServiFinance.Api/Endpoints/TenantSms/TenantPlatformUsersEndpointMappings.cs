@@ -3,6 +3,7 @@ namespace ServiFinance.Api.Endpoints.TenantSms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -15,20 +16,24 @@ internal static class TenantPlatformUsersEndpointMappings {
 
   private static void MapRoutes(RouteGroupBuilder tenantApi, string routePrefix) {
     tenantApi.MapGet($"{routePrefix}/users", GetUsersAsync)
-        .RequireAuthorization(CreateAdministratorAuthorization());
+        .RequireAuthorization(CreateTenantAuthorization())
+        .RequireTenantPlatformUsersPermission();
     tenantApi.MapGet($"{routePrefix}/roles", GetRolesAsync)
-        .RequireAuthorization(CreateAdministratorAuthorization());
+        .RequireAuthorization(CreateTenantAuthorization())
+        .RequireTenantPlatformUsersPermission();
     tenantApi.MapPost($"{routePrefix}/users", CreateUserAsync)
-        .RequireAuthorization(CreateAdministratorAuthorization());
+        .RequireAuthorization(CreateTenantAuthorization())
+        .RequireTenantPlatformUsersPermission();
     tenantApi.MapPut($"{routePrefix}/users/{{userId:guid}}", UpdateUserAsync)
-        .RequireAuthorization(CreateAdministratorAuthorization());
+        .RequireAuthorization(CreateTenantAuthorization())
+        .RequireTenantPlatformUsersPermission();
     tenantApi.MapPost($"{routePrefix}/users/{{userId:guid}}/toggle", ToggleUserAsync)
-        .RequireAuthorization(CreateAdministratorAuthorization());
+        .RequireAuthorization(CreateTenantAuthorization())
+        .RequireTenantPlatformUsersPermission();
   }
 
-  private static AuthorizeAttribute CreateAdministratorAuthorization() =>
+  private static AuthorizeAttribute CreateTenantAuthorization() =>
     new() {
-      Roles = $"{PlatformRolePolicy.AdministratorRole},{PlatformRolePolicy.OwnerRole}",
       AuthenticationSchemes = ApiAuthenticationSchemes
     };
 

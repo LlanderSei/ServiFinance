@@ -3,6 +3,8 @@ import { FormEvent, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { CreateTenantCustomerRequest, TenantCustomerRow, UpdateTenantCustomerRequest } from "@/shared/api/contracts";
 import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
+import { hasPermission } from "@/shared/auth/permissions";
+import { getCurrentSession } from "@/shared/auth/session";
 import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import { formatFullAddress } from "@/shared/location/formatAddress";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
@@ -28,6 +30,8 @@ export function SmsCustomersPage() {
   const { tenantDomainSlug = "" } = useParams();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const currentUser = getCurrentSession()?.user ?? null;
+  const canManageCustomers = hasPermission(currentUser, "sms.customers.manage");
   const [selectedCustomer, setSelectedCustomer] = useState<TenantCustomerRow | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<TenantCustomerRow | null>(null);
@@ -131,10 +135,26 @@ export function SmsCustomersPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageCustomers) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot create customer records."
+      });
+      return;
+    }
+
     createCustomerMutation.mutate(form);
   }
 
   function openEditModal(customer: TenantCustomerRow) {
+    if (!canManageCustomers) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot update customer records."
+      });
+      return;
+    }
+
     setEditingCustomer(customer);
     setEditForm({
       fullName: customer.fullName,
@@ -149,6 +169,14 @@ export function SmsCustomersPage() {
   function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingCustomer) {
+      return;
+    }
+
+    if (!canManageCustomers) {
+      toast.warning({
+        title: "Permission required",
+        message: "Your role cannot update customer records."
+      });
       return;
     }
 
@@ -208,7 +236,10 @@ export function SmsCustomersPage() {
                         <RecordTableActionButton onClick={() => setSelectedCustomer(customer)}>
                           View
                         </RecordTableActionButton>
-                        <RecordTableActionButton onClick={() => openEditModal(customer)}>
+                        <RecordTableActionButton
+                          onClick={() => openEditModal(customer)}
+                          disabled={!canManageCustomers}
+                        >
                           Update
                         </RecordTableActionButton>
                       </td>
@@ -232,7 +263,8 @@ export function SmsCustomersPage() {
                   key: "add-customer",
                   label: "Create customer record",
                   icon: "plus",
-                  onClick: () => setIsCreateModalOpen(true)
+                  onClick: () => setIsCreateModalOpen(true),
+                  disabled: !canManageCustomers
                 }
               ]}
             />
@@ -253,7 +285,7 @@ export function SmsCustomersPage() {
                 type="submit"
                 form="tenant-customer-form"
                 tone="primary"
-                disabled={createCustomerMutation.isPending}
+                disabled={!canManageCustomers || createCustomerMutation.isPending}
               >
                 {createCustomerMutation.isPending ? "Creating..." : "Create customer"}
               </WorkspaceModalButton>
@@ -321,7 +353,7 @@ export function SmsCustomersPage() {
                 type="submit"
                 form="tenant-customer-edit-form"
                 tone="primary"
-                disabled={updateCustomerMutation.isPending || editingCustomer === null}
+                disabled={!canManageCustomers || updateCustomerMutation.isPending || editingCustomer === null}
               >
                 {updateCustomerMutation.isPending ? "Saving..." : "Save changes"}
               </WorkspaceModalButton>

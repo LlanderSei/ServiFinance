@@ -149,6 +149,8 @@ public sealed class JwtSessionTokenService(
     };
 
     claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+    claims.AddRange(user.PlatformScopes.Select(scope => new Claim("platform_scope", scope)));
+    claims.AddRange(user.PermissionKeys.Select(permissionKey => new Claim("permission_key", permissionKey)));
 
     var token = new JwtSecurityToken(
         issuer: _options.Issuer,
@@ -181,8 +183,10 @@ public sealed class JwtSessionTokenService(
     var surfaceText = principal.FindFirstValue("surface");
     _ = Enum.TryParse<AuthenticationSurface>(surfaceText, ignoreCase: true, out var surface);
     var roles = principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    var platformScopes = principal.FindAll("platform_scope").Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    var permissionKeys = principal.FindAll("permission_key").Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
-    return new CurrentSessionUser(userId, tenantId, tenantDomainSlug, email, fullName, roles, surface);
+    return new CurrentSessionUser(userId, tenantId, tenantDomainSlug, email, fullName, roles, platformScopes, permissionKeys, surface);
   }
 
   private static string GenerateRefreshToken() {
@@ -217,7 +221,9 @@ public sealed class JwtSessionTokenService(
         customer.Tenant.DomainSlug,
         customer.Email,
         customer.FullName,
-        new[] { "Customer" });
+        new[] { "Customer" },
+        [],
+        []);
   }
 
   private async Task<AuthenticatedUser?> GetAuthenticatedUserAsync(Guid userId, CancellationToken cancellationToken) {
@@ -227,6 +233,7 @@ public sealed class JwtSessionTokenService(
         .Include(entity => entity.Tenant)
         .Include(entity => entity.UserRoles)
         .ThenInclude(entity => entity.Role)
+        .ThenInclude(entity => entity!.Permissions)
         .SingleOrDefaultAsync(cancellationToken);
 
     if (user is null || user.Tenant is null || !user.Tenant.IsActive) {
@@ -240,6 +247,13 @@ public sealed class JwtSessionTokenService(
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(entity => entity)
         .ToArray();
+    var roleRows = user.UserRoles
+        .Select(entity => entity.Role)
+        .Where(entity => entity is not null)
+        .Cast<Role>()
+        .ToArray();
+    var platformScopes = ResolvePlatformScopes(roleRows);
+    var permissionKeys = ResolvePermissionKeys(roleRows);
 
     return new AuthenticatedUser(
         user.Id,
@@ -247,25 +261,57 @@ public sealed class JwtSessionTokenService(
         user.Tenant.DomainSlug,
         user.Email,
         user.FullName,
-        roles);
+        roles,
+        platformScopes,
+        permissionKeys);
   }
 
   private static bool IsAllowedForSurface(AuthenticatedUser user, AuthenticationSurface surface) {
     return surface switch {
       AuthenticationSurface.Root =>
           user.TenantId == ServiFinanceDatabaseDefaults.PlatformTenantId &&
-          user.Roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase),
+          (user.Roles.Contains("SuperAdmin", StringComparer.OrdinalIgnoreCase) ||
+            user.PlatformScopes.Contains(PlatformRolePolicy.RootScope, StringComparer.OrdinalIgnoreCase)),
       AuthenticationSurface.TenantWeb =>
           user.TenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
           !string.IsNullOrWhiteSpace(user.TenantDomainSlug) &&
-          PlatformRolePolicy.HasTenantWebAccess(user.Roles),
+          (PlatformRolePolicy.HasTenantWebAccess(user.Roles) ||
+            user.PlatformScopes.Contains(PlatformRolePolicy.SmsScope, StringComparer.OrdinalIgnoreCase) ||
+            user.PlatformScopes.Contains(PlatformRolePolicy.OwnerAdminScope, StringComparer.OrdinalIgnoreCase)),
       AuthenticationSurface.TenantDesktop =>
           user.TenantId != ServiFinanceDatabaseDefaults.PlatformTenantId &&
           !string.IsNullOrWhiteSpace(user.TenantDomainSlug) &&
-          PlatformRolePolicy.HasTenantDesktopAccess(user.Roles),
+          (PlatformRolePolicy.HasTenantDesktopAccess(user.Roles) ||
+            user.PlatformScopes.Contains(PlatformRolePolicy.MlsScope, StringComparer.OrdinalIgnoreCase) ||
+            user.PlatformScopes.Contains(PlatformRolePolicy.OwnerAdminScope, StringComparer.OrdinalIgnoreCase)),
       AuthenticationSurface.CustomerWeb =>
           user.Roles.Contains("Customer", StringComparer.OrdinalIgnoreCase),
       _ => false
     };
+  }
+
+  private static string[] ResolvePlatformScopes(IEnumerable<Role> roles) =>
+    roles
+      .Select(role => PlatformRolePolicy.ResolveRoleScope(role.Name, role.PlatformScope))
+      .Where(scope => scope != PlatformRolePolicy.UnknownScope)
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .OrderBy(scope => scope)
+      .ToArray();
+
+  private static string[] ResolvePermissionKeys(IEnumerable<Role> roles) =>
+    roles
+      .SelectMany(role => ResolveRolePermissionKeys(role))
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .OrderBy(permissionKey => permissionKey)
+      .ToArray();
+
+  private static IEnumerable<string> ResolveRolePermissionKeys(Role role) {
+    if (role.Permissions.Count > 0 && !role.IsPermissionSetLocked) {
+      return role.Permissions.Select(permission => permission.PermissionKey);
+    }
+
+    var definition = RolePermissionCatalog.FindDefaultRole(role.Name)
+      ?? RolePermissionCatalog.FindLegacyDefaultRole(role.Name);
+    return definition?.PermissionKeys ?? role.Permissions.Select(permission => permission.PermissionKey).ToArray();
   }
 }

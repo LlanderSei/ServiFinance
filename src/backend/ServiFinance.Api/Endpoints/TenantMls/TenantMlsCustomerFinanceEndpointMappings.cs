@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using ServiFinance.Application.Auditing;
 using ServiFinance.Application.Payments;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -53,7 +54,8 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
                   rows.Sum(entity => entity.OutstandingBalance),
                   rows.Sum(entity => entity.TotalCollectedAmount)),
               rows));
-        });
+        })
+        .RequireTenantMlsPermission("mls.customer-finance.view", MlsModuleCodeFinancialRecords);
 
     tenantApi.MapGet("/mls/customers/{customerId:guid}", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -128,7 +130,8 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
               loans,
               ledger,
               serviceInvoices));
-        });
+        })
+        .RequireTenantMlsPermission("mls.customer-finance.view", MlsModuleCodeFinancialRecords);
 
     tenantApi.MapPost("/mls/invoice-settlements/{submissionId:guid}/approve", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -229,7 +232,8 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
               $"Approved {approvedAmount:F2} for service invoice {submission.Invoice.InvoiceNumber}.");
 
           return Results.NoContent();
-        });
+        })
+        .RequireTenantMlsPermission("mls.settlements.manage", MlsModuleCodeFinancialRecords);
 
     tenantApi.MapPost("/mls/invoice-settlements/{submissionId:guid}/reject", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -310,7 +314,8 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
               $"Rejected settlement proof for service invoice {submission.Invoice.InvoiceNumber}. Remarks: {reviewRemarks}");
 
           return Results.NoContent();
-        });
+        })
+        .RequireTenantMlsPermission("mls.settlements.manage", MlsModuleCodeFinancialRecords);
 
     return tenantApi;
   }

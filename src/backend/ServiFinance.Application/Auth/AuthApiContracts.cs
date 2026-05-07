@@ -49,4 +49,6 @@ public sealed record CurrentSessionUser(
     string Email,
     string FullName,
     IReadOnlyList<string> Roles,
+    IReadOnlyList<string> PlatformScopes,
+    IReadOnlyList<string> PermissionKeys,
     AuthenticationSurface Surface);

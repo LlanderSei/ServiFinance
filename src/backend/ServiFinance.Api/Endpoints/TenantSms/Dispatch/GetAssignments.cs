@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -131,6 +132,7 @@ internal static class GetAssignments {
                   item => item.ScheduledStartUtc,
                   item => item.ScheduledEndUtc),
               entity.HasMicroLoan)));
-            });
+            })
+            .RequireTenantSmsPermission("sms.dispatch.view", SmsModuleCodeScheduling);
     }
 }

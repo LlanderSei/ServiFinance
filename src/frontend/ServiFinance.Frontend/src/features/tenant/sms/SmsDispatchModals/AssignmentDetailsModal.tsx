@@ -13,8 +13,10 @@ interface AssignmentDetailsModalProps {
   assignment: TenantDispatchAssignmentRow | null;
   detailData: TenantDispatchAssignmentDetailResponse | undefined;
   isLoadingDetail: boolean;
-  isAdmin: boolean;
   currentUserId: string | undefined;
+  canAddEvidenceAction: boolean;
+  canRescheduleAction: boolean;
+  canUpdateStatusAction: boolean;
   onAddEvidence: () => void;
   onReschedule: () => void;
   onStatusUpdate: (assignment: TenantDispatchAssignmentRow, status: string, serviceStatus?: string) => void;
@@ -43,8 +45,10 @@ export function AssignmentDetailsModal({
   assignment,
   detailData,
   isLoadingDetail,
-  isAdmin,
   currentUserId,
+  canAddEvidenceAction,
+  canRescheduleAction,
+  canUpdateStatusAction,
   onAddEvidence,
   onReschedule,
   onStatusUpdate,
@@ -267,7 +271,7 @@ export function AssignmentDetailsModal({
           <WorkspaceModalButton onClick={onClose}>
             Close
           </WorkspaceModalButton>
-          {(isAdmin || activeAssignment.assignedUserId === currentUserId) ? (
+          {canAddEvidenceAction && activeAssignment.assignedUserId === currentUserId ? (
             <WorkspaceModalButton
               onClick={onAddEvidence}
               disabled={isPendingEvidence}
@@ -275,7 +279,7 @@ export function AssignmentDetailsModal({
               Add evidence
             </WorkspaceModalButton>
           ) : null}
-          {isAdmin ? (
+          {canRescheduleAction ? (
             <WorkspaceModalButton
               onClick={onReschedule}
               disabled={isPendingReschedule}
@@ -283,7 +287,7 @@ export function AssignmentDetailsModal({
               Reschedule
             </WorkspaceModalButton>
           ) : null}
-          {activeAssignment.assignmentStatus !== "In Progress" ? (
+          {canUpdateStatusAction && activeAssignment.assignmentStatus !== "In Progress" ? (
             <WorkspaceModalButton
               tone="primary"
               onClick={() => onStatusUpdate(activeAssignment, "In Progress", "In Service")}
@@ -292,7 +296,7 @@ export function AssignmentDetailsModal({
               Start work
             </WorkspaceModalButton>
           ) : null}
-          {activeAssignment.assignmentStatus !== "On Hold" ? (
+          {canUpdateStatusAction && activeAssignment.assignmentStatus !== "On Hold" ? (
             <WorkspaceModalButton
               onClick={() => onStatusUpdate(activeAssignment, "On Hold")}
               disabled={isPendingStatusUpdate}
@@ -300,7 +304,7 @@ export function AssignmentDetailsModal({
               Put on hold
             </WorkspaceModalButton>
           ) : null}
-          {activeAssignment.assignmentStatus !== "Completed" ? (
+          {canUpdateStatusAction && activeAssignment.assignmentStatus !== "Completed" ? (
             <WorkspaceModalButton
               tone="primary"
               onClick={() => onStatusUpdate(activeAssignment, "Completed")}

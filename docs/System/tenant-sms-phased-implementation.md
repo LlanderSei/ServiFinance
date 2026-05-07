@@ -313,15 +313,15 @@ Current implementation:
 - tenant admins can now review plan, edition, billing cadence, renewal checkpoint, risk posture, and unlocked module coverage from the same tenant-scoped page
 - a persisted `TenantBillingRecords` ledger now stores subscription-cycle history, submitted amount, payment method, reference number, notes, proof metadata, and submission status
 - root onboarding at `/register` now creates a Stripe subscription checkout for the selected MSME tier and provisions the tenant after Stripe webhook confirmation
-- Stripe-managed tenants can now open the hosted billing portal from `/t/{slug}/billing`, while manual-billing tenants continue using the proof-submission path
+- Stripe-managed tenants can now open the hosted billing portal from `/t/{slug}/billing`, and tenant subscription renewal now relies on the provider-managed auto-renewal flow instead of manual renewal proof submission
 - Stripe invoice webhooks now sync subscription-cycle billing entries into the tenant billing ledger so the same workspace can show Stripe-managed payment history
-- manual renewal proof submission is still working for manual-billing tenants, with one pending-review submission allowed at a time to prevent duplicate renewal stacking
+- manual tenant subscription proof submission is now disabled at the API boundary so renewal state does not drift away from the configured billing provider
 - the billing workspace is aligned to the same superadmin subscription catalog metadata, so plan labels, price display, billing label, and module coverage stay consistent across platform and tenant views
 
 Deferred within or after this phase:
 
 - embedded custom payment forms are still deferred; the current Stripe collection flow uses hosted Checkout and the hosted billing portal rather than in-app card form capture
-- platform-side billing review and reconciliation tooling can still be tightened further, especially for mixed manual and Stripe-managed tenants
+- platform-side billing review and reconciliation tooling can still be tightened further around Stripe invoice sync, failed renewals, and subscription recovery flows
 
 ## Phase 10: Workflow Tightening and Role Hardening
 
@@ -362,10 +362,21 @@ Current implementation:
 - the `Roles` tab now supports adding mutable roles, editing editable role metadata, changing SMS/MLS scope targeting, and viewing users assigned to a role
 - role rank uniqueness is now guarded within the tenant/root role catalog so two roles cannot share the same rank in the same management boundary
 - sidebar navigation now exposes `Roles & Permissions` under Administration for all three scopes
-- the slice intentionally does not enforce the permission matrix across every website action yet; existing route guards and owner/admin checks remain the active enforcement baseline
+- backend authorization now has a reusable role-permission guard that checks the persisted permission matrix for the current user's role set
+- login/session payloads now carry role platform scopes and effective permission keys, so custom role names no longer need `SMS` or `MLS` in the role name to enter the correct workspace
+- sidebar navigation now consumes effective permission keys and hides view tabs the signed-in account cannot access, while accounts with no visible permissions still receive an explanatory empty-permission workspace
+- tenant workspace logout now requires confirmation and returns to the matching workspace login entry instead of always redirecting to the root platform page
+- tenant platform-user scope display now uses stored role `PlatformScope` values instead of role-name parsing, so custom SMS/MLS roles no longer appear as `Unscoped`
+- SMS endpoint filters now enforce role permissions and subscription module entitlement across customers, service requests, service costing, invoice finalization, dispatch, reports, pricing, platform users, and SMS roles/permissions
+- key SMS actions that were previously owner/admin-only now use explicit permission keys instead, so custom lower-ranked roles can be granted scoped access without becoming administrators
+- SMS module access now checks the active tenant subscription tier before allowing module-backed endpoints such as service intake, scheduling, job updates, invoicing, reports, and staff administration
+- MLS endpoint filters now enforce role permissions on top of the existing MLS subscription and module entitlement checks across dashboard, customer finance, settlement review, loan conversion, standalone loans, loan accounts, collections, reports, ledger, and audit
+- MLS settlement approval and rejection now use an explicit `mls.settlements.manage` permission so customer-submitted service-invoice settlement proofs can be delegated without granting broader owner or administrator authority
+- tenant billing and tenant audit APIs now use explicit billing and audit permission keys instead of broad owner/admin role checks
+- Roles & Permissions no longer renders SMS and MLS as two separate content blocks; roles, permissions, and matrix views now merge the alternate platform into the main table/list when the cross-platform toggle is enabled
 
 Remaining after this slice:
 
-- action-level enforcement still needs to consume the permission matrix across customer, request, dispatch, reporting, billing, and MLS actions
-- invoice-finalization still needs to be aligned to the intended dispatcher/service-completion role instead of staying only as an owner/admin operation
-- subscription/module entitlement checks still need to be merged with role permissions so enabled modules and granted permissions agree
+- frontend action affordances still need a wider pass so every create/update/delete/status button is disabled or hidden from effective permission keys before a backend `403`
+- invoice-finalization is now permission-gated, but the UX still needs to be aligned more clearly to the service-completion review flow
+- superadmin/root endpoints still mostly rely on the locked `SuperAdmin` role and should be migrated to root permission keys if mutable root roles are used seriously

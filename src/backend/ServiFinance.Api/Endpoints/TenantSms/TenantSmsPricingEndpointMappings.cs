@@ -4,6 +4,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -35,7 +36,8 @@ internal static class TenantSmsPricingEndpointMappings {
               CreateTenantCostingPolicyResponse(policy),
               presets.Select(CreateServiceCostPresetResponse).ToList(),
               ServiceCostCategories));
-        });
+        })
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
 
     tenantApi.MapPut("/sms/pricing/policy", async Task<IResult> (
         HttpContext httpContext,
@@ -67,7 +69,8 @@ internal static class TenantSmsPricingEndpointMappings {
           await dbContext.SaveChangesAsync(cancellationToken);
 
           return Results.Ok(CreateTenantCostingPolicyResponse(policy));
-        });
+        })
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
 
     tenantApi.MapPost("/sms/pricing/presets", async Task<IResult> (
         HttpContext httpContext,
@@ -102,7 +105,8 @@ internal static class TenantSmsPricingEndpointMappings {
           dbContext.ServiceCostPresets.Add(preset);
           await dbContext.SaveChangesAsync(cancellationToken);
           return Results.Ok(CreateServiceCostPresetResponse(preset));
-        });
+        })
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
 
     tenantApi.MapPut("/sms/pricing/presets/{presetId:guid}", async Task<IResult> (
         HttpContext httpContext,
@@ -138,7 +142,8 @@ internal static class TenantSmsPricingEndpointMappings {
           await dbContext.SaveChangesAsync(cancellationToken);
 
           return Results.Ok(CreateServiceCostPresetResponse(preset));
-        });
+        })
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
 
     tenantApi.MapDelete("/sms/pricing/presets/{presetId:guid}", async Task<IResult> (
         HttpContext httpContext,
@@ -160,7 +165,8 @@ internal static class TenantSmsPricingEndpointMappings {
           dbContext.ServiceCostPresets.Remove(preset);
           await dbContext.SaveChangesAsync(cancellationToken);
           return Results.NoContent();
-        });
+        })
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
 
     return tenantApi;
   }

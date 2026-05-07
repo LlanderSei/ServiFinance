@@ -19,7 +19,9 @@ public sealed record AuthenticatedUser(
     string TenantDomainSlug,
     string Email,
     string FullName,
-    IReadOnlyList<string> Roles);
+    IReadOnlyList<string> Roles,
+    IReadOnlyList<string> PlatformScopes,
+    IReadOnlyList<string> PermissionKeys);
 
 public sealed record AvailableRole(Guid Id, string Name, string PlatformScope);
 

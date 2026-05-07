@@ -71,6 +71,7 @@ export function MlsDashboardPage() {
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
+      requirePermission="mls.dashboard.view"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >

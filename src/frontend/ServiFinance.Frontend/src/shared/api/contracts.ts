@@ -1124,6 +1124,8 @@ export type CurrentSessionUser = {
   email: string;
   fullName: string;
   roles: string[];
+  platformScopes: string[];
+  permissionKeys: string[];
   surface: "Root" | "TenantWeb" | "TenantDesktop" | "CustomerWeb";
 };
 

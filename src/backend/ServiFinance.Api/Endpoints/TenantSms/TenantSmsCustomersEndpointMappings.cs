@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -41,7 +42,8 @@ internal static class TenantSmsCustomersEndpointMappings {
           .ToListAsync(cancellationToken);
 
           return Results.Ok(customers);
-        });
+        })
+        .RequireTenantSmsPermission("sms.customers.view", SmsModuleCodeServiceIntake);
     tenantApi.MapPost("/sms/customers", async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
@@ -89,7 +91,8 @@ internal static class TenantSmsCustomersEndpointMappings {
             customer.CreatedAtUtc,
             ServiceRequestCount = 0
           });
-        });
+        })
+        .RequireTenantSmsPermission("sms.customers.manage", SmsModuleCodeServiceIntake);
     tenantApi.MapPut("/sms/customers/{customerId:guid}", async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
@@ -140,7 +143,8 @@ internal static class TenantSmsCustomersEndpointMappings {
             customer.CreatedAtUtc,
             ServiceRequestCount = customer.ServiceRequests.Count
           });
-        });
+        })
+        .RequireTenantSmsPermission("sms.customers.manage", SmsModuleCodeServiceIntake);
 
     return tenantApi;
   }

@@ -5,7 +5,7 @@ export function MlsAuditPage() {
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
-      requireAnyRole={["Administrator", "Owner"]}
+      requirePermission="mls.audits.view"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/dashboard"
     >

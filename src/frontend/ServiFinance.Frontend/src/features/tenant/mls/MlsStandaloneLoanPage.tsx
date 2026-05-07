@@ -8,6 +8,7 @@ import {
 } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -50,7 +51,9 @@ export function MlsStandaloneLoanPage() {
   const toast = useToast();
   const currentSession = getCurrentSession();
   const { data } = useRefreshSession(!currentSession);
-  const tenantDomainSlug = (currentSession ?? data)?.user.tenantDomainSlug ?? "";
+  const currentUser = (currentSession ?? data)?.user ?? null;
+  const tenantDomainSlug = currentUser?.tenantDomainSlug ?? "";
+  const canManageStandaloneLoans = hasPermission(currentUser, "mls.standalone-loans.manage");
 
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -133,6 +136,14 @@ export function MlsStandaloneLoanPage() {
   }, [principalAmount, previewQuery.data, workspaceQuery.data]);
 
   function openLoanModal(customerId: string) {
+    if (!canManageStandaloneLoans) {
+      toast.warning({
+        title: "Permission required",
+        message: "Standalone loan creation requires mls.standalone-loans.manage."
+      });
+      return;
+    }
+
     setSelectedCustomerId(customerId);
     setIsModalOpen(true);
   }
@@ -143,12 +154,21 @@ export function MlsStandaloneLoanPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canManageStandaloneLoans) {
+      toast.warning({
+        title: "Permission required",
+        message: "Standalone loan creation requires mls.standalone-loans.manage."
+      });
+      return;
+    }
+
     createMutation.mutate();
   }
 
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
+      requirePermission="mls.standalone-loans.manage"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >
@@ -209,6 +229,7 @@ export function MlsStandaloneLoanPage() {
                           <BorrowerRow
                             key={customer.customerId}
                             customer={customer}
+                            canManageStandaloneLoans={canManageStandaloneLoans}
                             onOpen={openLoanModal}
                           />
                         ))
@@ -240,6 +261,7 @@ export function MlsStandaloneLoanPage() {
           isPreviewError={previewQuery.isError}
           previewErrorMessage={getApiErrorMessage(previewQuery.error, "The standalone loan preview could not be generated for the current setup.")}
           isSubmitting={createMutation.isPending}
+          canManageStandaloneLoans={canManageStandaloneLoans}
           onPrincipalAmountChange={setPrincipalAmount}
           onAnnualInterestRateChange={setAnnualInterestRate}
           onTermMonthsChange={setTermMonths}
@@ -256,16 +278,21 @@ export function MlsStandaloneLoanPage() {
 
 type BorrowerRowProps = {
   customer: TenantMlsStandaloneLoanCustomer;
+  canManageStandaloneLoans: boolean;
   onOpen: (customerId: string) => void;
 };
 
-function BorrowerRow({ customer, onOpen }: BorrowerRowProps) {
+function BorrowerRow({ customer, canManageStandaloneLoans, onOpen }: BorrowerRowProps) {
   return (
     <tr>
       <td>{customer.customerCode}</td>
       <td>{customer.customerName}</td>
       <td>
-        <RecordTableActionButton onClick={() => onOpen(customer.customerId)}>
+        <RecordTableActionButton
+          onClick={() => onOpen(customer.customerId)}
+          disabled={!canManageStandaloneLoans}
+          title={!canManageStandaloneLoans ? "Requires mls.standalone-loans.manage." : undefined}
+        >
           Create Standalone Loan
         </RecordTableActionButton>
       </td>
@@ -288,6 +315,7 @@ type StandaloneLoanModalProps = {
   isPreviewError: boolean;
   previewErrorMessage?: string;
   isSubmitting: boolean;
+  canManageStandaloneLoans: boolean;
   onPrincipalAmountChange: (value: string) => void;
   onAnnualInterestRateChange: (value: string) => void;
   onTermMonthsChange: (value: string) => void;
@@ -313,6 +341,7 @@ function StandaloneLoanModal({
   isPreviewError,
   previewErrorMessage,
   isSubmitting,
+  canManageStandaloneLoans,
   onPrincipalAmountChange,
   onAnnualInterestRateChange,
   onTermMonthsChange,
@@ -336,7 +365,8 @@ function StandaloneLoanModal({
             tone="primary"
             type="submit"
             form="mls-standalone-loan-modal-form"
-            disabled={!selectedCustomer || !preview || isSubmitting}
+            disabled={!selectedCustomer || !preview || isSubmitting || !canManageStandaloneLoans}
+            title={!canManageStandaloneLoans ? "Requires mls.standalone-loans.manage." : undefined}
           >
             {isSubmitting ? "Creating..." : "Create Standalone Loan"}
           </WorkspaceModalButton>

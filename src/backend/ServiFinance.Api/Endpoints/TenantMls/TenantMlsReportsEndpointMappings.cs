@@ -3,6 +3,7 @@ namespace ServiFinance.Api.Endpoints.TenantMls;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -125,7 +126,8 @@ internal static class TenantMlsReportsEndpointMappings {
               collectionTrend,
               transactionMix,
               topBorrowers));
-        });
+        })
+        .RequireTenantMlsPermission("mls.reports.view", MlsModuleCodeLedgerReports);
 
     return tenantApi;
   }

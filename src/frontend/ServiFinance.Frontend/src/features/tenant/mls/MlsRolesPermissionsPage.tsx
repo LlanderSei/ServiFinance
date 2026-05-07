@@ -5,7 +5,7 @@ export function MlsRolesPermissionsPage() {
   return (
     <ProtectedRoute
       requireSurface="TenantDesktop"
-      requireAnyRole={["Administrator", "Owner"]}
+      requirePermission="mls.roles-permissions.manage"
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/dashboard"
     >

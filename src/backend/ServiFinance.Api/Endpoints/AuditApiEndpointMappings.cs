@@ -4,6 +4,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
+using ServiFinance.Application.Auth;
 using ServiFinance.Domain;
 using ServiFinance.Infrastructure.Configuration;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
@@ -25,10 +27,6 @@ internal static class AuditApiEndpointMappings {
         DateTime? dateTo,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!httpContext.User.IsInRole("SuperAdmin")) {
-            return Results.Forbid();
-          }
-
           var query = AuditQuery.Create(ScopeSuperadmin, CategorySystem, actionType, searchTerm, dateFrom, dateTo);
           if (query.Error is not null) {
             return Results.BadRequest(new { error = query.Error });
@@ -36,7 +34,8 @@ internal static class AuditApiEndpointMappings {
 
           var events = await LoadPlatformSystemAuditRowsAsync(dbContext, query, cancellationToken);
           return Results.Ok(CreateAuditWorkspace(events));
-        });
+        })
+        .RequireRootPermission("root.audits.view");
 
     api.MapGet("/platform/audits/security", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -46,10 +45,6 @@ internal static class AuditApiEndpointMappings {
         DateTime? dateTo,
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
-          if (!httpContext.User.IsInRole("SuperAdmin")) {
-            return Results.Forbid();
-          }
-
           var query = AuditQuery.Create(ScopeSuperadmin, CategorySecurity, actionType, searchTerm, dateFrom, dateTo);
           if (query.Error is not null) {
             return Results.BadRequest(new { error = query.Error });
@@ -57,7 +52,8 @@ internal static class AuditApiEndpointMappings {
 
           var events = await LoadStoredAuditRowsAsync(dbContext, ServiFinanceDatabaseDefaults.PlatformTenantId, query, cancellationToken);
           return Results.Ok(CreateAuditWorkspace(events));
-        });
+        })
+        .RequireRootPermission("root.audits.view");
 
     api.MapGet("/tenants/{tenantDomainSlug}/audits/system", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -123,16 +119,13 @@ internal static class AuditApiEndpointMappings {
       return TenantAuditAccess.Forbidden();
     }
 
-    if (!IsTenantAdministrator(httpContext.User)) {
-      return TenantAuditAccess.Forbidden();
-    }
-
     if (!Guid.TryParse(httpContext.User.FindFirstValue("tenant_id"), out var tenantId)) {
       return TenantAuditAccess.Unauthorized();
     }
 
     var scope = ResolveTenantAuditScope(requestedScope);
     if (scope == ScopeTenantMls) {
+      var rolePermissionAuthorizationService = httpContext.RequestServices.GetRequiredService<IRolePermissionAuthorizationService>();
       var accessError = await RequireTenantMlsAccessAsync(
           httpContext,
           tenantDomainSlug,
@@ -142,6 +135,34 @@ internal static class AuditApiEndpointMappings {
       if (accessError is not null) {
         return TenantAuditAccess.Failed(accessError);
       }
+
+      if (!TryGetCurrentUserId(httpContext.User, out var userId)) {
+        return TenantAuditAccess.Unauthorized();
+      }
+
+      if (!await rolePermissionAuthorizationService.HasPermissionAsync(
+        userId,
+        PlatformRolePolicy.MlsScope,
+        "mls.audits.view",
+        cancellationToken)) {
+        return TenantAuditAccess.Failed(CreateJsonError(
+          StatusCodes.Status403Forbidden,
+          "Your role does not include the required MLS audit permission for this action."));
+      }
+
+      return TenantAuditAccess.Allowed(tenantId, scope);
+    }
+
+    var smsRolePermissionAuthorizationService = httpContext.RequestServices.GetRequiredService<IRolePermissionAuthorizationService>();
+    var smsAccessError = await RequireTenantSmsAccessAsync(
+      httpContext,
+      tenantDomainSlug,
+      dbContext,
+      smsRolePermissionAuthorizationService,
+      cancellationToken,
+      "sms.audits.view");
+    if (smsAccessError is not null) {
+      return TenantAuditAccess.Failed(smsAccessError);
     }
 
     return TenantAuditAccess.Allowed(tenantId, scope);

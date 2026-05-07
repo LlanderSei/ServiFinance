@@ -287,8 +287,10 @@ internal static class AuthApiEndpointMappings {
       var email = principal.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
       _ = Enum.TryParse<AuthenticationSurface>(principal.FindFirstValue("surface"), true, out var surface);
       var roles = principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+      var platformScopes = principal.FindAll("platform_scope").Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+      var permissionKeys = principal.FindAll("permission_key").Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
-      return Results.Ok(new CurrentSessionUser(userId, tenantId, tenantDomainSlug, email, fullName, roles, surface));
+      return Results.Ok(new CurrentSessionUser(userId, tenantId, tenantDomainSlug, email, fullName, roles, platformScopes, permissionKeys, surface));
     });
 
     return authApi;
@@ -360,6 +362,14 @@ internal static class AuthApiEndpointMappings {
         .Select(claim => claim.Value)
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToArray();
+    var platformScopes = httpContext.User.FindAll("platform_scope")
+        .Select(claim => claim.Value)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    var permissionKeys = httpContext.User.FindAll("permission_key")
+        .Select(claim => claim.Value)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
 
     return new CurrentSessionUser(
         userId,
@@ -368,6 +378,8 @@ internal static class AuthApiEndpointMappings {
         httpContext.User.FindFirstValue(ClaimTypes.Email) ?? string.Empty,
         httpContext.User.FindFirstValue(ClaimTypes.Name) ?? string.Empty,
         roles,
+        platformScopes,
+        permissionKeys,
         surface);
   }
 

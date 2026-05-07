@@ -1,4 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
+import { useState } from "react";
 import type { CurrentSessionUser } from "@/shared/api/contracts";
 import { useLogout } from "../useLogout";
 import { SidebarIcon } from "./SidebarIcon";
@@ -30,6 +31,7 @@ export function AuthSidebar({
   const desktopShell = isDesktopShell();
   const logout = useLogout();
   const toast = useToast();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const isSuperAdmin = user.roles.includes("SuperAdmin");
   const displayTitle = isSuperAdmin ? "ServiFinance" : user.tenantDomainSlug;
   const displaySubtitle = isSuperAdmin ? "Platform control plane" : user.email;
@@ -55,6 +57,7 @@ export function AuthSidebar({
   const footerItems = sections
     .filter((section) => !section.title.trim())
     .flatMap((section) => section.items);
+  const hasVisibleNavigation = mainSections.some(section => section.items.length > 0) || footerItems.length > 0;
 
   function renderNavItem(item: NavSection["items"][number], key: string, className: string) {
     if (item.to) {
@@ -166,6 +169,12 @@ export function AuthSidebar({
       </button>
 
       <nav className="authed-nav flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden">
+        {!hasVisibleNavigation ? (
+          <div className="rounded-box border border-base-300/60 bg-base-200/50 p-3 text-sm leading-6 text-base-content/65">
+            {isExpanded ? "No sidebar tabs are visible because this account has no view permissions in this workspace." : "No views"}
+          </div>
+        ) : null}
+
         {mainSections.map((section) => {
           const isSectionCollapsed = Boolean(collapsedSections[section.key]);
 
@@ -186,6 +195,11 @@ export function AuthSidebar({
 
               <div className={`authed-nav__items grid gap-[0.3rem]${isExpanded && isSectionCollapsed ? " hidden" : ""}`}>
                 {section.items.map((item) => renderNavItem(item, item.to ?? `${section.key}:${item.label}`, navItemBaseClass))}
+                {section.items.length === 0 && isExpanded ? (
+                  <span className="rounded-box border border-dashed border-base-300/70 px-3 py-2 text-xs text-base-content/55">
+                    No visible tabs in this group.
+                  </span>
+                ) : null}
               </div>
             </div>
           );
@@ -214,7 +228,7 @@ export function AuthSidebar({
         <button
           type="button"
           className={`authed-sidebar__logout btn btn-ghost rounded-box text-error ${footerButtonClass}`}
-          onClick={() => void logout()}
+          onClick={() => setShowLogoutConfirm(true)}
           title="Logout"
         >
           <span className="authed-nav__item-icon">
@@ -227,6 +241,54 @@ export function AuthSidebar({
           ) : null}
         </button>
       </div>
+
+      {showLogoutConfirm ? (
+        <div className="fixed inset-0 z-[120] grid place-items-center bg-black/45 p-4 backdrop-blur-sm">
+          <section className="w-full max-w-md rounded-[1.75rem] border border-base-300/70 bg-base-100 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24)]">
+            <p className="text-[0.72rem] font-extrabold uppercase tracking-[0.14em] text-base-content/55">
+              Confirm logout
+            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-base-content">
+              Sign out of this workspace?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-base-content/68">
+              Your current session will be revoked and you will return to the matching login entry for this workspace.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="btn rounded-full border-base-300 bg-base-100 text-base-content hover:bg-base-200"
+                onClick={() => setShowLogoutConfirm(false)}
+              >
+                Stay signed in
+              </button>
+              <button
+                type="button"
+                className="btn rounded-full border-none bg-error text-error-content hover:bg-error/90"
+                onClick={() => void logout(resolveLogoutReturnPath(user))}
+              >
+                Logout
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </aside>
   );
+}
+
+function resolveLogoutReturnPath(user: CurrentSessionUser) {
+  if (user.surface === "TenantWeb" && user.tenantDomainSlug) {
+    return `/t/${user.tenantDomainSlug}/sms/?showLogin=true`;
+  }
+
+  if (user.surface === "TenantDesktop") {
+    return "/t/mls/";
+  }
+
+  if (user.surface === "CustomerWeb" && user.tenantDomainSlug) {
+    return `/t/${user.tenantDomainSlug}/c/login`;
+  }
+
+  return "/?showLogin=true";
 }

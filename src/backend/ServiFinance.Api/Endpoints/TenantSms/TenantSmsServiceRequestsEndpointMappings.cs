@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Application.Payments;
 using ServiFinance.Api.Contracts;
+using ServiFinance.Api.Infrastructure;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -137,7 +138,8 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           entity.InvoiceOutstandingAmount,
           entity.InterestableAmount,
           entity.HasMicroLoan)));
-        });
+        })
+        .RequireTenantSmsPermission("sms.service-requests.view", SmsModuleCodeServiceIntake);
     tenantApi.MapGet("/sms/service-requests/{serviceRequestId:guid}/details", async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
@@ -156,7 +158,8 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           return detailResponse is null
               ? Results.NotFound()
               : Results.Ok(detailResponse);
-        });
+        })
+        .RequireTenantSmsPermission("sms.service-requests.view", SmsModuleCodeServiceIntake);
     tenantApi.MapPost("/sms/service-requests", async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
@@ -287,7 +290,8 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           null,
           null,
           false));
-        });
+        })
+        .RequireTenantSmsPermission("sms.service-requests.manage", SmsModuleCodeServiceIntake);
     tenantApi.MapPut("/sms/service-requests/{serviceRequestId:guid}/cost-sheet", async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
@@ -428,8 +432,9 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           return detailResponse is null
               ? Results.NotFound()
               : Results.Ok(detailResponse);
-        });
-    tenantApi.MapPost("/sms/service-requests/{serviceRequestId:guid}/record-payment", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        })
+        .RequireTenantSmsPermission("sms.costing.manage", SmsModuleCodeInvoicing);
+    tenantApi.MapPost("/sms/service-requests/{serviceRequestId:guid}/record-payment", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
         Guid serviceRequestId,
@@ -545,8 +550,9 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           return detailResponse is null
               ? Results.NotFound()
               : Results.Ok(detailResponse);
-        });
-    tenantApi.MapPost("/sms/service-requests/{serviceRequestId:guid}/finalize-invoice", [Authorize(Roles = "Administrator,Owner", AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        })
+        .RequireTenantSmsPermission("sms.invoices.settle", SmsModuleCodeInvoicing);
+    tenantApi.MapPost("/sms/service-requests/{serviceRequestId:guid}/finalize-invoice", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
         string tenantDomainSlug,
         Guid serviceRequestId,
@@ -676,7 +682,8 @@ internal static class TenantSmsServiceRequestsEndpointMappings {
           return detailResponse is null
               ? Results.NotFound()
               : Results.Ok(detailResponse);
-        });
+        })
+        .RequireTenantSmsPermission("sms.invoices.finalize", SmsModuleCodeInvoicing);
 
     return tenantApi;
   }

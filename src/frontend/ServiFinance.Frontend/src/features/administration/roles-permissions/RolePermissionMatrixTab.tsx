@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
-import type {
-  RolePermissionDefinition,
-  RolePermissionRoleRow,
-  RolePermissionWorkspaceResponse
-} from "@/shared/api/contracts";
+import type { RolePermissionRoleRow, RolePermissionWorkspaceResponse } from "@/shared/api/contracts";
+import { RecordTable, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
 import {
   WorkspaceModalButton,
   WorkspaceNotice,
@@ -19,35 +16,45 @@ import { MetricCard } from "@/shared/records/MetricCard";
 
 type RolePermissionMatrixTabProps = {
   workspace: RolePermissionWorkspaceResponse;
+  alternateWorkspace?: RolePermissionWorkspaceResponse;
+  showAlternatePlatform: boolean;
   isSaving: boolean;
-  onSave: (roleId: string, permissionKeys: string[]) => void;
+  onSave: (roleId: string, permissionKeys: string[], platformScope: string) => void;
 };
 
 export function RolePermissionMatrixTab({
   workspace,
+  alternateWorkspace,
+  showAlternatePlatform,
   isSaving,
   onSave
 }: RolePermissionMatrixTabProps) {
-  const [selectedRoleId, setSelectedRoleId] = useState(() => selectDefaultRole(workspace.roles)?.id ?? "");
-  const selectedRole = workspace.roles.find(role => role.id === selectedRoleId) ?? selectDefaultRole(workspace.roles);
-  const visiblePermissionKeys = workspace.permissions.map(permission => permission.key);
+  const visibleRoles = mergeRoles(workspace.roles, showAlternatePlatform ? alternateWorkspace?.roles : undefined);
+  const [selectedRoleId, setSelectedRoleId] = useState(() => selectDefaultRole(visibleRoles)?.id ?? "");
+  const selectedRole = visibleRoles.find(role => role.id === selectedRoleId) ?? selectDefaultRole(visibleRoles);
+  const visiblePermissions = resolvePermissionsForRole(selectedRole, workspace, alternateWorkspace);
+  const visiblePermissionKeys = visiblePermissions.map(permission => permission.key);
   const [checkedKeys, setCheckedKeys] = useState<string[]>([]);
   const baselineKeys = selectedRole
     ? selectedRole.permissionKeys.filter(permissionKey => visiblePermissionKeys.includes(permissionKey))
     : [];
-  const permissionGroups = groupPermissionsByCategory(workspace.permissions);
+  const tablePermissions = visiblePermissions
+    .slice()
+    .sort((left, right) =>
+      left.category.localeCompare(right.category) ||
+      left.name.localeCompare(right.name));
   const isDirty = !arePermissionSetsEqual(checkedKeys, baselineKeys);
   const canEdit = Boolean(selectedRole?.canEditPermissions) && !selectedRole?.isPermissionSetLocked;
 
   useEffect(() => {
-    if (!selectedRole || workspace.roles.every(role => role.id !== selectedRole.id)) {
-      setSelectedRoleId(selectDefaultRole(workspace.roles)?.id ?? "");
+    if (!selectedRole || visibleRoles.every(role => role.id !== selectedRole.id)) {
+      setSelectedRoleId(selectDefaultRole(visibleRoles)?.id ?? "");
     }
-  }, [selectedRole, workspace.roles]);
+  }, [selectedRole, visibleRoles]);
 
   useEffect(() => {
     setCheckedKeys(baselineKeys);
-  }, [selectedRole?.id, workspace.scope]);
+  }, [selectedRole?.id, workspace.scope, alternateWorkspace?.scope]);
 
   function togglePermission(permissionKey: string) {
     setCheckedKeys((currentKeys) => currentKeys.includes(permissionKey)
@@ -62,7 +69,7 @@ export function RolePermissionMatrixTab({
           <MetricCard
             label="Selected role"
             value={selectedRole?.name ?? "None"}
-            description={selectedRole?.description ?? "Choose a role to inspect its permission set."}
+            description={selectedRole ? `${formatPlatformScope(selectedRole.platformScope)} / ${selectedRole.description}` : "Choose a role to inspect its permission set."}
           />
           <MetricCard
             label="Role rank"
@@ -72,7 +79,7 @@ export function RolePermissionMatrixTab({
           <MetricCard
             label="Granted here"
             value={checkedKeys.length}
-            description="Permission keys selected for the visible scope."
+            description="Permission keys selected for this role's own scope."
           />
           <MetricCard
             label="Edit state"
@@ -89,7 +96,7 @@ export function RolePermissionMatrixTab({
             title="Select a role"
           />
           <div className="grid min-h-0 gap-2 overflow-y-auto pr-1">
-            {workspace.roles.map((role) => (
+            {visibleRoles.map((role) => (
               <WorkspaceToggleButton
                 key={role.id}
                 active={selectedRole?.id === role.id}
@@ -99,7 +106,7 @@ export function RolePermissionMatrixTab({
                 <span className="grid gap-1">
                   <span className="font-bold">{role.name}</span>
                   <span className="text-xs opacity-70">
-                    Rank {role.rank} / {role.isPermissionSetLocked ? "locked" : role.canEditPermissions ? "editable" : "not editable"}
+                    {formatPlatformScope(role.platformScope)} / Rank {role.rank} / {role.isPermissionSetLocked ? "locked" : role.canEditPermissions ? "editable" : "not editable"}
                   </span>
                 </span>
               </WorkspaceToggleButton>
@@ -121,7 +128,7 @@ export function RolePermissionMatrixTab({
                 <WorkspaceModalButton
                   tone="primary"
                   disabled={!selectedRole || !canEdit || !isDirty || isSaving}
-                  onClick={() => selectedRole ? onSave(selectedRole.id, checkedKeys) : undefined}
+                  onClick={() => selectedRole ? onSave(selectedRole.id, checkedKeys, selectedRole.platformScope) : undefined}
                 >
                   {isSaving ? "Saving..." : "Save permissions"}
                 </WorkspaceModalButton>
@@ -145,45 +152,52 @@ export function RolePermissionMatrixTab({
             </WorkspaceNotice>
           ) : null}
 
-          <div className="min-h-0 overflow-y-auto pr-1">
-            <div className="grid gap-4">
-              {permissionGroups.map((group) => (
-                <section key={group.name} className="rounded-2xl border border-base-300/65 bg-base-200/35 p-4">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-base font-bold text-base-content">{group.name}</h3>
-                    <span className="text-xs font-bold uppercase tracking-[0.08em] text-base-content/55">
-                      {group.permissions.filter(permission => checkedKeys.includes(permission.key)).length} / {group.permissions.length}
-                    </span>
-                  </div>
+          <RecordTableShell className="min-h-0">
+            <RecordTable>
+              <thead>
+                <tr>
+                  <th aria-label="Granted permission" />
+                  <th>Category</th>
+                  <th>Permission name</th>
+                  <th>Description</th>
+                  <th>Permission key</th>
+                  <th>Scope</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tablePermissions.length === 0 ? (
+                  <RecordTableStateRow colSpan={6}>
+                    No permissions are available for this role scope.
+                  </RecordTableStateRow>
+                ) : null}
 
-                  <div className="grid gap-2">
-                    {group.permissions.map((permission) => {
-                      const checked = checkedKeys.includes(permission.key);
-                      return (
-                        <label
-                          key={permission.key}
-                          className="flex gap-3 rounded-xl border border-base-300/55 bg-base-100/75 p-3"
-                        >
-                          <input
-                            type="checkbox"
-                            className="checkbox checkbox-primary mt-1"
-                            checked={checked}
-                            disabled={!canEdit}
-                            onChange={() => togglePermission(permission.key)}
-                          />
-                          <span className="grid gap-1">
-                            <span className="font-bold text-base-content">{permission.name}</span>
-                            <span className="text-xs font-bold uppercase tracking-[0.08em] text-base-content/50">{permission.key}</span>
-                            <span className="text-sm leading-6 text-base-content/68">{permission.description}</span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </div>
+                {tablePermissions.map((permission) => {
+                  const checked = checkedKeys.includes(permission.key);
+                  return (
+                    <tr key={permission.key}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-primary"
+                          checked={checked}
+                          disabled={!canEdit}
+                          aria-label={`Grant ${permission.name}`}
+                          onChange={() => togglePermission(permission.key)}
+                        />
+                      </td>
+                      <td>{permission.category}</td>
+                      <td>
+                        <strong>{permission.name}</strong>
+                      </td>
+                      <td className="max-w-[28rem] text-base-content/68">{permission.description}</td>
+                      <td className="font-mono text-xs">{permission.key}</td>
+                      <td>{permission.scope}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </RecordTable>
+          </RecordTableShell>
         </WorkspacePanel>
       </div>
     </WorkspaceKpiRailLayout>
@@ -192,6 +206,30 @@ export function RolePermissionMatrixTab({
 
 function selectDefaultRole(roles: RolePermissionRoleRow[]) {
   return roles.find(role => role.canEditPermissions) ?? roles[0] ?? null;
+}
+
+function mergeRoles(
+  primaryRoles: RolePermissionRoleRow[],
+  alternateRoles?: RolePermissionRoleRow[]
+) {
+  return Array.from(new Map([...primaryRoles, ...(alternateRoles ?? [])].map(role => [role.id, role])).values())
+    .sort((left, right) => left.rank - right.rank || left.name.localeCompare(right.name));
+}
+
+function resolvePermissionsForRole(
+  role: RolePermissionRoleRow | null | undefined,
+  workspace: RolePermissionWorkspaceResponse,
+  alternateWorkspace?: RolePermissionWorkspaceResponse
+) {
+  if (!role) {
+    return workspace.permissions;
+  }
+
+  if (role.platformScope === workspace.scope || role.platformScope === "OwnerAdmin") {
+    return workspace.permissions;
+  }
+
+  return alternateWorkspace?.permissions ?? workspace.permissions;
 }
 
 function arePermissionSetsEqual(left: string[], right: string[]) {
@@ -203,14 +241,14 @@ function arePermissionSetsEqual(left: string[], right: string[]) {
   return left.every(key => rightSet.has(key));
 }
 
-function groupPermissionsByCategory(permissions: RolePermissionDefinition[]) {
-  return Object.entries(
-    permissions.reduce<Record<string, RolePermissionDefinition[]>>((groups, permission) => {
-      groups[permission.category] = [...(groups[permission.category] ?? []), permission];
-      return groups;
-    }, {})
-  ).map(([name, groupedPermissions]) => ({
-    name,
-    permissions: groupedPermissions
-  }));
+function formatPlatformScope(platformScope: string) {
+  if (platformScope === "OwnerAdmin") {
+    return "Owner/Admin";
+  }
+
+  if (platformScope === "Root" || platformScope === "SMS" || platformScope === "MLS") {
+    return platformScope;
+  }
+
+  return "Scope required";
 }
