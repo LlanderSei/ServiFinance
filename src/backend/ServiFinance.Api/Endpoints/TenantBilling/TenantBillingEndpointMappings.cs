@@ -1,7 +1,6 @@
 namespace ServiFinance.Api.Endpoints.TenantBilling;
 
 using System.Globalization;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
@@ -54,7 +53,7 @@ internal static class TenantBillingEndpointMappings {
                   entity.ReviewedAtUtc))
               .ToListAsync(cancellationToken);
 
-          var standing = BuildStanding(tenant, history, TryParseSubscriptionAmount(currentTier?.PriceDisplay), onboardingService.IsConfigured);
+          var standing = BuildStanding(tenant, history, currentTier?.MonthlyPriceAmount, onboardingService.IsConfigured);
           var modules = currentTier?.Modules
               .OrderBy(module => module.SortOrder)
               .ThenBy(module => module.PlatformModule!.SortOrder)
@@ -73,7 +72,9 @@ internal static class TenantBillingEndpointMappings {
                   tenant.SubscriptionEdition,
                   tenant.SubscriptionPlan,
                   tenant.SubscriptionStatus,
-                  currentTier?.PriceDisplay,
+                  currentTier?.MonthlyPriceAmount,
+                  currentTier?.CurrencyCode,
+                  currentTier is null ? null : FormatPriceDisplay(currentTier.MonthlyPriceAmount, currentTier.CurrencyCode),
                   currentTier?.BillingLabel,
                   currentTier?.AudienceSummary,
                   currentTier?.PlanSummary,
@@ -211,22 +212,6 @@ internal static class TenantBillingEndpointMappings {
             entity.SubscriptionEdition == tenant.SubscriptionEdition);
   }
 
-  private static decimal? TryParseSubscriptionAmount(string? priceDisplay) {
-    if (string.IsNullOrWhiteSpace(priceDisplay)) {
-      return null;
-    }
-
-    var match = Regex.Match(priceDisplay, @"([\d,]+(?:\.\d+)?)");
-    if (!match.Success) {
-      return null;
-    }
-
-    return decimal.TryParse(
-        match.Groups[1].Value.Replace(",", string.Empty, StringComparison.Ordinal),
-        NumberStyles.Number,
-        CultureInfo.InvariantCulture,
-        out var amount)
-        ? amount
-        : null;
-  }
+  private static string FormatPriceDisplay(decimal amount, string currencyCode) =>
+    $"Starts at {currencyCode} {amount.ToString("N0", CultureInfo.InvariantCulture)}";
 }

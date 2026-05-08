@@ -53,7 +53,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               tenantDomainSlug,
               dbContext,
               cancellationToken,
-              MlsModuleCodeFinancialRecords);
+              MlsModuleCodeAmortization);
           if (accessResult is not null) {
             return accessResult;
           }
@@ -260,7 +260,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               orderedSchedules.Count(entity => entity.InstallmentStatus != "Paid"),
               loan.LoanStatus));
         })
-        .RequireTenantMlsPermission("mls.loan-accounts.manage", MlsModuleCodeFinancialRecords);
+        .RequireTenantMlsPermission("mls.loan-accounts.manage", MlsModuleCodeAmortization);
 
     tenantApi.MapPost("/mls/loans/{loanId:guid}/payments/{transactionId:guid}/reverse", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -276,7 +276,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               tenantDomainSlug,
               dbContext,
               cancellationToken,
-              MlsModuleCodeFinancialRecords);
+              MlsModuleCodeAmortization);
           if (accessResult is not null) {
             return accessResult;
           }
@@ -399,7 +399,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               orderedSchedules.Count(entity => entity.InstallmentStatus != "Paid"),
               loan.LoanStatus));
         })
-        .RequireTenantMlsPermission("mls.loan-accounts.manage", MlsModuleCodeFinancialRecords);
+        .RequireTenantMlsPermission("mls.loan-accounts.manage", MlsModuleCodeAmortization);
 
     return tenantApi;
   }

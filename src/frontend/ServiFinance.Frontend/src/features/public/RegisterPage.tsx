@@ -1,22 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import type {
   CreatePlatformTenantCheckoutRequest,
   CreatePlatformTenantCheckoutResponse,
-  PlatformTenantRegistrationStatus
+  PlatformTenantRegistrationStatus,
+  SubscriptionTierCard
 } from "@/shared/api/contracts";
 import { useSubscriptionTiers } from "@/shared/api/useSubscriptionTiers";
 import { PublicFooter } from "@/shared/public/PublicFooter";
 import { PublicHeader } from "@/shared/public/PublicHeader";
 import {
   PublicBadge,
+  PublicButton,
   PublicCard,
   PublicContainer,
   PublicSectionHeading,
-  PublicShell,
-  PublicWorkflowList
+  PublicShell
 } from "@/shared/public/PublicPrimitives";
 
 type RegistrationFormState = {
@@ -44,11 +45,26 @@ const initialFormState: RegistrationFormState = {
   confirmPassword: ""
 };
 
+const editionTabs = ["Standard", "Premium"];
+const segmentOrder = ["Micro", "Small", "Medium"];
+const accessLevelRank: Record<string, number> = {
+  limited: 1,
+  included: 2
+};
+
+type TierBenefitPresentation = {
+  inheritedTierLabels: string[];
+  incrementalModules: SubscriptionTierCard["modules"];
+  totalModuleCount: number;
+};
+
 export function RegisterPage() {
   const { data } = useSubscriptionTiers();
-  const tiers = data ?? [];
+  const tiers = useMemo(() => [...(data ?? [])].sort(compareTiers), [data]);
   const [searchParams] = useSearchParams();
+  const [selectedEdition, setSelectedEdition] = useState("Standard");
   const [selectedCode, setSelectedCode] = useState<string>("");
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
   const [formState, setFormState] = useState<RegistrationFormState>(initialFormState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [domainSlugTouched, setDomainSlugTouched] = useState(false);
@@ -56,24 +72,38 @@ export function RegisterPage() {
   const checkoutState = searchParams.get("checkout");
   const checkoutSessionId = searchParams.get("session_id")?.trim() ?? "";
 
+  const editionTiers = useMemo(
+    () => tiers.filter((tier) => tier.subscriptionEdition === selectedEdition),
+    [selectedEdition, tiers]
+  );
+
   const selectedTier = useMemo(() => {
     if (!tiers.length) {
       return null;
     }
 
-    return tiers.find((tier) => tier.code === (selectedCode || tiers[0].code)) ?? tiers[0];
-  }, [selectedCode, tiers]);
-
-  const highlightedModules = selectedTier?.modules.slice(0, 5) ?? [];
-  const remainingModuleCount = Math.max((selectedTier?.modules.length ?? 0) - highlightedModules.length, 0);
+    return tiers.find((tier) => tier.code === selectedCode) ?? editionTiers[0] ?? tiers[0];
+  }, [editionTiers, selectedCode, tiers]);
 
   useEffect(() => {
     if (!tiers.length) {
       return;
     }
 
-    setSelectedCode((current) => current || tiers[0].code);
+    setSelectedEdition((current) =>
+      tiers.some((tier) => tier.subscriptionEdition === current) ? current : tiers[0].subscriptionEdition
+    );
   }, [tiers]);
+
+  useEffect(() => {
+    if (!editionTiers.length) {
+      return;
+    }
+
+    setSelectedCode((current) =>
+      editionTiers.some((tier) => tier.code === current) ? current : editionTiers[0].code
+    );
+  }, [editionTiers]);
 
   useEffect(() => {
     if (domainSlugTouched || !formState.businessName.trim()) {
@@ -123,7 +153,22 @@ export function RegisterPage() {
     updateField("domainSlug", normalizeDomainSlug(value));
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleChooseTier(tier: SubscriptionTierCard) {
+    setSelectedCode(tier.code);
+    setErrorMessage(null);
+    setIsRegistrationModalOpen(true);
+  }
+
+  function closeRegistrationModal() {
+    if (registrationMutation.isPending) {
+      return;
+    }
+
+    setIsRegistrationModalOpen(false);
+    setErrorMessage(null);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
 
@@ -190,239 +235,434 @@ export function RegisterPage() {
           </PublicContainer>
         ) : null}
 
-        <PublicContainer className="grid items-start gap-5 lg:grid-cols-[minmax(320px,0.86fr)_minmax(0,1.14fr)]">
-          <PublicCard className="grid min-h-full gap-6 p-7">
-            <div className="grid gap-4">
-              <PublicSectionHeading
-                eyebrow="Live onboarding"
-                title="Register the tenant, collect the subscription, then provision the business workspace."
-                description="This flow now creates a Stripe subscription checkout for the selected MSME tier and provisions the tenant after Stripe confirms the payment."
+        <PublicContainer className="grid gap-5">
+          <PublicCard className="grid gap-7 p-7 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:p-9">
+            <PublicSectionHeading
+              eyebrow="Live onboarding"
+              title="Choose a tier, collect the subscription, then provision the tenant workspace."
+              description="Registration is now driven by the active subscription catalog. The selected edition and tier determine what SMS and MLS modules the tenant can use after Stripe confirms payment."
+            />
+
+            <div className="grid content-start gap-4 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+              <OnboardingStep
+                label="1"
+                title="Tier entitlement"
+                description="MSME segment, Standard or Premium edition, and module access are selected before checkout."
+              />
+              <OnboardingStep
+                label="2"
+                title="Stripe subscription"
+                description="The first billing cycle is collected through Stripe Checkout with recurring renewal."
+              />
+              <OnboardingStep
+                label="3"
+                title="Workspace activation"
+                description="After payment confirmation, the tenant domain and first owner account are provisioned."
               />
             </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="border-t border-slate-900/12 pt-4">
-                <strong>Business identity</strong>
-                <p className="mt-2 text-slate-600">Business shell, tenant slug, and the owner account become the new operating tenant.</p>
-              </div>
-              <div className="border-t border-slate-900/12 pt-4">
-                <strong>Stripe subscription</strong>
-                <p className="mt-2 text-slate-600">The selected tier is charged through Stripe Checkout with recurring billing.</p>
-              </div>
-              <div className="border-t border-slate-900/12 pt-4">
-                <strong>Workspace activation</strong>
-                <p className="mt-2 text-slate-600">When Stripe confirms the checkout, the tenant admin account and access surface are provisioned automatically.</p>
-              </div>
-            </div>
-
-            <PublicWorkflowList>
-              <li className="grid gap-1 border-t border-slate-900/10 pt-4"><strong>Choose the commercial tier</strong><span className="text-slate-600">The live backend catalog still drives MSME segment, edition, and unlocked modules.</span></li>
-              <li className="grid gap-1 border-t border-slate-900/10 pt-4"><strong>Create the owner account</strong><span className="text-slate-600">The owner email and password become the first tenant administrator sign-in after provisioning.</span></li>
-              <li className="grid gap-1 border-t border-slate-900/10 pt-4"><strong>Redirect to Stripe</strong><span className="text-slate-600">Checkout finishes the subscription payment and returns to this page while the platform finalizes tenant setup.</span></li>
-            </PublicWorkflowList>
-
           </PublicCard>
 
-          <PublicCard className="grid gap-5 p-7 bg-white/80">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <PublicCard className="grid gap-6 p-7 lg:p-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Business</p>
-                <h2 className="mt-2 font-['Iowan_Old_Style','Book_Antiqua',Georgia,serif] text-[clamp(2.8rem,4vw,4.6rem)] leading-[0.94] tracking-[-0.055em] text-slate-950">Stripe-backed signup</h2>
+                <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Business catalog</p>
+                <h2 className="mt-2 font-['Iowan_Old_Style','Book_Antiqua',Georgia,serif] text-[clamp(2.65rem,4vw,4.25rem)] leading-[0.94] tracking-[-0.055em] text-slate-950">
+                  Pick the operating shape
+                </h2>
+                <p className="mt-3 max-w-[46rem] text-slate-500">
+                  Standard keeps the tenant on the SMS web workflow. Premium adds the MLS desktop finance terminal where the selected tier allows it.
+                </p>
               </div>
-              {selectedTier ? (
-                <div className="grid justify-items-start gap-2 lg:justify-items-end">
-                  <PublicBadge>{selectedTier.highlightLabel || selectedTier.code}</PublicBadge>
-                  <strong className="text-slate-950">{selectedTier.priceDisplay}</strong>
-                </div>
-              ) : null}
-            </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
-              {tiers.map((tier) => {
-                const isActive = selectedTier?.id === tier.id;
-                return (
+              <div className="inline-flex rounded-full border border-slate-900/10 bg-slate-100/80 p-1">
+                {editionTabs.map((edition) => (
                   <button
-                    key={tier.id}
+                    key={edition}
                     type="button"
                     className={[
-                      "grid gap-1 rounded-[1.15rem] border px-4 py-4 text-left transition",
-                      isActive
-                        ? "border-primary/30 bg-gradient-to-b from-sky-50 to-teal-50 shadow-[0_14px_26px_rgba(63,88,184,0.08)]"
-                        : "border-slate-900/8 bg-white/90 text-slate-950"
+                      "rounded-full px-5 py-2 text-sm font-semibold transition",
+                      selectedEdition === edition
+                        ? "bg-slate-950 text-white shadow-[0_12px_26px_rgba(15,23,42,0.16)]"
+                        : "text-slate-600 hover:bg-white"
                     ].join(" ")}
-                    onClick={() => setSelectedCode(tier.code)}
+                    onClick={() => setSelectedEdition(edition)}
                   >
-                    <span className="text-[0.82rem] uppercase tracking-[0.08em] text-slate-500">{tier.businessSizeSegment}</span>
-                    <strong className="text-base text-slate-950">{tier.subscriptionEdition}</strong>
+                    {edition}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.7fr)]">
-              <form className="grid gap-4" onSubmit={handleSubmit}>
-                <label className="grid gap-2">
-                  <span className="text-[0.92rem] text-slate-500">Business name</span>
-                  <input
-                    className="input input-bordered w-full border-slate-900/10 bg-white/95 text-slate-950"
-                    value={formState.businessName}
-                    onChange={(event) => updateField("businessName", event.target.value)}
-                    placeholder="Example Domain Services"
-                    disabled={registrationMutation.isPending}
+            {editionTiers.length ? (
+              <div className="grid gap-4 lg:grid-cols-3">
+                {editionTiers.map((tier) => (
+                  <TierCard
+                    key={tier.id}
+                    tier={tier}
+                    tiers={tiers}
+                    isSelected={selectedTier?.id === tier.id}
+                    onSelect={() => handleChooseTier(tier)}
                   />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-[0.92rem] text-slate-500">Tenant domain slug</span>
-                  <input
-                    className="input input-bordered w-full border-slate-900/10 bg-white/95 text-slate-950"
-                    value={formState.domainSlug}
-                    onChange={(event) => handleDomainSlugChange(event.target.value)}
-                    placeholder="exampledomain"
-                    disabled={registrationMutation.isPending}
-                  />
-                  <span className="text-xs text-slate-500">This becomes the tenant route at `/t/{formState.domainSlug || "yourdomain"}/...`.</span>
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-[0.92rem] text-slate-500">Owner full name</span>
-                  <input
-                    className="input input-bordered w-full border-slate-900/10 bg-white/95 text-slate-950"
-                    value={formState.ownerFullName}
-                    onChange={(event) => updateField("ownerFullName", event.target.value)}
-                    placeholder="Business owner"
-                    disabled={registrationMutation.isPending}
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-[0.92rem] text-slate-500">Owner email</span>
-                  <input
-                    type="email"
-                    className="input input-bordered w-full border-slate-900/10 bg-white/95 text-slate-950"
-                    value={formState.ownerEmail}
-                    onChange={(event) => updateField("ownerEmail", event.target.value)}
-                    placeholder="owner@business.com"
-                    disabled={registrationMutation.isPending}
-                  />
-                </label>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="grid gap-2">
-                    <span className="text-[0.92rem] text-slate-500">Owner password</span>
-                    <input
-                      type="password"
-                      className="input input-bordered w-full border-slate-900/10 bg-white/95 text-slate-950"
-                      value={formState.ownerPassword}
-                      onChange={(event) => updateField("ownerPassword", event.target.value)}
-                      placeholder="Minimum 8 characters"
-                      disabled={registrationMutation.isPending}
-                    />
-                  </label>
-
-                  <label className="grid gap-2">
-                    <span className="text-[0.92rem] text-slate-500">Confirm password</span>
-                    <input
-                      type="password"
-                      className="input input-bordered w-full border-slate-900/10 bg-white/95 text-slate-950"
-                      value={formState.confirmPassword}
-                      onChange={(event) => updateField("confirmPassword", event.target.value)}
-                      placeholder="Repeat the password"
-                      disabled={registrationMutation.isPending}
-                    />
-                  </label>
-                </div>
-
-                <label className="grid gap-2">
-                  <span className="text-[0.92rem] text-slate-500">Subscription tier</span>
-                  <select
-                    className="select select-bordered w-full border-slate-900/10 bg-white/95 text-slate-950"
-                    value={selectedTier?.code ?? ""}
-                    onChange={(event) => setSelectedCode(event.target.value)}
-                    disabled={!tiers.length || registrationMutation.isPending}
-                  >
-                    {tiers.map((tier) => <option key={tier.id} value={tier.code}>{tier.displayName}</option>)}
-                  </select>
-                </label>
-
-                {errorMessage ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-700">
-                    {errorMessage}
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-primary/15 bg-primary/8 px-4 py-4 text-slate-700">
-                    The checkout opens in Stripe. After payment, this page polls the platform until the tenant admin account is fully provisioned.
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-lg w-full"
-                  disabled={!selectedTier || registrationMutation.isPending}
-                >
-                  {registrationMutation.isPending ? "Preparing Stripe checkout..." : "Continue to Stripe"}
-                </button>
-              </form>
-
-              <aside className="grid gap-4 rounded-[1.5rem] border border-primary/15 bg-gradient-to-b from-[rgba(218,248,244,0.84)] to-[rgba(255,255,255,0.88)] p-5">
-                {selectedTier ? (
-                  <>
-                    <div className="grid gap-2">
-                      <PublicBadge>{selectedTier.highlightLabel || selectedTier.code}</PublicBadge>
-                      <h3 className="text-[2rem] tracking-[-0.04em] text-slate-950">{selectedTier.displayName}</h3>
-                      <p className="text-[0.92rem] text-slate-500">{selectedTier.businessSizeSegment} business • {selectedTier.subscriptionEdition} edition</p>
-                      <p className="text-slate-700">{selectedTier.audienceSummary}</p>
-                    </div>
-
-                    <div className="grid gap-4">
-                      <div className="grid gap-1 border-t border-slate-900/10 pt-3">
-                        <small className="text-slate-500">Commercial view</small>
-                        <strong className="text-slate-950">{selectedTier.priceDisplay}</strong>
-                        <span className="text-slate-500">{selectedTier.billingLabel}</span>
-                      </div>
-                      <div className="grid gap-1 border-t border-slate-900/10 pt-3">
-                        <small className="text-slate-500">Product shape</small>
-                        <strong className="text-slate-950">{selectedTier.includesMicroLendingDesktop ? "Web + Desktop" : "Web Only"}</strong>
-                        <span className="text-slate-500">{selectedTier.planSummary}</span>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3">
-                      <div className="flex items-baseline justify-between gap-4">
-                        <h4 className="text-slate-950">Unlocked modules</h4>
-                        <span className="text-slate-500">{selectedTier.modules.length} total</span>
-                      </div>
-                      <ul className="grid gap-3">
-                        {highlightedModules.map((module) => (
-                          <li key={module.moduleCode} className="flex items-start justify-between gap-4 border-t border-slate-900/8 pt-3">
-                            <span className="text-slate-800">{module.moduleName}</span>
-                            <span className={module.accessLevel === "Included"
-                              ? "badge badge-success badge-soft border-0"
-                              : "badge badge-warning badge-soft border-0"}>
-                              {module.accessLevel}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                      {remainingModuleCount > 0 ? (
-                        <p className="text-[0.92rem] text-slate-500">+ {remainingModuleCount} more modules unlocked after activation</p>
-                      ) : null}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-2xl text-slate-950">No active tiers</h3>
-                    <p className="text-slate-600">The registration flow needs active seeded subscription tiers from the backend catalog.</p>
-                  </>
-                )}
-              </aside>
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-5 py-5 text-amber-800">
+                No active {selectedEdition.toLowerCase()} tiers are available right now. Add or reactivate a tier in Superadmin subscription management.
+              </div>
+            )}
           </PublicCard>
         </PublicContainer>
       </main>
 
+      {isRegistrationModalOpen && selectedTier ? (
+        <RegistrationModal
+          selectedTier={selectedTier}
+          tiers={tiers}
+          formState={formState}
+          errorMessage={errorMessage}
+          isPending={registrationMutation.isPending}
+          onClose={closeRegistrationModal}
+          onSubmit={handleSubmit}
+          onUpdateField={updateField}
+          onDomainSlugChange={handleDomainSlugChange}
+        />
+      ) : null}
+
       <PublicFooter />
     </PublicShell>
+  );
+}
+
+function OnboardingStep({
+  label,
+  title,
+  description
+}: {
+  label: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="grid gap-3 rounded-[1.4rem] border border-slate-900/10 bg-white/70 p-5">
+      <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-950 text-sm font-bold text-white">
+        {label}
+      </span>
+      <div className="grid gap-1">
+        <strong className="text-slate-950">{title}</strong>
+        <span className="text-sm leading-6 text-slate-500">{description}</span>
+      </div>
+    </div>
+  );
+}
+
+function TierCard({
+  tier,
+  tiers,
+  isSelected,
+  onSelect
+}: {
+  tier: SubscriptionTierCard;
+  tiers: SubscriptionTierCard[];
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const benefitPresentation = getTierBenefitPresentation(tier, tiers);
+  const featuredModules = benefitPresentation.incrementalModules.slice(0, 6);
+  const remainingModuleCount = Math.max(benefitPresentation.incrementalModules.length - featuredModules.length, 0);
+  const buttonLabel = `Get ${tier.subscriptionEdition} ${tier.businessSizeSegment}`;
+
+  return (
+    <article
+      className={[
+        "flex min-h-[34rem] flex-col gap-5 rounded-[1.6rem] border p-5 transition",
+        isSelected
+          ? "border-primary/30 bg-gradient-to-b from-sky-50 to-teal-50 shadow-[0_18px_34px_rgba(63,88,184,0.1)]"
+          : "border-slate-900/10 bg-white/90"
+      ].join(" ")}
+    >
+      <div className="grid gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <PublicBadge>{tier.highlightLabel || `${tier.businessSizeSegment} / ${tier.subscriptionEdition}`}</PublicBadge>
+          <span className="rounded-full border border-slate-900/10 bg-white px-3 py-1 text-xs font-bold text-slate-600">
+            {tier.includesMicroLendingDesktop ? "Web + Desktop" : "Web Only"}
+          </span>
+        </div>
+        <div className="grid gap-2">
+          <h3 className="text-[2rem] leading-none tracking-[-0.045em] text-slate-950">{tier.displayName}</h3>
+          <p className="min-h-[3.75rem] text-sm leading-6 text-slate-500">{tier.audienceSummary}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-1 rounded-[1.2rem] border border-slate-900/10 bg-white/80 p-4">
+        <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Starts at</span>
+        <strong className="text-2xl text-slate-950">{tier.priceDisplay}</strong>
+        <span className="text-sm text-slate-500">{tier.billingLabel}</span>
+      </div>
+
+      <div className="grid gap-3">
+        <div className="flex items-baseline justify-between gap-4">
+          <strong className="text-slate-950">Modules and benefits</strong>
+          <span className="text-xs font-semibold text-slate-500">
+            {benefitPresentation.incrementalModules.length
+              ? `${benefitPresentation.incrementalModules.length} new / ${benefitPresentation.totalModuleCount} total`
+              : `${benefitPresentation.totalModuleCount} total`}
+          </span>
+        </div>
+        {benefitPresentation.inheritedTierLabels.length ? (
+          <p className="rounded-[1rem] border border-primary/15 bg-primary/8 px-3 py-3 text-xs font-semibold leading-5 text-slate-700">
+            Includes benefits from {formatTierList(benefitPresentation.inheritedTierLabels)}.
+          </p>
+        ) : null}
+        {featuredModules.length ? (
+          <ul className="grid gap-2">
+            {featuredModules.map((module) => (
+              <li key={module.moduleCode} className="grid gap-1 border-t border-slate-900/8 pt-2">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-sm font-semibold text-slate-800">{module.moduleName}</span>
+                  <span className={module.accessLevel === "Included"
+                    ? "badge badge-success badge-soft border-0"
+                    : "badge badge-warning badge-soft border-0"}>
+                    {module.accessLevel}
+                  </span>
+                </div>
+                <span className="text-xs leading-5 text-slate-500">{module.summary}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-[1rem] border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500">
+            No additional module entitlement beyond the inherited tier set.
+          </p>
+        )}
+        {remainingModuleCount > 0 ? (
+          <p className="text-sm text-slate-500">+ {remainingModuleCount} more new module entitlements after activation</p>
+        ) : null}
+      </div>
+
+      <PublicButton tone="primary" className="mt-auto w-full" onClick={onSelect}>
+        {buttonLabel}
+      </PublicButton>
+    </article>
+  );
+}
+
+function RegistrationModal({
+  selectedTier,
+  tiers,
+  formState,
+  errorMessage,
+  isPending,
+  onClose,
+  onSubmit,
+  onUpdateField,
+  onDomainSlugChange
+}: {
+  selectedTier: SubscriptionTierCard;
+  tiers: SubscriptionTierCard[];
+  formState: RegistrationFormState;
+  errorMessage: string | null;
+  isPending: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onUpdateField: <TKey extends keyof RegistrationFormState>(
+    key: TKey,
+    value: RegistrationFormState[TKey]
+  ) => void;
+  onDomainSlugChange: (value: string) => void;
+}) {
+  const benefitPresentation = getTierBenefitPresentation(selectedTier, tiers);
+  const webModules = selectedTier.modules.filter((module) => module.channel === "Web");
+  const desktopModules = selectedTier.modules.filter((module) => module.channel === "Desktop");
+
+  return (
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
+      <form
+        className="flex h-[min(48rem,calc(100vh-3rem))] w-full max-w-[74rem] flex-col overflow-hidden rounded-[1.7rem] border border-white/70 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.35)]"
+        onSubmit={onSubmit}
+      >
+        <header className="flex flex-col gap-3 border-b border-slate-900/10 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Tenant registration</p>
+            <h2 className="mt-2 text-[clamp(1.65rem,3vw,2.4rem)] leading-none tracking-[-0.045em] text-slate-950">
+              Register {selectedTier.displayName}
+            </h2>
+          </div>
+          <PublicBadge>{selectedTier.subscriptionEdition} / {selectedTier.businessSizeSegment}</PublicBadge>
+        </header>
+
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[0.85fr_1fr_1.2fr] lg:overflow-hidden">
+          <section className="grid min-h-0 content-start gap-4 rounded-[1.35rem] border border-slate-900/10 bg-slate-50 p-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Selected plan</p>
+              <h3 className="mt-2 text-3xl tracking-[-0.045em] text-slate-950">{selectedTier.displayName}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500">{selectedTier.description || selectedTier.audienceSummary}</p>
+            </div>
+            <div className="grid gap-3 rounded-[1.1rem] bg-white p-4">
+              <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Billing</span>
+              <strong className="text-2xl text-slate-950">{selectedTier.priceDisplay}</strong>
+              <span className="text-sm text-slate-500">{selectedTier.billingLabel}</span>
+            </div>
+            <div className="grid gap-2 text-sm text-slate-600">
+              <span><strong className="text-slate-950">Product:</strong> {selectedTier.includesMicroLendingDesktop ? "SMS web + MLS desktop" : "SMS web only"}</span>
+              <span><strong className="text-slate-950">Tier code:</strong> {selectedTier.code}</span>
+              <span><strong className="text-slate-950">Summary:</strong> {selectedTier.planSummary}</span>
+            </div>
+          </section>
+
+          <section className="flex min-h-0 flex-col gap-4 overflow-hidden rounded-[1.35rem] border border-slate-900/10 bg-white p-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Modules and benefits</p>
+              <h3 className="mt-2 text-xl text-slate-950">All entitlements in this tier</h3>
+            </div>
+            {benefitPresentation.inheritedTierLabels.length ? (
+              <p className="rounded-[1rem] border border-primary/15 bg-primary/8 px-3 py-3 text-xs font-semibold leading-5 text-slate-700">
+                Includes benefits from {formatTierList(benefitPresentation.inheritedTierLabels)}.
+              </p>
+            ) : null}
+            <div className="min-h-0 overflow-y-auto pr-1">
+              <div className="grid gap-4">
+                <ModuleList title="Service Management System" modules={webModules} />
+                <ModuleList title="Micro-Lending System" modules={desktopModules} />
+              </div>
+            </div>
+          </section>
+
+          <section className="grid min-h-0 content-start gap-3 overflow-hidden rounded-[1.35rem] border border-slate-900/10 bg-white p-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Owner and tenant</p>
+              <h3 className="mt-2 text-xl text-slate-950">Create the first administrator</h3>
+            </div>
+
+            <label className="grid gap-1.5">
+              <span className="text-sm text-slate-500">Business name</span>
+              <input
+                className="input input-bordered input-sm w-full border-slate-900/10 bg-white/95 text-slate-950"
+                value={formState.businessName}
+                onChange={(event) => onUpdateField("businessName", event.target.value)}
+                placeholder="Example Domain Services"
+                disabled={isPending}
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-sm text-slate-500">Tenant domain slug</span>
+              <input
+                className="input input-bordered input-sm w-full border-slate-900/10 bg-white/95 text-slate-950"
+                value={formState.domainSlug}
+                onChange={(event) => onDomainSlugChange(event.target.value)}
+                placeholder="exampledomain"
+                disabled={isPending}
+              />
+              <span className="text-xs text-slate-500">This becomes `/t/{formState.domainSlug || "yourdomain"}/...`.</span>
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-sm text-slate-500">Owner full name</span>
+              <input
+                className="input input-bordered input-sm w-full border-slate-900/10 bg-white/95 text-slate-950"
+                value={formState.ownerFullName}
+                onChange={(event) => onUpdateField("ownerFullName", event.target.value)}
+                placeholder="Business owner"
+                disabled={isPending}
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-sm text-slate-500">Owner email</span>
+              <input
+                type="email"
+                className="input input-bordered input-sm w-full border-slate-900/10 bg-white/95 text-slate-950"
+                value={formState.ownerEmail}
+                onChange={(event) => onUpdateField("ownerEmail", event.target.value)}
+                placeholder="owner@business.com"
+                disabled={isPending}
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-sm text-slate-500">Owner password</span>
+              <input
+                type="password"
+                className="input input-bordered input-sm w-full border-slate-900/10 bg-white/95 text-slate-950"
+                value={formState.ownerPassword}
+                onChange={(event) => onUpdateField("ownerPassword", event.target.value)}
+                placeholder="Minimum 8 characters"
+                disabled={isPending}
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-sm text-slate-500">Confirm password</span>
+              <input
+                type="password"
+                className="input input-bordered input-sm w-full border-slate-900/10 bg-white/95 text-slate-950"
+                value={formState.confirmPassword}
+                onChange={(event) => onUpdateField("confirmPassword", event.target.value)}
+                placeholder="Repeat the password"
+                disabled={isPending}
+              />
+            </label>
+
+            {errorMessage ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 sm:col-span-2">
+                {errorMessage}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-primary/15 bg-primary/8 px-4 py-3 text-sm text-slate-700 sm:col-span-2">
+                Stripe checkout opens next. Tenant provisioning starts only after Stripe confirms the subscription.
+              </div>
+            )}
+          </section>
+        </div>
+
+        <footer className="flex flex-col gap-3 border-t border-slate-900/10 bg-slate-50 px-6 py-3 sm:flex-row sm:justify-end">
+          <PublicButton className="sm:min-w-32" onClick={onClose} disabled={isPending}>
+            Cancel
+          </PublicButton>
+          <PublicButton tone="primary" className="sm:min-w-52" type="submit" disabled={isPending}>
+            {isPending ? "Preparing Stripe checkout..." : "Continue to Stripe"}
+          </PublicButton>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function ModuleList({
+  title,
+  modules
+}: {
+  title: string;
+  modules: SubscriptionTierCard["modules"];
+}) {
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-baseline justify-between gap-4 border-b border-slate-900/10 pb-2">
+        <strong className="text-sm text-slate-950">{title}</strong>
+        <span className="text-xs font-semibold text-slate-500">{modules.length}</span>
+      </div>
+      {modules.length ? (
+        <ul className="grid gap-2">
+          {modules.map((module) => (
+            <li key={module.moduleCode} className="grid gap-1 rounded-[1rem] border border-slate-900/8 bg-slate-50 px-3 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-sm font-semibold text-slate-800">{module.moduleName}</span>
+                <span className={module.accessLevel === "Included"
+                  ? "badge badge-success badge-soft border-0"
+                  : "badge badge-warning badge-soft border-0"}>
+                  {module.accessLevel}
+                </span>
+              </div>
+              <span className="text-xs leading-5 text-slate-500">{module.summary}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="rounded-[1rem] border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500">
+          No modules from this channel are included in the selected tier.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -496,6 +736,100 @@ function renderRegistrationState({
       <span className="text-sm">The platform is waiting for Stripe confirmation before creating the tenant workspace.</span>
     </div>
   );
+}
+
+function getTierBenefitPresentation(
+  tier: SubscriptionTierCard,
+  tiers: SubscriptionTierCard[]
+): TierBenefitPresentation {
+  const inheritedTiers = getInheritedTiers(tier, tiers);
+  const inheritedAccess = new Map<string, number>();
+
+  inheritedTiers.forEach((inheritedTier) => {
+    inheritedTier.modules.forEach((module) => {
+      const currentRank = inheritedAccess.get(module.moduleCode) ?? 0;
+      const nextRank = getAccessRank(module.accessLevel);
+      if (nextRank > currentRank) {
+        inheritedAccess.set(module.moduleCode, nextRank);
+      }
+    });
+  });
+
+  return {
+    inheritedTierLabels: inheritedTiers.map((inheritedTier) => getTierLabel(inheritedTier)),
+    incrementalModules: tier.modules.filter((module) => {
+      const inheritedRank = inheritedAccess.get(module.moduleCode) ?? 0;
+      return getAccessRank(module.accessLevel) > inheritedRank;
+    }),
+    totalModuleCount: tier.modules.length
+  };
+}
+
+function getInheritedTiers(tier: SubscriptionTierCard, tiers: SubscriptionTierCard[]) {
+  const inheritedTiers: SubscriptionTierCard[] = [];
+  const tierSegmentIndex = segmentOrder.indexOf(tier.businessSizeSegment);
+  const previousSegment = tierSegmentIndex > 0 ? segmentOrder[tierSegmentIndex - 1] : null;
+
+  if (tier.subscriptionEdition === "Standard" && previousSegment) {
+    const previousStandardTier = findTier(tiers, "Standard", previousSegment);
+    if (previousStandardTier) {
+      inheritedTiers.push(previousStandardTier);
+    }
+  }
+
+  if (tier.subscriptionEdition === "Premium") {
+    const sameSegmentStandardTier = findTier(tiers, "Standard", tier.businessSizeSegment);
+    if (sameSegmentStandardTier) {
+      inheritedTiers.push(sameSegmentStandardTier);
+    }
+
+    if (previousSegment) {
+      const previousPremiumTier = findTier(tiers, "Premium", previousSegment);
+      if (previousPremiumTier) {
+        inheritedTiers.push(previousPremiumTier);
+      }
+    }
+  }
+
+  return inheritedTiers.filter((inheritedTier, index, rows) =>
+    rows.findIndex((row) => row.id === inheritedTier.id) === index
+  );
+}
+
+function findTier(tiers: SubscriptionTierCard[], edition: string, segment: string) {
+  return tiers.find((tier) =>
+    tier.subscriptionEdition === edition &&
+    tier.businessSizeSegment === segment
+  );
+}
+
+function getTierLabel(tier: SubscriptionTierCard) {
+  return `${tier.subscriptionEdition} ${tier.businessSizeSegment}`;
+}
+
+function getAccessRank(accessLevel: string) {
+  return accessLevelRank[accessLevel.trim().toLowerCase()] ?? 0;
+}
+
+function formatTierList(tierLabels: string[]) {
+  if (tierLabels.length <= 1) {
+    return tierLabels[0] ?? "";
+  }
+
+  return `${tierLabels.slice(0, -1).join(", ")} and ${tierLabels[tierLabels.length - 1]}`;
+}
+
+function compareTiers(first: SubscriptionTierCard, second: SubscriptionTierCard) {
+  const firstSegment = segmentOrder.indexOf(first.businessSizeSegment);
+  const secondSegment = segmentOrder.indexOf(second.businessSizeSegment);
+  const segmentComparison = (firstSegment === -1 ? Number.MAX_SAFE_INTEGER : firstSegment) -
+    (secondSegment === -1 ? Number.MAX_SAFE_INTEGER : secondSegment);
+
+  if (segmentComparison !== 0) {
+    return segmentComparison;
+  }
+
+  return first.displayName.localeCompare(second.displayName);
 }
 
 function normalizeDomainSlug(value: string) {

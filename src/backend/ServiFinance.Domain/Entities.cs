@@ -77,6 +77,8 @@ public sealed class SubscriptionTier : Entity {
   public string SubscriptionEdition { get; set; } = string.Empty;
   public string AudienceSummary { get; set; } = string.Empty;
   public string Description { get; set; } = string.Empty;
+  public decimal MonthlyPriceAmount { get; set; }
+  public string CurrencyCode { get; set; } = "PHP";
   public string PriceDisplay { get; set; } = string.Empty;
   public string BillingLabel { get; set; } = string.Empty;
   public string PlanSummary { get; set; } = string.Empty;

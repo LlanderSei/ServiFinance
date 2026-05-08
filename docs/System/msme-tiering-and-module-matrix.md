@@ -1,6 +1,6 @@
 # ServiFinance MSME Tiering And Module Matrix
 
-Last updated: 2026-04-08
+Last updated: 2026-05-08
 
 ## 1. Product Tiering Decision
 
@@ -150,13 +150,28 @@ This is preferable to building separate systems for each MSME segment because:
 
 Module access should not rely only on UI hiding. The backend should enforce it too.
 
-Recommended rules:
+Current rules:
 
 - Every tenant must have a `BusinessSizeSegment`.
 - Every tenant must have a `SubscriptionEdition`.
-- Effective access is computed from `BusinessSizeSegment + SubscriptionEdition`.
-- `Premium` extends `Standard`; it does not replace it.
-- Superadmin may apply explicit tenant overrides only as exceptions, not as the primary model.
+- Every tenant should reference an active `SubscriptionTier`.
+- Effective module access is resolved from `SubscriptionTierModules`, not from hard-coded tier names.
+- `Included` and `Limited` both unlock the module surface; the UI can still simplify or disable advanced affordances for `Limited`.
+- `Not Included`, `Excluded`, missing links, and inactive catalog modules deny the module.
+- Superadmin manages tier-to-module links through the subscription catalog instead of changing code.
+
+Default balance:
+
+- `Micro Standard` stays SMS-focused and does not unlock MLS desktop modules.
+- `Micro Premium` unlocks service-linked MLS finance, amortization/payment posting, and limited finance reporting.
+- `Small Premium` unlocks practical MLS finance operations and collections, but not audit review.
+- `Medium Premium` unlocks the full SMS + MLS set, including `D6` audit review.
+
+Customer portal rule:
+
+- Do not gate the whole customer portal to `Small Standard` and above.
+- The portal belongs to `W5` Invoicing And Customer Self-Service, which is included from `Micro Standard`.
+- Gate advanced customer-facing capabilities by module/access level when needed, but keep basic request tracking, invoice visibility, payment entry, and feedback available to all active SMS tiers that include `W5`.
 
 Recommended enforcement points:
 
@@ -181,24 +196,23 @@ Add or formalize the following fields on `Tenants`:
 
 ### 7.2 Reference Tables
 
-Add lightweight reference data for:
+Current lightweight reference data:
 
 - `SubscriptionTiers`
   - `Code`
   - `BusinessSizeSegment`
   - `SubscriptionEdition`
   - `DisplayName`
-- `ModuleCatalog`
+- `PlatformModules`
   - `Code`
   - `Name`
   - `Channel`
-- `TenantModuleEntitlements`
-  - `TenantId`
-  - `ModuleCode`
+- `SubscriptionTierModules`
+  - `SubscriptionTierId`
+  - `PlatformModuleId`
   - `AccessLevel`
-  - `Source`
 
-`Source` should distinguish whether the access came from:
+Future tenant-specific overrides can still add a separate `TenantModuleEntitlements` table if promotional or exception access is needed. `Source` should distinguish whether access came from:
 
 - tier default
 - superadmin override

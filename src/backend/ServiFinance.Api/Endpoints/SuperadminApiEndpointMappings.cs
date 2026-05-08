@@ -18,6 +18,7 @@ internal static class SuperadminApiEndpointMappings {
     });
     superadminApi.MapSuperadminRootUsersEndpoints();
     superadminApi.MapSuperadminRolePermissionEndpoints();
+    superadminApi.MapSuperadminSubscriptionCatalogEndpoints();
 
     superadminApi.MapGet("/overview", async Task<IResult> (
         ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,

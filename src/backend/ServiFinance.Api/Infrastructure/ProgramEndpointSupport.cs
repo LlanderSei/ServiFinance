@@ -21,6 +21,7 @@ internal static class ProgramEndpointSupport {
   internal const string MlsModuleCodeServiceLinkedLoans = "D1_SERVICE_LINKED_LOANS";
   internal const string MlsModuleCodeStandaloneLoans = "D2_STANDALONE_LOANS";
   internal const string MlsModuleCodeFinancialRecords = "D3_FINANCIAL_RECORDS";
+  internal const string MlsModuleCodeAmortization = "D4_AMORTIZATION";
   internal const string MlsModuleCodeLedgerReports = "D5_LEDGER_REPORTS";
   internal const string MlsModuleCodeAuditLogs = "D6_AUDIT_LOGS";
   internal const string MlsModuleCodeCollectionsQueue = "D7_COLLECTIONS_QUEUE";
@@ -805,6 +806,7 @@ internal static class ProgramEndpointSupport {
       MlsModuleCodeServiceLinkedLoans => "service-linked loans",
       MlsModuleCodeStandaloneLoans => "standalone loans",
       MlsModuleCodeFinancialRecords => "financial records",
+      MlsModuleCodeAmortization => "amortization and payment posting",
       MlsModuleCodeLedgerReports => "ledger and reporting",
       MlsModuleCodeAuditLogs => "audit review",
       MlsModuleCodeCollectionsQueue => "collections queue",

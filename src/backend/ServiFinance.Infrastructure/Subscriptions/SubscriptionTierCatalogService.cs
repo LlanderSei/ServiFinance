@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Infrastructure.Data;
 
@@ -20,13 +21,16 @@ public sealed class SubscriptionTierCatalogService(ServiFinanceDbContext dbConte
             entity.SubscriptionEdition,
             entity.AudienceSummary,
             entity.Description,
-            entity.PriceDisplay,
+            entity.MonthlyPriceAmount,
+            entity.CurrencyCode,
+            FormatPriceDisplay(entity.MonthlyPriceAmount, entity.CurrencyCode),
             entity.BillingLabel,
             entity.PlanSummary,
             entity.HighlightLabel,
             entity.IncludesServiceManagementWeb,
             entity.IncludesMicroLendingDesktop,
             entity.Modules
+                .Where(module => module.PlatformModule != null && module.PlatformModule.IsActive)
                 .OrderBy(module => module.SortOrder)
                 .ThenBy(module => module.PlatformModule!.SortOrder)
                 .ThenBy(module => module.PlatformModule!.Name)
@@ -39,5 +43,8 @@ public sealed class SubscriptionTierCatalogService(ServiFinanceDbContext dbConte
                 .ToList()))
         .ToListAsync(cancellationToken);
   }
+
+  private static string FormatPriceDisplay(decimal amount, string currencyCode) =>
+    $"Starts at {currencyCode} {amount.ToString("N0", CultureInfo.InvariantCulture)}";
 }
 

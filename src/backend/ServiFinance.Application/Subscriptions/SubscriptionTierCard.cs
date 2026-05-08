@@ -15,6 +15,8 @@ public sealed record SubscriptionTierCard(
     string SubscriptionEdition,
     string AudienceSummary,
     string Description,
+    decimal MonthlyPriceAmount,
+    string CurrencyCode,
     string PriceDisplay,
     string BillingLabel,
     string PlanSummary,

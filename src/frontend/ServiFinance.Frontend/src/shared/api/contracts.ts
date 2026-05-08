@@ -14,6 +14,8 @@ export type SubscriptionTierCard = {
   subscriptionEdition: "Standard" | "Premium" | string;
   audienceSummary: string;
   description: string;
+  monthlyPriceAmount: number;
+  currencyCode: string;
   priceDisplay: string;
   billingLabel: string;
   planSummary: string;
@@ -21,6 +23,79 @@ export type SubscriptionTierCard = {
   includesServiceManagementWeb: boolean;
   includesMicroLendingDesktop: boolean;
   modules: SubscriptionTierModuleCard[];
+};
+
+export type SuperadminCatalogModule = {
+  id: string;
+  code: string;
+  name: string;
+  channel: "Web" | "Desktop" | string;
+  summary: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type SuperadminSubscriptionTierModule = {
+  id: string;
+  platformModuleId: string;
+  moduleCode: string;
+  moduleName: string;
+  channel: "Web" | "Desktop" | string;
+  accessLevel: "Included" | "Limited" | string;
+  summary: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type SuperadminSubscriptionTier = {
+  id: string;
+  code: string;
+  displayName: string;
+  businessSizeSegment: "Micro" | "Small" | "Medium" | string;
+  subscriptionEdition: "Standard" | "Premium" | string;
+  audienceSummary: string;
+  description: string;
+  monthlyPriceAmount: number;
+  currencyCode: string;
+  priceDisplay: string;
+  billingLabel: string;
+  planSummary: string;
+  highlightLabel: string;
+  sortOrder: number;
+  includesServiceManagementWeb: boolean;
+  includesMicroLendingDesktop: boolean;
+  isActive: boolean;
+  modules: SuperadminSubscriptionTierModule[];
+};
+
+export type SuperadminSubscriptionCatalog = {
+  tiers: SuperadminSubscriptionTier[];
+  modules: SuperadminCatalogModule[];
+};
+
+export type SuperadminSubscriptionTierModuleAssignmentRequest = {
+  platformModuleId: string;
+  accessLevel: "Included" | "Limited" | "Not Included" | string;
+  sortOrder: number;
+};
+
+export type UpsertSuperadminSubscriptionTierRequest = {
+  code: string;
+  displayName: string;
+  businessSizeSegment: string;
+  subscriptionEdition: string;
+  audienceSummary: string;
+  description: string;
+  monthlyPriceAmount: number;
+  currencyCode: string;
+  billingLabel: string;
+  planSummary: string;
+  highlightLabel: string;
+  sortOrder: number;
+  includesServiceManagementWeb: boolean;
+  includesMicroLendingDesktop: boolean;
+  isActive: boolean;
+  modules: SuperadminSubscriptionTierModuleAssignmentRequest[];
 };
 
 export type CreatePlatformTenantCheckoutRequest = {
@@ -610,6 +685,8 @@ export type TenantBillingPlanSummary = {
   subscriptionEdition: string;
   subscriptionPlan: string;
   subscriptionStatus: string;
+  monthlyPriceAmount: number | null;
+  currencyCode: string | null;
   priceDisplay: string | null;
   billingLabel: string | null;
   audienceSummary: string | null;

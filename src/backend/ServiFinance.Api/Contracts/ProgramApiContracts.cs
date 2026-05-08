@@ -30,6 +30,67 @@ internal sealed record PlatformTenantRegistrationStatusResponse(
     string? TenantLoginUrl,
     DateTime CreatedAtUtc,
     DateTime? ProvisionedAtUtc);
+internal sealed record SuperadminCatalogModuleResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    string Channel,
+    string Summary,
+    int SortOrder,
+    bool IsActive);
+internal sealed record SuperadminSubscriptionTierModuleResponse(
+    Guid Id,
+    Guid PlatformModuleId,
+    string ModuleCode,
+    string ModuleName,
+    string Channel,
+    string AccessLevel,
+    string Summary,
+    int SortOrder,
+    bool IsActive);
+internal sealed record SuperadminSubscriptionTierResponse(
+    Guid Id,
+    string Code,
+    string DisplayName,
+    string BusinessSizeSegment,
+    string SubscriptionEdition,
+    string AudienceSummary,
+    string Description,
+    decimal MonthlyPriceAmount,
+    string CurrencyCode,
+    string PriceDisplay,
+    string BillingLabel,
+    string PlanSummary,
+    string HighlightLabel,
+    int SortOrder,
+    bool IncludesServiceManagementWeb,
+    bool IncludesMicroLendingDesktop,
+    bool IsActive,
+    IReadOnlyList<SuperadminSubscriptionTierModuleResponse> Modules);
+internal sealed record SuperadminSubscriptionCatalogResponse(
+    IReadOnlyList<SuperadminSubscriptionTierResponse> Tiers,
+    IReadOnlyList<SuperadminCatalogModuleResponse> Modules);
+internal sealed record UpsertSuperadminSubscriptionTierRequest(
+    string Code,
+    string DisplayName,
+    string BusinessSizeSegment,
+    string SubscriptionEdition,
+    string AudienceSummary,
+    string Description,
+    decimal MonthlyPriceAmount,
+    string CurrencyCode,
+    string BillingLabel,
+    string PlanSummary,
+    string HighlightLabel,
+    int SortOrder,
+    bool IncludesServiceManagementWeb,
+    bool IncludesMicroLendingDesktop,
+    bool IsActive,
+    IReadOnlyList<SuperadminSubscriptionTierModuleAssignmentRequest> Modules);
+internal sealed record SuperadminSubscriptionTierModuleAssignmentRequest(
+    Guid PlatformModuleId,
+    string AccessLevel,
+    int SortOrder);
 internal sealed record ToggleUserStateRequest(bool IsActive);
 internal sealed record ToggleTenantStateRequest(bool IsActive);
 internal sealed record CreateCustomerRecordRequest(
@@ -291,6 +352,8 @@ internal sealed record TenantBillingPlanSummaryResponse(
     string SubscriptionEdition,
     string SubscriptionPlan,
     string SubscriptionStatus,
+    decimal? MonthlyPriceAmount,
+    string? CurrencyCode,
     string? PriceDisplay,
     string? BillingLabel,
     string? AudienceSummary,

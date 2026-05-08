@@ -73,6 +73,11 @@ namespace ServiFinance.Infrastructure.Migrations {
                 .HasMaxLength(50)
                 .HasColumnType("nvarchar(50)");
 
+            b.Property<string>("CurrencyCode")
+                .IsRequired()
+                .HasMaxLength(3)
+                .HasColumnType("nvarchar(3)");
+
             b.Property<string>("Description")
                 .IsRequired()
                 .HasMaxLength(1000)
@@ -96,6 +101,10 @@ namespace ServiFinance.Infrastructure.Migrations {
 
             b.Property<bool>("IsActive")
                 .HasColumnType("bit");
+
+            b.Property<decimal>("MonthlyPriceAmount")
+                .HasPrecision(18, 2)
+                .HasColumnType("decimal(18,2)");
 
             b.Property<string>("PlanSummary")
                 .IsRequired()

@@ -82,3 +82,9 @@ C:\Users\PC\AppData\Local\Temp\servifinance-api-permission-hardening-check\Servi
 C:\Users\PC\AppData\Local\Temp\servifinance-api-root-permission-check\ServiFinance.Domain.deps.json
 C:\Users\PC\AppData\Local\Temp\servifinance-api-root-permission-check\ServiFinance.Domain.dll
 C:\Users\PC\AppData\Local\Temp\servifinance-api-root-permission-check\ServiFinance.Domain.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-subscription-catalog-check\ServiFinance.Domain.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-subscription-catalog-check\ServiFinance.Domain.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-subscription-catalog-check\ServiFinance.Domain.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-register-benefits-check\ServiFinance.Domain.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-register-benefits-check\ServiFinance.Domain.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-register-benefits-check\ServiFinance.Domain.pdb

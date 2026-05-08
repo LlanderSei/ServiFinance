@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +25,6 @@ public sealed class StripePlatformTenantOnboardingService(
   private const string ProvisionedStatus = "Provisioned";
   private const string ProvisioningFailedStatus = "ProvisioningFailed";
 
-  private static readonly Regex SubscriptionAmountPattern = new(@"([\d,]+(?:\.\d+)?)", RegexOptions.Compiled);
   private static readonly Regex SlugCleanupPattern = new(@"[^a-z0-9-]+", RegexOptions.Compiled);
   private static readonly Regex HyphenCollapsePattern = new(@"-{2,}", RegexOptions.Compiled);
 
@@ -77,8 +75,7 @@ public sealed class StripePlatformTenantOnboardingService(
       throw new InvalidOperationException("The selected subscription tier is not available.");
     }
 
-    var tierAmount = TryParseSubscriptionAmount(subscriptionTier.PriceDisplay);
-    if (!tierAmount.HasValue || tierAmount.Value <= 0m) {
+    if (subscriptionTier.MonthlyPriceAmount <= 0m) {
       throw new InvalidOperationException("The selected subscription tier does not have a valid recurring amount yet.");
     }
 
@@ -168,8 +165,8 @@ public sealed class StripePlatformTenantOnboardingService(
                 new SessionLineItemOptions {
                   Quantity = 1,
                   PriceData = new SessionLineItemPriceDataOptions {
-                    Currency = "php",
-                    UnitAmountDecimal = tierAmount.Value * 100m,
+                    Currency = NormalizeStripeCurrencyCode(subscriptionTier.CurrencyCode),
+                    UnitAmountDecimal = subscriptionTier.MonthlyPriceAmount * 100m,
                     ProductData = new SessionLineItemPriceDataProductDataOptions {
                       Name = subscriptionTier.DisplayName,
                       Description = subscriptionTier.PlanSummary
@@ -800,22 +797,8 @@ public sealed class StripePlatformTenantOnboardingService(
   private static string BuildAbsoluteUrl(Uri baseUri, string relativePath) =>
     new Uri(baseUri, relativePath).ToString();
 
-  private static decimal? TryParseSubscriptionAmount(string? priceDisplay) {
-    if (string.IsNullOrWhiteSpace(priceDisplay)) {
-      return null;
-    }
-
-    var match = SubscriptionAmountPattern.Match(priceDisplay);
-    if (!match.Success) {
-      return null;
-    }
-
-    return decimal.TryParse(
-        match.Groups[1].Value.Replace(",", string.Empty, StringComparison.Ordinal),
-        NumberStyles.Number,
-        CultureInfo.InvariantCulture,
-        out var amount)
-        ? amount
-        : null;
-  }
+  private static string NormalizeStripeCurrencyCode(string currencyCode) =>
+    string.IsNullOrWhiteSpace(currencyCode)
+      ? "php"
+      : currencyCode.Trim().ToLowerInvariant();
 }

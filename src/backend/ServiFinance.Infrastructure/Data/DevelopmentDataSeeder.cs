@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -48,7 +49,9 @@ public sealed class DevelopmentDataSeeder(
       tier.SubscriptionEdition = seed.SubscriptionEdition;
       tier.AudienceSummary = seed.AudienceSummary;
       tier.Description = seed.Description;
-      tier.PriceDisplay = seed.PriceDisplay;
+      tier.MonthlyPriceAmount = seed.MonthlyPriceAmount;
+      tier.CurrencyCode = seed.CurrencyCode;
+      tier.PriceDisplay = FormatPriceDisplay(seed.MonthlyPriceAmount, seed.CurrencyCode);
       tier.BillingLabel = seed.BillingLabel;
       tier.PlanSummary = seed.PlanSummary;
       tier.HighlightLabel = seed.HighlightLabel;
@@ -74,12 +77,10 @@ public sealed class DevelopmentDataSeeder(
       module.IsActive = true;
     }
 
-    var seededTierModuleKeys = new HashSet<(Guid TierId, Guid ModuleId)>();
     foreach (var seed in tierModuleSeeds) {
       var tier = tiersById[seed.SubscriptionTierId];
       var module = modulesByCode[seed.ModuleCode];
       var key = (tier.Id, module.Id);
-      seededTierModuleKeys.Add(key);
 
       if (!tierModulesByKey.TryGetValue(key, out var tierModule)) {
         tierModule = new SubscriptionTierModule {
@@ -95,13 +96,8 @@ public sealed class DevelopmentDataSeeder(
       tierModule.AccessLevel = seed.AccessLevel;
       tierModule.SortOrder = seed.SortOrder;
     }
-
-    foreach (var existingTierModule in tierModulesByKey.Values) {
-      var key = (existingTierModule.SubscriptionTierId, existingTierModule.PlatformModuleId);
-      if (!seededTierModuleKeys.Contains(key)) {
-        dbContext.SubscriptionTierModules.Remove(existingTierModule);
-      }
-    }
+    // Preserve Superadmin-managed tier/module assignments instead of pruning
+    // everything that is not part of the built-in development defaults.
 
     var platformTenant = await dbContext.Tenants
         .IgnoreQueryFilters()
@@ -544,7 +540,8 @@ public sealed class DevelopmentDataSeeder(
           "Standard",
           "For micro-businesses that need browser-based intake, status updates, and invoicing without desktop finance tools.",
           "Keep service work moving with a lean web workflow for intake, dispatch, and invoicing.",
-          "Starts at PHP 1,490",
+          1490m,
+          "PHP",
           "per tenant / month",
           "Lean web operations for micro service teams.",
           "Micro / Web Only",
@@ -559,7 +556,8 @@ public sealed class DevelopmentDataSeeder(
           "Premium",
           "For micro-businesses that need service-linked lending from the same tenant operating model.",
           "Add desktop loan conversion, payment posting, and a simplified finance view to the micro service workflow.",
-          "Starts at PHP 2,990",
+          2990m,
+          "PHP",
           "per tenant / month",
           "Micro service operations plus service-linked lending.",
           "Micro / Web + Desktop",
@@ -574,7 +572,8 @@ public sealed class DevelopmentDataSeeder(
           "Standard",
           "For growing teams that need the full service-management workflow on the web.",
           "Run service intake, staffing, scheduling, job updates, invoicing, and reporting from a fuller web workspace.",
-          "Starts at PHP 2,490",
+          2490m,
+          "PHP",
           "per tenant / month",
           "Full web operations baseline for small teams.",
           "Small / Web Only",
@@ -589,7 +588,8 @@ public sealed class DevelopmentDataSeeder(
           "Premium",
           "For small businesses combining service workflows with repeatable lending and collections work.",
           "Pair the full web service suite with desktop lending, payment posting, and a practical collections queue.",
-          "Starts at PHP 4,490",
+          4490m,
+          "PHP",
           "per tenant / month",
           "Full web and finance stack for small operations.",
           "Small / Web + Desktop",
@@ -604,7 +604,8 @@ public sealed class DevelopmentDataSeeder(
           "Standard",
           "For medium enterprises that need stronger operational visibility without desktop lending.",
           "Use the full service web suite with reporting and workforce visibility for broader teams.",
-          "Starts at PHP 3,990",
+          3990m,
+          "PHP",
           "per tenant / month",
           "Expanded web operations for medium teams.",
           "Medium / Web Only",
@@ -619,7 +620,8 @@ public sealed class DevelopmentDataSeeder(
           "Premium",
           "For medium enterprises that need the broadest service and finance control surface, including audit visibility.",
           "Combine the full service web suite with desktop lending, collections, reporting, and audit review.",
-          "Starts at PHP 6,990",
+          6990m,
+          "PHP",
           "per tenant / month",
           "Full operational and finance control for medium enterprises.",
           "Medium / Web + Desktop",
@@ -682,7 +684,6 @@ public sealed class DevelopmentDataSeeder(
       new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D3_FINANCIAL_RECORDS", "Included", 130),
       new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D4_AMORTIZATION", "Included", 140),
       new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D5_LEDGER_REPORTS", "Included", 150),
-      new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D6_AUDIT_LOGS", "Included", 160),
       new(ServiFinanceDatabaseDefaults.SmallPremiumSubscriptionTierId, "D7_COLLECTIONS_QUEUE", "Included", 170),
 
       new(ServiFinanceDatabaseDefaults.MediumStandardSubscriptionTierId, "W1_SERVICE_INTAKE", "Included", 10),
@@ -855,13 +856,17 @@ public sealed class DevelopmentDataSeeder(
       string SubscriptionEdition,
       string AudienceSummary,
       string Description,
-      string PriceDisplay,
+      decimal MonthlyPriceAmount,
+      string CurrencyCode,
       string BillingLabel,
       string PlanSummary,
       string HighlightLabel,
       int SortOrder,
       bool IncludesServiceManagementWeb,
       bool IncludesMicroLendingDesktop);
+
+  private static string FormatPriceDisplay(decimal amount, string currencyCode) =>
+    $"Starts at {currencyCode} {amount.ToString("N0", CultureInfo.InvariantCulture)}";
 
   private sealed record PlatformModuleSeed(
       string Code,

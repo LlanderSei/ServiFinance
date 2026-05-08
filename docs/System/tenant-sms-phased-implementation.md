@@ -370,6 +370,8 @@ Current implementation:
 - SMS endpoint filters now enforce role permissions and subscription module entitlement across customers, service requests, service costing, invoice finalization, dispatch, reports, pricing, platform users, and SMS roles/permissions
 - key SMS actions that were previously owner/admin-only now use explicit permission keys instead, so custom lower-ranked roles can be granted scoped access without becoming administrators
 - SMS module access now checks the active tenant subscription tier before allowing module-backed endpoints such as service intake, scheduling, job updates, invoicing, reports, and staff administration
+- Superadmin subscription management now controls which active tier exposes each SMS/MLS module, with `Included`, `Limited`, and `Not Included` tier-module access levels
+- root registration now presents the live tier catalog by Standard/Premium edition before opening a Stripe checkout modal for the chosen tier
 - MLS endpoint filters now enforce role permissions on top of the existing MLS subscription and module entitlement checks across dashboard, customer finance, settlement review, loan conversion, standalone loans, loan accounts, collections, reports, ledger, and audit
 - MLS settlement approval and rejection now use an explicit `mls.settlements.manage` permission so customer-submitted service-invoice settlement proofs can be delegated without granting broader owner or administrator authority
 - tenant billing and tenant audit APIs now use explicit billing and audit permission keys instead of broad owner/admin role checks

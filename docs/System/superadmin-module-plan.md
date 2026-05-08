@@ -81,12 +81,20 @@ Purpose:
 
 - Manage the MSME tier catalog used for pricing and access.
 
-Must add next:
+Implemented:
 
-- create / edit / archive tier flow
+- create and edit tier flow
 - pricing and billing metadata editor
 - channel summary for web vs desktop coverage
 - ordering and highlight label management
+- tier-to-module assignment interface with `Included`, `Limited`, and `Not Included` access levels
+- catalog response that powers the Superadmin subscription workspace
+
+Still to add next:
+
+- tier archival workflow beyond the active toggle
+- stronger validation for duplicate commercial positioning
+- explicit tenant override visibility when tenant-level exceptions are introduced
 
 ### Modules
 
@@ -94,13 +102,16 @@ Purpose:
 
 - Manage the platform module catalog and entitlement mapping source.
 
-Must add next:
+Implemented:
 
 - module catalog table with code, name, channel, and lifecycle state
 - module description and operator-facing purpose
 - enable / disable modules at catalog level
-- tier-to-module assignment interface
+
+Still to add next:
+
 - validation rules preventing orphaned or duplicate module codes
+- tenant override drill-down once overrides exist
 
 ## Why This Grouping
 

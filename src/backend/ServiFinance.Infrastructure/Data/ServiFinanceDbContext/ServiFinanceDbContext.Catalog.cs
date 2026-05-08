@@ -47,6 +47,8 @@ public sealed partial class ServiFinanceDbContext {
     subscriptionTier.Property(entity => entity.SubscriptionEdition).HasMaxLength(50);
     subscriptionTier.Property(entity => entity.AudienceSummary).HasMaxLength(200);
     subscriptionTier.Property(entity => entity.Description).HasMaxLength(1000);
+    subscriptionTier.Property(entity => entity.MonthlyPriceAmount).HasPrecision(18, 2);
+    subscriptionTier.Property(entity => entity.CurrencyCode).HasMaxLength(3);
     subscriptionTier.Property(entity => entity.PriceDisplay).HasMaxLength(100);
     subscriptionTier.Property(entity => entity.BillingLabel).HasMaxLength(100);
     subscriptionTier.Property(entity => entity.PlanSummary).HasMaxLength(300);
