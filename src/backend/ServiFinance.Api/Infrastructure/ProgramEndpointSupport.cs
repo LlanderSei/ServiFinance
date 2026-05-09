@@ -18,6 +18,9 @@ internal static class ProgramEndpointSupport {
   internal const string SmsModuleCodeInvoicing = "W5_INVOICING";
   internal const string SmsModuleCodeReports = "W6_REPORTS";
   internal const string SmsModuleCodeWorkforceOverview = "W7_WORKFORCE_OVERVIEW";
+  internal const string SmsModuleCodeSlaEscalations = "W8_SLA_ESCALATIONS";
+  internal const string SmsModuleCodeFeedbackCrm = "W9_FEEDBACK_CRM";
+  internal const string SmsModuleCodePartsCostControl = "W10_PARTS_COST_CONTROL";
   internal const string MlsModuleCodeServiceLinkedLoans = "D1_SERVICE_LINKED_LOANS";
   internal const string MlsModuleCodeStandaloneLoans = "D2_STANDALONE_LOANS";
   internal const string MlsModuleCodeFinancialRecords = "D3_FINANCIAL_RECORDS";
@@ -25,6 +28,12 @@ internal static class ProgramEndpointSupport {
   internal const string MlsModuleCodeLedgerReports = "D5_LEDGER_REPORTS";
   internal const string MlsModuleCodeAuditLogs = "D6_AUDIT_LOGS";
   internal const string MlsModuleCodeCollectionsQueue = "D7_COLLECTIONS_QUEUE";
+  internal const string MlsModuleCodePortfolioRiskDashboard = "D8_PORTFOLIO_RISK_DASHBOARD";
+  internal const string MlsModuleCodeLoanApprovalWorkflow = "D9_LOAN_APPROVAL_WORKFLOW";
+  internal const string MlsModuleCodeFinancePolicyControl = "D10_FINANCE_POLICY_CONTROL";
+  internal const string ModuleAccessLevelIncluded = "Included";
+  internal const int BillingRecoveryReadOnlyGracePeriodDays = 7;
+  internal const int BillingRecoverySuspensionReviewGracePeriodDays = 14;
   internal static readonly string[] ServiceCostCategories = [
     "Base Charge",
     "Part Replacement",
@@ -72,6 +81,7 @@ internal static class ProgramEndpointSupport {
       user.Roles,
       user.PlatformScopes,
       user.PermissionKeys,
+      user.ModuleAccess,
       surface);
 
   internal static string SanitizeReturnUrl(string? returnUrl, string fallbackPath = "/dashboard") {
@@ -96,9 +106,14 @@ internal static class ProgramEndpointSupport {
       new("tenant_id", user.TenantId.ToString()),
       new("tenant_domain_slug", user.TenantDomainSlug),
       new("surface", surface.ToString())
-  };
+    };
 
     claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+    claims.AddRange(user.PlatformScopes.Select(scope => new Claim("platform_scope", scope)));
+    claims.AddRange(user.PermissionKeys.Select(permissionKey => new Claim("permission_key", permissionKey)));
+    claims.AddRange(user.ModuleAccess.Select(moduleAccess => new Claim(
+        SessionModuleAccessClaims.ClaimType,
+        SessionModuleAccessClaims.ToClaimValue(moduleAccess))));
 
     var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
     var authenticationProperties = new AuthenticationProperties {
@@ -154,7 +169,8 @@ internal static class ProgramEndpointSupport {
       IRolePermissionAuthorizationService rolePermissionAuthorizationService,
       CancellationToken cancellationToken,
       string permissionKey,
-      string? requiredModuleCode = null) {
+      string? requiredModuleCode = null,
+      string? requiredModuleAccessLevel = null) {
     if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
       return CreateJsonError(StatusCodes.Status403Forbidden, "This SMS session is not allowed to access the selected tenant route.");
     }
@@ -169,6 +185,7 @@ internal static class ProgramEndpointSupport {
 
     var tenant = await dbContext.Tenants
         .AsNoTracking()
+        .Include(entity => entity.BillingRecords)
         .SingleOrDefaultAsync(
             entity => entity.Id == tenantId && entity.DomainSlug == tenantDomainSlug,
             cancellationToken);
@@ -184,15 +201,29 @@ internal static class ProgramEndpointSupport {
       return CreateJsonError(StatusCodes.Status403Forbidden, "SMS web access is suspended for this tenant until subscription standing is restored.");
     }
 
+    var recoveryAccessError = GetTenantBillingRecoveryAccessError(tenant, httpContext.Request);
+    if (recoveryAccessError is not null) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, recoveryAccessError);
+    }
+
     var currentTier = await ResolveCurrentTierAsync(dbContext, tenant, cancellationToken);
     if (currentTier is null || !currentTier.IsActive || !currentTier.IncludesServiceManagementWeb) {
       return CreateJsonError(StatusCodes.Status403Forbidden, "SMS web access is not included in the current tenant subscription.");
     }
 
-    if (!string.IsNullOrWhiteSpace(requiredModuleCode) && !HasTenantSmsModuleAccess(currentTier, requiredModuleCode)) {
-      return CreateJsonError(
-        StatusCodes.Status403Forbidden,
-        $"The current tenant subscription does not include the {GetTenantSmsModuleLabel(requiredModuleCode)} module.");
+    if (!string.IsNullOrWhiteSpace(requiredModuleCode)) {
+      var accessLevel = GetTenantModuleAccessLevel(currentTier, requiredModuleCode);
+      if (!IsGrantedModuleAccessLevel(accessLevel)) {
+        return CreateJsonError(
+          StatusCodes.Status403Forbidden,
+          $"The current tenant subscription does not include the {GetTenantSmsModuleLabel(requiredModuleCode)} module.");
+      }
+
+      if (!HasRequiredModuleAccessLevel(accessLevel, requiredModuleAccessLevel)) {
+        return CreateJsonError(
+          StatusCodes.Status403Forbidden,
+          $"The {GetTenantSmsModuleLabel(requiredModuleCode)} module requires full plan access for this action.");
+      }
     }
 
     if (!await rolePermissionAuthorizationService.HasPermissionAsync(
@@ -213,7 +244,10 @@ internal static class ProgramEndpointSupport {
       IRolePermissionAuthorizationService rolePermissionAuthorizationService,
       CancellationToken cancellationToken,
       string workspaceScope,
-      string permissionKey) {
+      string permissionKey,
+      string? requiredModuleCode = null,
+      string? requiredModuleAccessLevel = null,
+      bool allowBillingRecoveryActions = false) {
     if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
       return CreateJsonError(StatusCodes.Status403Forbidden, "This tenant session is not allowed to access the selected tenant route.");
     }
@@ -229,6 +263,7 @@ internal static class ProgramEndpointSupport {
     var normalizedScope = RolePermissionCatalog.NormalizeWorkspaceScope(workspaceScope);
     var tenant = await dbContext.Tenants
         .AsNoTracking()
+        .Include(entity => entity.BillingRecords)
         .SingleOrDefaultAsync(
             entity => entity.Id == tenantId && entity.DomainSlug == tenantDomainSlug,
             cancellationToken);
@@ -240,8 +275,17 @@ internal static class ProgramEndpointSupport {
       return CreateJsonError(StatusCodes.Status403Forbidden, "This tenant is inactive and cannot access tenant administration.");
     }
 
-    if (string.Equals(tenant.SubscriptionStatus, "Suspended", StringComparison.OrdinalIgnoreCase)) {
+    if (string.Equals(tenant.SubscriptionStatus, "Suspended", StringComparison.OrdinalIgnoreCase) &&
+        !allowBillingRecoveryActions) {
       return CreateJsonError(StatusCodes.Status403Forbidden, "Tenant administration is suspended until subscription standing is restored.");
+    }
+
+    var recoveryAccessError = GetTenantBillingRecoveryAccessError(
+        tenant,
+        httpContext.Request,
+        allowBillingRecoveryActions);
+    if (recoveryAccessError is not null) {
+      return CreateJsonError(StatusCodes.Status403Forbidden, recoveryAccessError);
     }
 
     var currentTier = await ResolveCurrentTierAsync(dbContext, tenant, cancellationToken);
@@ -255,6 +299,17 @@ internal static class ProgramEndpointSupport {
 
     if (normalizedScope == PlatformRolePolicy.MlsScope && !currentTier.IncludesMicroLendingDesktop) {
       return CreateJsonError(StatusCodes.Status403Forbidden, "MLS desktop administration is not included in the current tenant subscription.");
+    }
+
+    if (!string.IsNullOrWhiteSpace(requiredModuleCode)) {
+      var accessLevel = GetTenantModuleAccessLevel(currentTier, requiredModuleCode);
+      if (!IsGrantedModuleAccessLevel(accessLevel)) {
+        return CreateJsonError(StatusCodes.Status403Forbidden, "The current tenant subscription does not include the required administration module.");
+      }
+
+      if (!HasRequiredModuleAccessLevel(accessLevel, requiredModuleAccessLevel)) {
+        return CreateJsonError(StatusCodes.Status403Forbidden, "This administration action requires full plan access.");
+      }
     }
 
     if (!await rolePermissionAuthorizationService.HasPermissionAsync(
@@ -273,7 +328,8 @@ internal static class ProgramEndpointSupport {
       string tenantDomainSlug,
       ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
       CancellationToken cancellationToken,
-      string? requiredModuleCode = null) {
+      string? requiredModuleCode = null,
+      string? requiredModuleAccessLevel = null) {
     if (!IsTenantRouteAllowed(httpContext.User, tenantDomainSlug)) {
       return CreateJsonError(StatusCodes.Status403Forbidden, "This MLS session is not allowed to access the selected tenant route.");
     }
@@ -292,7 +348,9 @@ internal static class ProgramEndpointSupport {
         tenantDomainSlug,
         dbContext,
         cancellationToken,
-        requiredModuleCode);
+        requiredModuleCode,
+        requiredModuleAccessLevel,
+        httpContext.Request);
 
     return accessError is null
       ? null
@@ -304,9 +362,12 @@ internal static class ProgramEndpointSupport {
       string tenantDomainSlug,
       ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
       CancellationToken cancellationToken,
-      string? requiredModuleCode = null) {
+      string? requiredModuleCode = null,
+      string? requiredModuleAccessLevel = null,
+      HttpRequest? request = null) {
     var tenant = await dbContext.Tenants
         .AsNoTracking()
+        .Include(entity => entity.BillingRecords)
         .SingleOrDefaultAsync(
             entity => entity.Id == tenantId && entity.DomainSlug == tenantDomainSlug,
             cancellationToken);
@@ -322,17 +383,111 @@ internal static class ProgramEndpointSupport {
       return "MLS desktop access is suspended for this tenant until subscription standing is restored.";
     }
 
+    var recoveryAccessError = GetTenantBillingRecoveryAccessError(tenant, request);
+    if (recoveryAccessError is not null) {
+      return recoveryAccessError;
+    }
+
     var currentTier = await ResolveCurrentTierAsync(dbContext, tenant, cancellationToken);
     if (currentTier is null || !currentTier.IsActive || !currentTier.IncludesMicroLendingDesktop) {
       return "MLS desktop access is not included in the current tenant subscription.";
     }
 
-    if (!string.IsNullOrWhiteSpace(requiredModuleCode) && !HasTenantMlsModuleAccess(currentTier, requiredModuleCode)) {
-      return $"The current tenant subscription does not include the {GetTenantMlsModuleLabel(requiredModuleCode)} module.";
+    if (!string.IsNullOrWhiteSpace(requiredModuleCode)) {
+      var accessLevel = GetTenantModuleAccessLevel(currentTier, requiredModuleCode);
+      if (!IsGrantedModuleAccessLevel(accessLevel)) {
+        return $"The current tenant subscription does not include the {GetTenantMlsModuleLabel(requiredModuleCode)} module.";
+      }
+
+      if (!HasRequiredModuleAccessLevel(accessLevel, requiredModuleAccessLevel)) {
+        return $"The {GetTenantMlsModuleLabel(requiredModuleCode)} module requires full plan access for this action.";
+      }
     }
 
     return null;
   }
+
+  private static string? GetTenantBillingRecoveryAccessError(
+      Tenant tenant,
+      HttpRequest? request,
+      bool allowBillingRecoveryActions = false) {
+    if (allowBillingRecoveryActions || request is null) {
+      return null;
+    }
+
+    var recoveryPolicy = ResolveTenantBillingRecoveryPolicy(tenant);
+    if (string.Equals(recoveryPolicy.Stage, "Suspension review", StringComparison.OrdinalIgnoreCase)) {
+      return "Tenant workspace access is locked because subscription recovery reached the 14-day suspension-review threshold. Restore billing from the Billing workspace or contact the platform administrator.";
+    }
+
+    if (string.Equals(recoveryPolicy.Stage, "Read-only recommended", StringComparison.OrdinalIgnoreCase) &&
+        !IsReadOnlyRequest(request)) {
+      return "Tenant workspace is in read-only recovery because subscription renewal is at least 7 days overdue. Restore billing before making operational changes.";
+    }
+
+    return null;
+  }
+
+  private static TenantBillingRecoveryPolicy ResolveTenantBillingRecoveryPolicy(Tenant tenant) {
+    var billingRecords = tenant.BillingRecords
+        .OrderByDescending(entity => entity.CoverageStartUtc)
+        .ThenByDescending(entity => entity.SubmittedAtUtc)
+        .ToArray();
+    var latestBillingRecord = billingRecords.FirstOrDefault();
+    var nextRenewalDateUtc = ResolveTenantNextRenewalDateUtc(billingRecords);
+
+    if (!IsTenantBillingRecoveryFailure(tenant, latestBillingRecord, nextRenewalDateUtc)) {
+      return new TenantBillingRecoveryPolicy("Active", null);
+    }
+
+    var recoveryAnchorUtc = nextRenewalDateUtc ??
+      latestBillingRecord?.CoverageEndUtc ??
+      latestBillingRecord?.SubmittedAtUtc;
+    var overdueDays = recoveryAnchorUtc.HasValue
+        ? Math.Max(0, (DateTime.UtcNow.Date - recoveryAnchorUtc.Value.Date).Days)
+        : 0;
+
+    if (overdueDays >= BillingRecoverySuspensionReviewGracePeriodDays) {
+      return new TenantBillingRecoveryPolicy("Suspension review", overdueDays);
+    }
+
+    if (overdueDays >= BillingRecoveryReadOnlyGracePeriodDays) {
+      return new TenantBillingRecoveryPolicy("Read-only recommended", overdueDays);
+    }
+
+    return new TenantBillingRecoveryPolicy("Past due", overdueDays);
+  }
+
+  private static DateTime? ResolveTenantNextRenewalDateUtc(IReadOnlyList<TenantBillingRecord> billingRecords) {
+    var latestConfirmedCoverage = billingRecords
+        .Where(entity => string.Equals(entity.Status, "Confirmed", StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(entity => entity.CoverageEndUtc)
+        .ThenByDescending(entity => entity.SubmittedAtUtc)
+        .FirstOrDefault();
+    var futureSubmittedCoverage = billingRecords
+        .Where(entity => entity.CoverageStartUtc > (latestConfirmedCoverage?.CoverageEndUtc ?? DateTime.MinValue))
+        .OrderByDescending(entity => entity.CoverageStartUtc)
+        .FirstOrDefault();
+
+    return futureSubmittedCoverage?.CoverageStartUtc ??
+      latestConfirmedCoverage?.CoverageEndUtc;
+  }
+
+  private static bool IsTenantBillingRecoveryFailure(
+      Tenant tenant,
+      TenantBillingRecord? latestBillingRecord,
+      DateTime? nextRenewalDateUtc) {
+    var utcToday = DateTime.UtcNow.Date;
+
+    return string.Equals(tenant.SubscriptionStatus, "Past due", StringComparison.OrdinalIgnoreCase) ||
+      string.Equals(latestBillingRecord?.Status, "Payment failed", StringComparison.OrdinalIgnoreCase) ||
+      (nextRenewalDateUtc.HasValue && nextRenewalDateUtc.Value.Date < utcToday);
+  }
+
+  private static bool IsReadOnlyRequest(HttpRequest request) =>
+    HttpMethods.IsGet(request.Method) ||
+    HttpMethods.IsHead(request.Method) ||
+    HttpMethods.IsOptions(request.Method);
 
   internal static string NormalizeAssignmentStatus(string? assignmentStatus) {
     var normalized = assignmentStatus?.Trim();
@@ -767,26 +922,49 @@ internal static class ProgramEndpointSupport {
         : Results.Ok(new AuthSessionResponse(tokens, currentUser));
   }
 
-  private static bool HasTenantMlsModuleAccess(SubscriptionTier tier, string requiredModuleCode) {
+  private static bool HasTenantMlsModuleAccess(SubscriptionTier tier, string requiredModuleCode) =>
+    IsGrantedModuleAccessLevel(GetTenantModuleAccessLevel(tier, requiredModuleCode));
+
+  private static bool HasTenantSmsModuleAccess(SubscriptionTier tier, string requiredModuleCode) =>
+    IsGrantedModuleAccessLevel(GetTenantModuleAccessLevel(tier, requiredModuleCode));
+
+  private static string? GetTenantModuleAccessLevel(SubscriptionTier tier, string requiredModuleCode) {
     var accessLevel = tier.Modules
         .Where(entity => entity.PlatformModule != null && entity.PlatformModule.IsActive)
         .FirstOrDefault(entity => string.Equals(entity.PlatformModule!.Code, requiredModuleCode, StringComparison.OrdinalIgnoreCase))
         ?.AccessLevel;
 
-    return !string.IsNullOrWhiteSpace(accessLevel) &&
-        !string.Equals(accessLevel, "Excluded", StringComparison.OrdinalIgnoreCase) &&
-        !string.Equals(accessLevel, "None", StringComparison.OrdinalIgnoreCase);
+    return accessLevel;
   }
 
-  private static bool HasTenantSmsModuleAccess(SubscriptionTier tier, string requiredModuleCode) {
-    var accessLevel = tier.Modules
-        .Where(entity => entity.PlatformModule != null && entity.PlatformModule.IsActive)
-        .FirstOrDefault(entity => string.Equals(entity.PlatformModule!.Code, requiredModuleCode, StringComparison.OrdinalIgnoreCase))
-        ?.AccessLevel;
+  internal static bool IsGrantedModuleAccessLevel(string? accessLevel) =>
+    GetModuleAccessLevelRank(accessLevel) > 0;
 
-    return !string.IsNullOrWhiteSpace(accessLevel) &&
-        !string.Equals(accessLevel, "Excluded", StringComparison.OrdinalIgnoreCase) &&
-        !string.Equals(accessLevel, "None", StringComparison.OrdinalIgnoreCase);
+  private static bool HasRequiredModuleAccessLevel(string? accessLevel, string? requiredModuleAccessLevel) {
+    if (string.IsNullOrWhiteSpace(requiredModuleAccessLevel)) {
+      return IsGrantedModuleAccessLevel(accessLevel);
+    }
+
+    return GetModuleAccessLevelRank(accessLevel) >= GetModuleAccessLevelRank(requiredModuleAccessLevel);
+  }
+
+  private static int GetModuleAccessLevelRank(string? accessLevel) {
+    if (string.IsNullOrWhiteSpace(accessLevel)) {
+      return 0;
+    }
+
+    var normalized = accessLevel.Trim();
+    if (string.Equals(normalized, "Excluded", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(normalized, "None", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(normalized, "Not Included", StringComparison.OrdinalIgnoreCase)) {
+      return 0;
+    }
+
+    if (string.Equals(normalized, ModuleAccessLevelIncluded, StringComparison.OrdinalIgnoreCase)) {
+      return 2;
+    }
+
+    return 1;
   }
 
   private static string GetTenantSmsModuleLabel(string requiredModuleCode) =>
@@ -798,6 +976,9 @@ internal static class ProgramEndpointSupport {
       SmsModuleCodeInvoicing => "invoicing and customer self-service",
       SmsModuleCodeReports => "operational reports",
       SmsModuleCodeWorkforceOverview => "workforce overview",
+      SmsModuleCodeSlaEscalations => "SLA escalations",
+      SmsModuleCodeFeedbackCrm => "customer feedback CRM",
+      SmsModuleCodePartsCostControl => "parts and cost control",
       _ => "requested SMS"
     };
 
@@ -810,6 +991,9 @@ internal static class ProgramEndpointSupport {
       MlsModuleCodeLedgerReports => "ledger and reporting",
       MlsModuleCodeAuditLogs => "audit review",
       MlsModuleCodeCollectionsQueue => "collections queue",
+      MlsModuleCodePortfolioRiskDashboard => "portfolio risk dashboard",
+      MlsModuleCodeLoanApprovalWorkflow => "loan approval workflow",
+      MlsModuleCodeFinancePolicyControl => "finance policy control",
       _ => "requested MLS"
     };
 
@@ -830,4 +1014,5 @@ internal static class ProgramEndpointSupport {
             cancellationToken);
   }
 
+  private sealed record TenantBillingRecoveryPolicy(string Stage, int? OverdueDays);
 }

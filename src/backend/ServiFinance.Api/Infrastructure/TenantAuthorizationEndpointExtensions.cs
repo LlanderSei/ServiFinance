@@ -7,7 +7,8 @@ internal static class TenantAuthorizationEndpointExtensions {
   internal static RouteHandlerBuilder RequireTenantSmsPermission(
     this RouteHandlerBuilder builder,
     string permissionKey,
-    string? requiredModuleCode = null) {
+    string? requiredModuleCode = null,
+    string? requiredModuleAccessLevel = null) {
     return builder.AddEndpointFilter(async (context, next) => {
       var httpContext = context.HttpContext;
       var tenantDomainSlug = httpContext.Request.RouteValues["tenantDomainSlug"]?.ToString();
@@ -26,7 +27,8 @@ internal static class TenantAuthorizationEndpointExtensions {
         rolePermissionAuthorizationService,
         httpContext.RequestAborted,
         permissionKey,
-        requiredModuleCode);
+        requiredModuleCode,
+        requiredModuleAccessLevel);
 
       return accessError ?? await next(context);
     });
@@ -35,7 +37,8 @@ internal static class TenantAuthorizationEndpointExtensions {
   internal static RouteHandlerBuilder RequireTenantMlsPermission(
     this RouteHandlerBuilder builder,
     string permissionKey,
-    string? requiredModuleCode = null) {
+    string? requiredModuleCode = null,
+    string? requiredModuleAccessLevel = null) {
     return builder.AddEndpointFilter(async (context, next) => {
       var httpContext = context.HttpContext;
       var tenantDomainSlug = httpContext.Request.RouteValues["tenantDomainSlug"]?.ToString();
@@ -51,7 +54,8 @@ internal static class TenantAuthorizationEndpointExtensions {
         tenantDomainSlug,
         dbContext,
         httpContext.RequestAborted,
-        requiredModuleCode);
+        requiredModuleCode,
+        requiredModuleAccessLevel);
       if (accessError is not null) {
         return accessError;
       }
@@ -92,6 +96,12 @@ internal static class TenantAuthorizationEndpointExtensions {
       var permissionKey = normalizedScope == PlatformRolePolicy.MlsScope
         ? "mls.roles-permissions.manage"
         : "sms.roles-permissions.manage";
+      var requiredModuleCode = normalizedScope == PlatformRolePolicy.SmsScope
+        ? ProgramEndpointSupport.SmsModuleCodeStaffAccounts
+        : null;
+      var requiredModuleAccessLevel = normalizedScope == PlatformRolePolicy.SmsScope
+        ? ProgramEndpointSupport.ModuleAccessLevelIncluded
+        : null;
 
       var dbContext = httpContext.RequestServices.GetRequiredService<ServiFinanceDbContext>();
       var rolePermissionAuthorizationService = httpContext.RequestServices.GetRequiredService<IRolePermissionAuthorizationService>();
@@ -102,7 +112,9 @@ internal static class TenantAuthorizationEndpointExtensions {
         rolePermissionAuthorizationService,
         httpContext.RequestAborted,
         normalizedScope,
-        permissionKey);
+        permissionKey,
+        requiredModuleCode,
+        requiredModuleAccessLevel);
 
       return accessError ?? await next(context);
     });

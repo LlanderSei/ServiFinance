@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import type {
+  CurrentSessionUser,
   ServiceCostPreset,
   TenantPricingWorkspaceResponse,
   UpdateTenantCostingPolicyRequest,
   UpsertServiceCostPresetRequest
 } from "@/shared/api/contracts";
 import { httpDelete, httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
-import { hasPermission } from "@/shared/auth/permissions";
+import { SmsModuleCodes, hasFullModuleAccess, hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
@@ -54,6 +55,11 @@ type PresetFormState = {
   sortOrder: string;
 };
 
+type ActionReadiness = {
+  allowed: boolean;
+  reason: string | null;
+};
+
 const initialPolicyForm: PolicyFormState = {
   taxLabel: "VAT",
   defaultTaxRate: "12",
@@ -80,7 +86,8 @@ export function SmsPricingPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const currentUser = getCurrentSession()?.user ?? null;
-  const canManagePricing = hasPermission(currentUser, "sms.pricing.manage");
+  const pricingManageReadiness = getPricingManageReadiness(currentUser);
+  const canManagePricing = pricingManageReadiness.allowed;
   const [policyForm, setPolicyForm] = useState<PolicyFormState>(initialPolicyForm);
   const [presetForm, setPresetForm] = useState<PresetFormState>(initialPresetForm);
   const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
@@ -190,7 +197,7 @@ export function SmsPricingPage() {
     if (!canManagePricing) {
       toast.warning({
         title: "Permission required",
-        message: "Your role cannot change tenant pricing policy."
+        message: pricingManageReadiness.reason ?? "Your role cannot change tenant pricing policy."
       });
       return;
     }
@@ -206,7 +213,7 @@ export function SmsPricingPage() {
     if (!canManagePricing) {
       toast.warning({
         title: "Permission required",
-        message: "Your role cannot create pricing presets."
+        message: pricingManageReadiness.reason ?? "Your role cannot create pricing presets."
       });
       return;
     }
@@ -223,7 +230,7 @@ export function SmsPricingPage() {
     if (!canManagePricing) {
       toast.warning({
         title: "Permission required",
-        message: "Your role cannot edit pricing presets."
+        message: pricingManageReadiness.reason ?? "Your role cannot edit pricing presets."
       });
       return;
     }
@@ -246,7 +253,7 @@ export function SmsPricingPage() {
     if (!canManagePricing) {
       toast.warning({
         title: "Permission required",
-        message: "Your role cannot save pricing presets."
+        message: pricingManageReadiness.reason ?? "Your role cannot save pricing presets."
       });
       return;
     }
@@ -354,6 +361,7 @@ export function SmsPricingPage() {
                     type="submit"
                     className="w-full justify-center sm:w-max"
                     disabled={!canManagePricing || savePolicyMutation.isPending}
+                    title={pricingManageReadiness.reason ?? undefined}
                   >
                     {savePolicyMutation.isPending ? "Saving policy..." : "Save costing policy"}
                   </WorkspaceActionButton>
@@ -422,12 +430,14 @@ export function SmsPricingPage() {
                               <WorkspaceActionButton
                                 onClick={() => openEditPresetModal(preset)}
                                 disabled={!canManagePricing}
+                                title={pricingManageReadiness.reason ?? undefined}
                               >
                                 Edit
                               </WorkspaceActionButton>
                               <WorkspaceActionButton
                                 onClick={() => deletePresetMutation.mutate(preset.id)}
                                 disabled={!canManagePricing || deletePresetMutation.isPending}
+                                title={pricingManageReadiness.reason ?? undefined}
                               >
                                 Delete
                               </WorkspaceActionButton>
@@ -464,7 +474,8 @@ export function SmsPricingPage() {
               label: "Add pricing preset",
               icon: "plus",
               onClick: openCreatePresetModal,
-              disabled: !canManagePricing
+              disabled: !canManagePricing,
+              disabledReason: pricingManageReadiness.reason ?? undefined
             }
           ]}
         />
@@ -485,6 +496,7 @@ export function SmsPricingPage() {
               form="sms-pricing-preset-form"
               tone="primary"
               disabled={!canManagePricing || savePresetMutation.isPending}
+              title={pricingManageReadiness.reason ?? undefined}
             >
               {savePresetMutation.isPending ? "Saving..." : editingPresetId ? "Save preset" : "Add preset"}
             </WorkspaceModalButton>
@@ -575,4 +587,22 @@ export function SmsPricingPage() {
 
 function formatCurrency(value: number) {
   return currencyFormatter.format(value);
+}
+
+function getPricingManageReadiness(user: CurrentSessionUser | null): ActionReadiness {
+  if (!hasPermission(user, "sms.pricing.manage")) {
+    return {
+      allowed: false,
+      reason: "Requires sms.pricing.manage permission."
+    };
+  }
+
+  if (!hasFullModuleAccess(user, SmsModuleCodes.invoicing)) {
+    return {
+      allowed: false,
+      reason: "Requires full Invoicing module access for tenant pricing settings."
+    };
+  }
+
+  return { allowed: true, reason: null };
 }

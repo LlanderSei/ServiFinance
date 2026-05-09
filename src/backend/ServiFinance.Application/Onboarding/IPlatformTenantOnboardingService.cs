@@ -21,4 +21,13 @@ public interface IPlatformTenantOnboardingService {
       Guid tenantId,
       string returnUrl,
       CancellationToken cancellationToken = default);
+
+  Task ScheduleSubscriptionRenewalPriceChangeAsync(
+      Guid tenantId,
+      Guid targetTierId,
+      CancellationToken cancellationToken = default);
+
+  Task<TenantSubscriptionProviderSyncResult> SyncTenantSubscriptionAsync(
+      Guid tenantId,
+      CancellationToken cancellationToken = default);
 }

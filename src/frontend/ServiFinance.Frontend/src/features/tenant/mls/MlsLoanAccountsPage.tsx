@@ -9,7 +9,7 @@ import {
 } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
-import { hasPermission } from "@/shared/auth/permissions";
+import { MlsModuleCodes, hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -225,6 +225,7 @@ export function MlsLoanAccountsPage() {
     <ProtectedRoute
       requireSurface="TenantDesktop"
       requirePermission="mls.loan-accounts.view"
+      requireModule={MlsModuleCodes.financialRecords}
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >

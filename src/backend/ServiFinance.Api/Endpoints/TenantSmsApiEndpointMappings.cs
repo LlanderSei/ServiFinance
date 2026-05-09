@@ -20,6 +20,7 @@ internal static class TenantSmsApiEndpointMappings {
     tenantApi.MapTenantSmsDispatchEndpoints();
     tenantApi.MapTenantSmsReportsEndpoints();
     tenantApi.MapTenantSmsPricingEndpoints();
+    tenantApi.MapTenantSmsMediumControlsEndpoints();
     tenantApi.MapTenantBillingEndpoints();
     tenantApi.MapTenantMlsDashboardEndpoints();
     tenantApi.MapTenantMlsLoanConversionEndpoints();
@@ -30,6 +31,7 @@ internal static class TenantSmsApiEndpointMappings {
     tenantApi.MapTenantMlsStandaloneLoanEndpoints();
     tenantApi.MapTenantMlsReportsEndpoints();
     tenantApi.MapTenantMlsLedgerEndpoints();
+    tenantApi.MapTenantMlsMediumControlsEndpoints();
 
     return tenantApi;
   }

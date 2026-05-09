@@ -12,6 +12,7 @@ import type {
   UpdateTenantAssignmentStatusRequest
 } from "@/shared/api/contracts";
 import { httpDelete, httpGet, httpPostFormData, httpPostJson } from "@/shared/api/http";
+import { SmsModuleCodes, hasFullModuleAccess } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
@@ -62,10 +63,12 @@ export function SmsDispatchPage() {
   const toast = useToast();
   const currentUser = getCurrentSession()?.user ?? null;
   const permissionKeys = new Set(currentUser?.permissionKeys ?? []);
+  const canUseAdvancedScheduling = hasFullModuleAccess(currentUser, SmsModuleCodes.scheduling);
+  const canUseFullEvidence = hasFullModuleAccess(currentUser, SmsModuleCodes.jobUpdates);
   const canViewRegister = permissionKeys.has("sms.dispatch.view");
   const canScheduleAssignments = permissionKeys.has("sms.dispatch.schedule");
   const canUpdateAssignments = permissionKeys.has("sms.dispatch.update-status");
-  const canManageDispatchEvidence = permissionKeys.has("sms.dispatch.evidence.manage");
+  const canManageDispatchEvidence = permissionKeys.has("sms.dispatch.evidence.manage") && canUseFullEvidence;
   
   const [selectedAssignment, setSelectedAssignment] = useState<TenantDispatchAssignmentRow | null>(null);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -336,6 +339,13 @@ export function SmsDispatchPage() {
     () => visibleAssignments.filter((assignment) => isArchivedDispatchAssignment(assignment)),
     [visibleAssignments]
   );
+  const dispatchTabs = useMemo(
+    () => getDispatchTabs(canViewRegister, canScheduleAssignments, canUseAdvancedScheduling),
+    [canViewRegister, canScheduleAssignments, canUseAdvancedScheduling]
+  );
+  const visibleActiveTab = dispatchTabs.some((tab) => tab.key === activeTab)
+    ? activeTab
+    : "overview";
 
   function handleStatusUpdate(assignment: TenantDispatchAssignmentRow, assignmentStatus: string, serviceStatus?: string) {
     if (!canUpdateAssignments) {
@@ -370,7 +380,8 @@ export function SmsDispatchPage() {
   }
 
   function canHandoverAssignment(assignment: TenantDispatchAssignmentRow): boolean {
-    return canScheduleAssignments &&
+    return canUseAdvancedScheduling &&
+      canScheduleAssignments &&
       (assignment.assignedUserId === currentUser?.userId || canScheduleAssignments) &&
       !["Completed", "Cancelled", "In Progress"].includes(assignment.assignmentStatus);
   }
@@ -406,7 +417,7 @@ export function SmsDispatchPage() {
       getFinanceTone
     };
 
-    switch (activeTab) {
+    switch (visibleActiveTab) {
       case "overview":
         return (
           <SmsDispatchOverview 
@@ -471,7 +482,7 @@ export function SmsDispatchPage() {
         singularLabel="assignment"
         headerBottom={
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <WorkspaceTopTabs tabs={getDispatchTabs(canViewRegister, canScheduleAssignments)} activeTab={activeTab} onChange={setActiveTab} />
+            <WorkspaceTopTabs tabs={dispatchTabs} activeTab={visibleActiveTab} onChange={setActiveTab} />
             <WorkspaceToggleGroup className="w-max max-w-full overflow-x-auto">
               <WorkspaceToggleButton active={viewMode === "all"} onClick={() => setViewMode("all")}>
                 All assignments
@@ -484,7 +495,7 @@ export function SmsDispatchPage() {
         }
       >
         <RecordContentStack>
-          {activeTab === "assignments" ? (
+          {visibleActiveTab === "assignments" ? (
             <DispatchFilterPanel
               filters={filters}
               setFilters={setFilters}
@@ -584,7 +595,7 @@ export function SmsDispatchPage() {
         isLoadingDetail={assignmentDetailQuery.isLoading}
         currentUserId={currentUser?.userId}
         canAddEvidenceAction={canManageDispatchEvidence}
-        canRescheduleAction={canScheduleAssignments}
+        canRescheduleAction={canScheduleAssignments && canUseAdvancedScheduling}
         canUpdateStatusAction={canUpdateAssignments}
         onAddEvidence={() => setIsEvidenceModalOpen(true)}
         onReschedule={() => setIsRescheduleModalOpen(true)}
@@ -644,13 +655,13 @@ export function SmsDispatchPage() {
   );
 }
 
-function getDispatchTabs(canViewRegister: boolean, canScheduleAssignments: boolean) {
+function getDispatchTabs(canViewRegister: boolean, canScheduleAssignments: boolean, canUseAdvancedScheduling: boolean) {
   return [
     { key: "overview", label: "Overview" },
     { key: "pending", label: "Pending Tasks" },
     ...(canViewRegister ? [{ key: "assignments", label: "Register" }] : []),
     { key: "mytasks", label: "My Tasks" },
-    { key: "timeline", label: "Timeline" },
+    ...(canUseAdvancedScheduling ? [{ key: "timeline", label: "Timeline" }] : []),
     ...(canScheduleAssignments ? [{ key: "archive", label: "Archive" }] : []),
   ];
 }

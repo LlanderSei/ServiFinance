@@ -1673,6 +1673,18 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<DateTime?>("PendingSubscriptionChangeCancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PendingSubscriptionChangeEffectiveAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PendingSubscriptionChangeRequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("PendingSubscriptionTierId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("StripeCustomerId")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -1680,6 +1692,9 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Property<string>("StripeSubscriptionId")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("SubscriptionChangeCooldownUntilUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("SubscriptionEdition")
                         .IsRequired()
@@ -1703,6 +1718,8 @@ namespace ServiFinance.Infrastructure.Migrations
 
                     b.HasIndex("DomainSlug")
                         .IsUnique();
+
+                    b.HasIndex("PendingSubscriptionTierId");
 
                     b.ToTable("Tenants", (string)null);
                 });
@@ -2358,6 +2375,16 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.Navigation("PlatformModule");
 
                     b.Navigation("SubscriptionTier");
+                });
+
+            modelBuilder.Entity("ServiFinance.Domain.Tenant", b =>
+                {
+                    b.HasOne("ServiFinance.Domain.SubscriptionTier", "PendingSubscriptionTier")
+                        .WithMany()
+                        .HasForeignKey("PendingSubscriptionTierId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("PendingSubscriptionTier");
                 });
 
             modelBuilder.Entity("ServiFinance.Domain.TenantBillingRecord", b =>

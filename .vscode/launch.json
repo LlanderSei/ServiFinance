@@ -2,6 +2,14 @@
   "version": "0.2.0",
   "compounds": [
     {
+      "name": "Web Hot Reload",
+      "configurations": [
+        "Web Hot Reload API",
+        "Frontend Hot Reload (Vite)"
+      ],
+      "stopAll": true
+    },
+    {
       "name": "Web + Desktop",
       "configurations": [
         "Web",
@@ -21,6 +29,18 @@
       "type": "node-terminal",
       "request": "launch",
       "command": "dotnet publish \"${workspaceFolder}/src/backend/ServiFinance.Api/ServiFinance.Api.csproj\" -c Release -m:1 -o \"${workspaceFolder}/artifacts/publish/web\""
+    },
+    {
+      "name": "Web Hot Reload API",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "dotnet watch --project \"${workspaceFolder}/src/backend/ServiFinance.Api/ServiFinance.Api.csproj\" run --no-launch-profile -e ASPNETCORE_ENVIRONMENT=Development -e ASPNETCORE_URLS=http://localhost:5228 -p:DisableServiFinanceFrontendBuild=true"
+    },
+    {
+      "name": "Frontend Hot Reload (Vite)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "cmd /c npm --prefix \"${workspaceFolder}/src/frontend/ServiFinance.Frontend\" run dev -- --open"
     },
     {
       "name": "Web",
@@ -50,6 +70,17 @@
       "request": "launch",
       "url": "https://localhost:7245",
       "webRoot": "${workspaceFolder}",
+      "userDataDir": false,
+      "presentation": {
+        "hidden": true
+      }
+    },
+    {
+      "name": "Web Browser (Vite)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/src/frontend/ServiFinance.Frontend",
       "userDataDir": false,
       "presentation": {
         "hidden": true

@@ -139,6 +139,6 @@ internal static class RescheduleAssignment {
               scheduleConflictCount,
               assignment.ServiceRequest.Invoices.Any(invoice => invoice.MicroLoan != null)));
             })
-            .RequireTenantSmsPermission("sms.dispatch.schedule", SmsModuleCodeScheduling);
+            .RequireTenantSmsPermission("sms.dispatch.schedule", SmsModuleCodeScheduling, ModuleAccessLevelIncluded);
     }
 }

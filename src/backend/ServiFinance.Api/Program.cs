@@ -86,7 +86,8 @@ app.MapStaticAssets();
 app.MapFrontendAppEndpoints();
 app.MapWebAccountEndpoints();
 
-var api = app.MapGroup("/api");
+var api = app.MapGroup("/api")
+    .AddClientAbortCancellationHandling();
 api.MapPlatformApiEndpoints();
 api.MapAddressLookupApiEndpoints();
 api.MapAuthApiEndpoints(sessionTokenOptions);

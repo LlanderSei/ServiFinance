@@ -459,6 +459,113 @@ public sealed class StripePlatformTenantOnboardingService(
     return new TenantBillingPortalSession(portalSession.Url);
   }
 
+  public async Task ScheduleSubscriptionRenewalPriceChangeAsync(
+      Guid tenantId,
+      Guid targetTierId,
+      CancellationToken cancellationToken = default) {
+    EnsureConfigured();
+
+    var tenant = await dbContext.Tenants
+        .SingleOrDefaultAsync(entity => entity.Id == tenantId, cancellationToken);
+    if (tenant is null) {
+      throw new InvalidOperationException("Tenant billing context could not be resolved.");
+    }
+
+    if (!string.Equals(tenant.BillingProvider, "Stripe", StringComparison.OrdinalIgnoreCase) ||
+        string.IsNullOrWhiteSpace(tenant.StripeSubscriptionId)) {
+      return;
+    }
+
+    var targetTier = await dbContext.SubscriptionTiers
+        .AsNoTracking()
+        .SingleOrDefaultAsync(entity => entity.Id == targetTierId && entity.IsActive, cancellationToken);
+    if (targetTier is null) {
+      throw new InvalidOperationException("The target subscription tier is no longer active.");
+    }
+
+    if (targetTier.MonthlyPriceAmount <= 0m) {
+      throw new InvalidOperationException("The target subscription tier does not have a valid recurring amount yet.");
+    }
+
+    var subscriptionService = new SubscriptionService(BuildStripeClient());
+    var subscription = await subscriptionService.GetAsync(
+        tenant.StripeSubscriptionId,
+        cancellationToken: cancellationToken);
+    var subscriptionItem = subscription.Items?.Data?.FirstOrDefault();
+    if (subscriptionItem is null) {
+      throw new InvalidOperationException("The tenant Stripe subscription does not have a renewable subscription item.");
+    }
+
+    var productService = new ProductService(BuildStripeClient());
+    var product = await productService.CreateAsync(
+        new ProductCreateOptions {
+          Name = targetTier.DisplayName,
+          Description = targetTier.PlanSummary,
+          Metadata = new Dictionary<string, string> {
+            ["tenantId"] = tenant.Id.ToString("N"),
+            ["subscriptionTierId"] = targetTier.Id.ToString("N"),
+            ["source"] = "ServiFinance billing switch"
+          }
+        },
+        cancellationToken: cancellationToken);
+
+    var subscriptionItemService = new SubscriptionItemService(BuildStripeClient());
+    await subscriptionItemService.UpdateAsync(
+        subscriptionItem.Id,
+        new SubscriptionItemUpdateOptions {
+          PriceData = new SubscriptionItemPriceDataOptions {
+            Currency = NormalizeStripeCurrencyCode(targetTier.CurrencyCode),
+            Product = product.Id,
+            UnitAmountDecimal = targetTier.MonthlyPriceAmount * 100m,
+            Recurring = new SubscriptionItemPriceDataRecurringOptions {
+              Interval = "month"
+            }
+          },
+          ProrationBehavior = "none",
+          Metadata = new Dictionary<string, string> {
+            ["tenantId"] = tenant.Id.ToString("N"),
+            ["subscriptionTierId"] = targetTier.Id.ToString("N"),
+            ["source"] = "ServiFinance billing switch"
+          }
+        },
+        cancellationToken: cancellationToken);
+  }
+
+  public async Task<TenantSubscriptionProviderSyncResult> SyncTenantSubscriptionAsync(
+      Guid tenantId,
+      CancellationToken cancellationToken = default) {
+    EnsureConfigured();
+
+    var tenant = await dbContext.Tenants
+        .IgnoreQueryFilters()
+        .SingleOrDefaultAsync(entity => entity.Id == tenantId, cancellationToken);
+    if (tenant is null) {
+      throw new InvalidOperationException("Tenant billing context could not be resolved.");
+    }
+
+    if (!string.Equals(tenant.BillingProvider, "Stripe", StringComparison.OrdinalIgnoreCase) ||
+        string.IsNullOrWhiteSpace(tenant.StripeSubscriptionId)) {
+      throw new InvalidOperationException("Stripe billing is not active for this tenant.");
+    }
+
+    var subscriptionService = new SubscriptionService(BuildStripeClient());
+    var subscription = await subscriptionService.GetAsync(
+        tenant.StripeSubscriptionId,
+        cancellationToken: cancellationToken);
+
+    tenant.StripeCustomerId = subscription.CustomerId ?? tenant.StripeCustomerId;
+    tenant.StripeSubscriptionId = subscription.Id;
+    ApplySubscriptionState(tenant, subscription.Status);
+    await dbContext.SaveChangesAsync(cancellationToken);
+
+    return new TenantSubscriptionProviderSyncResult(
+        tenant.Id,
+        "Stripe",
+        subscription.Status ?? "unknown",
+        tenant.SubscriptionStatus,
+        tenant.IsActive);
+  }
+
   private async Task HandleCheckoutSessionCompletedAsync(Session session, CancellationToken cancellationToken) {
     var registration = await ResolveRegistrationAsync(session, cancellationToken);
     if (registration is null) {
@@ -492,6 +599,7 @@ public sealed class StripePlatformTenantOnboardingService(
     }
 
     ApplySubscriptionState(tenant, "Active");
+    await ApplyPendingSubscriptionChangeIfDueAsync(tenant, invoice, cancellationToken);
     await UpsertStripeBillingRecordAsync(tenant, invoice, isPaid: true, cancellationToken);
   }
 
@@ -740,13 +848,43 @@ public sealed class StripePlatformTenantOnboardingService(
         .SingleOrDefaultAsync(entity => entity.Id == registrationId, cancellationToken);
   }
 
+  private async Task ApplyPendingSubscriptionChangeIfDueAsync(
+      Tenant tenant,
+      StripeInvoice invoice,
+      CancellationToken cancellationToken) {
+    if (!tenant.PendingSubscriptionTierId.HasValue || !tenant.PendingSubscriptionChangeEffectiveAtUtc.HasValue) {
+      return;
+    }
+
+    var paidAtUtc = invoice.StatusTransitions?.PaidAt?.ToUniversalTime() ?? GetUtcNow();
+    if (tenant.PendingSubscriptionChangeEffectiveAtUtc.Value.Date > paidAtUtc.Date) {
+      return;
+    }
+
+    var targetTier = await dbContext.SubscriptionTiers
+        .SingleOrDefaultAsync(entity => entity.Id == tenant.PendingSubscriptionTierId.Value, cancellationToken);
+    if (targetTier is null) {
+      return;
+    }
+
+    tenant.BusinessSizeSegment = targetTier.BusinessSizeSegment;
+    tenant.SubscriptionEdition = targetTier.SubscriptionEdition;
+    tenant.SubscriptionPlan = targetTier.DisplayName;
+    tenant.PendingSubscriptionTierId = null;
+    tenant.PendingSubscriptionChangeRequestedAtUtc = null;
+    tenant.PendingSubscriptionChangeEffectiveAtUtc = null;
+    tenant.PendingSubscriptionChangeCancelledAtUtc = null;
+    tenant.SubscriptionChangeCooldownUntilUtc = null;
+  }
+
   private void ApplySubscriptionState(Tenant tenant, string? stripeSubscriptionStatus) {
     var normalizedStatus = stripeSubscriptionStatus?.Trim();
     if (string.IsNullOrWhiteSpace(normalizedStatus)) {
       return;
     }
 
-    tenant.SubscriptionStatus = normalizedStatus switch {
+    var normalizedStatusKey = normalizedStatus.ToLowerInvariant();
+    tenant.SubscriptionStatus = normalizedStatusKey switch {
       "active" => "Active",
       "trialing" => "Trialing",
       "past_due" => "Past due",
@@ -758,7 +896,7 @@ public sealed class StripePlatformTenantOnboardingService(
       _ => normalizedStatus
     };
 
-    tenant.IsActive = normalizedStatus is "active" or "trialing" or "past_due";
+    tenant.IsActive = normalizedStatusKey is "active" or "trialing" or "past_due";
   }
 
   private StripeClient BuildStripeClient() => new(_stripeOptions.SecretKey);

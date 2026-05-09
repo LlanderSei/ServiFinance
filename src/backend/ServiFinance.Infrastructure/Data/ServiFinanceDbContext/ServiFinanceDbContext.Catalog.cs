@@ -19,6 +19,10 @@ public sealed partial class ServiFinanceDbContext {
     tenant.Property(entity => entity.StripeSubscriptionId).HasMaxLength(ExternalBillingReferenceMaxLength);
     tenant.HasIndex(entity => entity.Code).IsUnique();
     tenant.HasIndex(entity => entity.DomainSlug).IsUnique();
+    tenant.HasOne(entity => entity.PendingSubscriptionTier)
+        .WithMany()
+        .HasForeignKey(entity => entity.PendingSubscriptionTierId)
+        .OnDelete(DeleteBehavior.Restrict);
     tenant.HasOne(entity => entity.Theme)
         .WithOne(entity => entity.Tenant)
         .HasForeignKey<TenantTheme>(entity => entity.TenantId)

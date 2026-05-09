@@ -289,8 +289,9 @@ internal static class AuthApiEndpointMappings {
       var roles = principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
       var platformScopes = principal.FindAll("platform_scope").Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
       var permissionKeys = principal.FindAll("permission_key").Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+      var moduleAccess = SessionModuleAccessClaims.FromClaims(principal.Claims);
 
-      return Results.Ok(new CurrentSessionUser(userId, tenantId, tenantDomainSlug, email, fullName, roles, platformScopes, permissionKeys, surface));
+      return Results.Ok(new CurrentSessionUser(userId, tenantId, tenantDomainSlug, email, fullName, roles, platformScopes, permissionKeys, moduleAccess, surface));
     });
 
     return authApi;
@@ -370,6 +371,7 @@ internal static class AuthApiEndpointMappings {
         .Select(claim => claim.Value)
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToArray();
+    var moduleAccess = SessionModuleAccessClaims.FromClaims(httpContext.User.Claims);
 
     return new CurrentSessionUser(
         userId,
@@ -380,6 +382,7 @@ internal static class AuthApiEndpointMappings {
         roles,
         platformScopes,
         permissionKeys,
+        moduleAccess,
         surface);
   }
 

@@ -73,6 +73,58 @@ export type SuperadminSubscriptionCatalog = {
   modules: SuperadminCatalogModule[];
 };
 
+export type SuperadminSubscriptionRecoverySummary = {
+  totalTenantAccounts: number;
+  highRiskTenants: number;
+  paymentFailedTenants: number;
+  dueSoonTenants: number;
+  pastDueTenants: number;
+  readOnlyRecommendedTenants: number;
+  suspensionReviewTenants: number;
+  pendingPlanChanges: number;
+  cooldownLockedTenants: number;
+};
+
+export type SuperadminSubscriptionRecoveryRow = {
+  tenantId: string;
+  tenantName: string;
+  domainSlug: string;
+  businessSizeSegment: string;
+  subscriptionEdition: string;
+  subscriptionPlan: string;
+  subscriptionStatus: string;
+  isActive: boolean;
+  billingProvider: string;
+  accountStanding: string;
+  suspensionRisk: string;
+  recoveryStage: string;
+  recoveryStageDescription: string;
+  overdueDays: number | null;
+  readOnlyRecommendedAtUtc: string | null;
+  suspensionReviewAtUtc: string | null;
+  nextRenewalDateUtc: string | null;
+  expectedRenewalAmount: number | null;
+  expectedRenewalCurrencyCode: string | null;
+  lastConfirmedCoverageEndUtc: string | null;
+  latestBillingStatus: string | null;
+  latestBillingAtUtc: string | null;
+  pendingReviewCount: number;
+  pendingPlanChange: string | null;
+  pendingPlanChangeEffectiveAtUtc: string | null;
+  cooldownUntilUtc: string | null;
+  recommendedAction: string;
+};
+
+export type SuperadminSubscriptionRecoveryResponse = {
+  summary: SuperadminSubscriptionRecoverySummary;
+  rows: SuperadminSubscriptionRecoveryRow[];
+};
+
+export type SuperadminSubscriptionRecoveryActionResponse = {
+  message: string;
+  row: SuperadminSubscriptionRecoveryRow;
+};
+
 export type SuperadminSubscriptionTierModuleAssignmentRequest = {
   platformModuleId: string;
   accessLevel: "Included" | "Limited" | "Not Included" | string;
@@ -673,6 +725,108 @@ export type TenantOperationalReportsResponse = {
   };
 };
 
+export type TenantSmsSlaEscalationRow = {
+  id: string;
+  requestNumber: string;
+  customerName: string;
+  itemType: string;
+  priority: string;
+  currentStatus: string;
+  targetDateUtc: string | null;
+  latestAssignmentStatus: string | null;
+  assignedStaff: string | null;
+  scheduledStartUtc: string | null;
+  scheduledEndUtc: string | null;
+  minutesPastDue: number;
+  severity: string;
+};
+
+export type TenantSmsSlaEscalationsResponse = {
+  summary: {
+    activeRequests: number;
+    overdueRequests: number;
+    dueTodayRequests: number;
+    unscheduledRequests: number;
+    criticalRequests: number;
+  };
+  rows: TenantSmsSlaEscalationRow[];
+};
+
+export type TenantSmsFeedbackCrmRow = {
+  id: string;
+  requestNumber: string;
+  customerName: string;
+  itemType: string;
+  currentStatus: string;
+  rating: number | null;
+  feedbackComments: string | null;
+  suggestionCategory: string | null;
+  completedAtUtc: string | null;
+  feedbackSubmittedAtUtc: string | null;
+  feedbackExpiresAtUtc: string | null;
+  feedbackState: string;
+};
+
+export type TenantSmsFeedbackCrmTheme = {
+  category: string;
+  count: number;
+  averageRating: number;
+};
+
+export type TenantSmsFeedbackCrmResponse = {
+  summary: TenantFeedbackSummary;
+  suggestionThemes: TenantSmsFeedbackCrmTheme[];
+  rows: TenantSmsFeedbackCrmRow[];
+};
+
+export type TenantSmsCostControlRow = {
+  id: string;
+  requestNumber: string;
+  customerName: string;
+  itemType: string;
+  currentStatus: string;
+  completedAtUtc: string | null;
+  costSheetStatus: string | null;
+  costSubtotal: number;
+  costTaxAmount: number;
+  costTotal: number;
+  costLineCount: number;
+  updatedAtUtc: string;
+  invoiceNumber: string | null;
+  invoiceStatus: string | null;
+  invoiceTotalAmount: number | null;
+  invoiceOutstandingAmount: number | null;
+  needsCosting: boolean;
+  needsInvoice: boolean;
+};
+
+export type TenantSmsCostControlResponse = {
+  policy: {
+    taxLabel: string;
+    defaultTaxRate: number;
+    taxEnabledByDefault: boolean;
+  };
+  summary: {
+    activePresetCount: number;
+    draftCostSheets: number;
+    finalizedCostSheets: number;
+    needsCosting: number;
+    needsInvoice: number;
+    estimatedCostTotal: number;
+  };
+  presetCategories: Array<{
+    category: string;
+    activePresets: number;
+    presetCount: number;
+  }>;
+  categoryTotals: Array<{
+    category: string;
+    lineCount: number;
+    totalAmount: number;
+  }>;
+  rows: TenantSmsCostControlRow[];
+};
+
 export type TenantBillingModuleAccessRow = {
   moduleCode: string;
   moduleName: string;
@@ -692,6 +846,62 @@ export type TenantBillingPlanSummary = {
   audienceSummary: string | null;
   planSummary: string | null;
   modules: TenantBillingModuleAccessRow[];
+};
+
+export type TenantBillingTierOption = {
+  id: string;
+  code: string;
+  displayName: string;
+  businessSizeSegment: string;
+  subscriptionEdition: string;
+  monthlyPriceAmount: number;
+  currencyCode: string;
+  priceDisplay: string;
+  billingLabel: string;
+  audienceSummary: string;
+  planSummary: string;
+  includesServiceManagementWeb: boolean;
+  includesMicroLendingDesktop: boolean;
+  modules: TenantBillingModuleAccessRow[];
+};
+
+export type TenantBillingModuleImpactRow = {
+  moduleCode: string;
+  moduleName: string;
+  channel: string;
+  currentAccessLevel: string | null;
+  targetAccessLevel: string | null;
+};
+
+export type TenantBillingWorkloadImpactRow = {
+  moduleCode: string;
+  moduleName: string;
+  activeWorkCount: number;
+  detail: string;
+};
+
+export type TenantBillingDowngradeImpact = {
+  isDowngrade: boolean;
+  lockedModules: TenantBillingModuleImpactRow[];
+  workloadWarnings: TenantBillingWorkloadImpactRow[];
+  summary: string;
+};
+
+export type TenantBillingPendingPlanChange = {
+  targetTierId: string;
+  targetPlan: string;
+  targetEdition: string;
+  targetSegment: string;
+  changeDirection: string;
+  requestedAtUtc: string;
+  effectiveAtUtc: string;
+  impact: TenantBillingDowngradeImpact;
+};
+
+export type TenantBillingChangeControls = {
+  canRequestChange: boolean;
+  cooldownUntilUtc: string | null;
+  blockedReason: string | null;
 };
 
 export type TenantBillingStanding = {
@@ -732,10 +942,29 @@ export type TenantBillingOverviewResponse = {
   plan: TenantBillingPlanSummary;
   standing: TenantBillingStanding;
   history: TenantBillingRecordRow[];
+  availableTiers: TenantBillingTierOption[];
+  pendingPlanChange: TenantBillingPendingPlanChange | null;
+  changeControls: TenantBillingChangeControls;
 };
 
 export type TenantBillingPortalSessionResponse = {
   url: string;
+};
+
+export type TenantBillingPlanChangeRequest = {
+  targetTierId: string;
+  confirmDowngrade: boolean;
+};
+
+export type TenantBillingPlanChangeResponse = {
+  message: string;
+  pendingPlanChange: TenantBillingPendingPlanChange;
+  impact: TenantBillingDowngradeImpact;
+};
+
+export type TenantBillingCancelPlanChangeResponse = {
+  message: string;
+  cooldownUntilUtc: string;
 };
 
 export type TenantMlsDashboardSummary = {
@@ -1194,6 +1423,105 @@ export type TenantMlsReportsWorkspaceResponse = {
   topBorrowers: TenantMlsReportsBorrowerRow[];
 };
 
+export type TenantMlsPortfolioRiskSummary = {
+  activeLoans: number;
+  portfolioBalance: number;
+  overdueLoans: number;
+  overdueBalance: number;
+  dueThisWeekBalance: number;
+  portfolioAtRiskRate: number;
+};
+
+export type TenantMlsPortfolioRiskBucket = {
+  label: string;
+  loanCount: number;
+  outstandingBalance: number;
+  overdueAmount: number;
+};
+
+export type TenantMlsPortfolioRiskRow = {
+  microLoanId: string;
+  customerName: string;
+  loanLabel: string;
+  loanStatus: string;
+  outstandingBalance: number;
+  overdueAmount: number;
+  daysPastDue: number;
+  nextDueDate: string | null;
+  riskState: string;
+};
+
+export type TenantMlsPortfolioRiskResponse = {
+  summary: TenantMlsPortfolioRiskSummary;
+  agingBuckets: TenantMlsPortfolioRiskBucket[];
+  rows: TenantMlsPortfolioRiskRow[];
+};
+
+export type TenantMlsLoanApprovalSummary = {
+  serviceLinkedCandidates: number;
+  standaloneLoansCreated: number;
+  needsReview: number;
+  blockedCandidates: number;
+  averageCandidateAmount: number;
+};
+
+export type TenantMlsLoanApprovalRow = {
+  candidateId: string;
+  serviceRequestNumber: string;
+  customerName: string;
+  invoiceNumber: string;
+  amount: number;
+  sourceType: string;
+  readinessState: string;
+  riskFlag: string;
+  createdAtUtc: string;
+  reason: string;
+};
+
+export type TenantMlsLoanApprovalWorkspaceResponse = {
+  summary: TenantMlsLoanApprovalSummary;
+  rows: TenantMlsLoanApprovalRow[];
+};
+
+export type TenantMlsFinancePolicySummary = {
+  loanCount: number;
+  averageInterestRate: number | null;
+  minimumInterestRate: number | null;
+  maximumInterestRate: number | null;
+  averageTermMonths: number;
+  policyExceptionCount: number;
+};
+
+export type TenantMlsFinancePolicyBand = {
+  label: string;
+  loanCount: number;
+  principalAmount: number;
+};
+
+export type TenantMlsFinancePolicyRow = {
+  microLoanId: string;
+  customerName: string;
+  loanLabel: string;
+  annualInterestRate: number;
+  termMonths: number;
+  principalAmount: number;
+  loanStatus: string;
+  policyState: string;
+  createdAtUtc: string;
+};
+
+export type TenantMlsFinancePolicyControlResponse = {
+  summary: TenantMlsFinancePolicySummary;
+  policyBands: TenantMlsFinancePolicyBand[];
+  rows: TenantMlsFinancePolicyRow[];
+};
+
+export type CurrentSessionModuleAccess = {
+  moduleCode: string;
+  channel: string;
+  accessLevel: string;
+};
+
 export type CurrentSessionUser = {
   userId: string;
   tenantId: string;
@@ -1203,6 +1531,7 @@ export type CurrentSessionUser = {
   roles: string[];
   platformScopes: string[];
   permissionKeys: string[];
+  moduleAccess: CurrentSessionModuleAccess[];
   surface: "Root" | "TenantWeb" | "TenantDesktop" | "CustomerWeb";
 };
 

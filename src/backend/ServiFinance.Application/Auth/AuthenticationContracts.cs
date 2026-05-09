@@ -21,7 +21,13 @@ public sealed record AuthenticatedUser(
     string FullName,
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> PlatformScopes,
-    IReadOnlyList<string> PermissionKeys);
+    IReadOnlyList<string> PermissionKeys,
+    IReadOnlyList<SessionModuleAccess> ModuleAccess);
+
+public sealed record SessionModuleAccess(
+    string ModuleCode,
+    string Channel,
+    string AccessLevel);
 
 public sealed record AvailableRole(Guid Id, string Name, string PlatformScope);
 

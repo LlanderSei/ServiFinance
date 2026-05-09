@@ -69,6 +69,6 @@ internal static class UpdateAssignmentEvidenceNote {
                 evidence.SubmittedByUser!.FullName,
                 evidence.CreatedAtUtc));
             })
-            .RequireTenantSmsPermission("sms.dispatch.evidence.manage", SmsModuleCodeJobUpdates);
+            .RequireTenantSmsPermission("sms.dispatch.evidence.manage", SmsModuleCodeJobUpdates, ModuleAccessLevelIncluded);
     }
 }

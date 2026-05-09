@@ -80,6 +80,8 @@ public sealed class UserAuthenticationService(
       return null;
     }
 
+    var moduleAccess = await TenantModuleAccessResolver.ResolveAsync(dbContext, user.Tenant, cancellationToken);
+
     return new AuthenticatedUser(
         user.Id,
         user.TenantId,
@@ -88,7 +90,8 @@ public sealed class UserAuthenticationService(
         user.FullName,
         roles,
         platformScopes,
-        permissionKeys);
+        permissionKeys,
+        moduleAccess);
   }
 
   private static bool IsAllowedForSurface(

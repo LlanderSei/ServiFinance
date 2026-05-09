@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { TenantOperationalReportsResponse } from "@/shared/api/contracts";
 import { httpGet } from "@/shared/api/http";
+import { SmsModuleCodes, hasFullModuleAccess } from "@/shared/auth/permissions";
+import { getCurrentSession } from "@/shared/auth/session";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { RecordTable, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
 import { RecordContentStack, RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
@@ -30,14 +32,23 @@ import {
   WorkspaceToolbar
 } from "@/shared/records/WorkspacePanel";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
+import { useToast } from "@/shared/toast/ToastProvider";
 
 type ReportRangePreset = "7d" | "30d" | "custom";
+
+type ActionReadiness = {
+  allowed: boolean;
+  reason: string | null;
+};
 
 const defaultDateTo = formatDateInput(new Date());
 const defaultDateFrom = shiftDate(defaultDateTo, -6);
 
 export function SmsReportsPage() {
   const { tenantDomainSlug = "" } = useParams();
+  const toast = useToast();
+  const currentUser = getCurrentSession()?.user ?? null;
+  const canUseFullReports = hasFullModuleAccess(currentUser, SmsModuleCodes.reports);
   const [dateFrom, setDateFrom] = useState(defaultDateFrom);
   const [dateTo, setDateTo] = useState(defaultDateTo);
   const preset = useMemo<ReportRangePreset>(() => {
@@ -67,6 +78,19 @@ export function SmsReportsPage() {
     queryKey: ["tenant", tenantDomainSlug, "sms-reports", dateFrom, dateTo],
     queryFn: () => httpGet<TenantOperationalReportsResponse>(`/api/tenants/${tenantDomainSlug}/sms/reports/overview${reportsQueryString}`)
   });
+  const customWindowReadiness = getFullReportsReadiness(canUseFullReports, "Custom reporting windows");
+  const exportReadiness = getReportOutputReadiness(
+    canUseFullReports,
+    reportsQuery.isLoading,
+    Boolean(reportsQuery.data),
+    "Exporting report packets"
+  );
+  const printReadiness = getReportOutputReadiness(
+    canUseFullReports,
+    reportsQuery.isLoading,
+    Boolean(reportsQuery.data),
+    "Printing report packets"
+  );
 
   const distributionTotal = useMemo(
     () => (reportsQuery.data?.serviceStatusDistribution ?? []).reduce((total, row) => total + row.count, 0),
@@ -74,6 +98,14 @@ export function SmsReportsPage() {
   );
 
   function handlePresetChange(nextPreset: ReportRangePreset) {
+    if (nextPreset === "custom" && !canUseFullReports) {
+      toast.warning({
+        title: "Full reports required",
+        message: customWindowReadiness.reason ?? "Custom reporting windows require full Reports module access."
+      });
+      return;
+    }
+
     if (nextPreset === "7d") {
       setDateTo(defaultDateTo);
       setDateFrom(defaultDateFrom);
@@ -87,7 +119,11 @@ export function SmsReportsPage() {
   }
 
   function handleExportCsv() {
-    if (!reportsQuery.data) {
+    if (!exportReadiness.allowed || !reportsQuery.data) {
+      toast.warning({
+        title: "Export unavailable",
+        message: exportReadiness.reason ?? "Report export is not available right now."
+      });
       return;
     }
 
@@ -152,7 +188,11 @@ export function SmsReportsPage() {
   }
 
   function handlePrintReport() {
-    if (!reportsQuery.data) {
+    if (!printReadiness.allowed || !reportsQuery.data) {
+      toast.warning({
+        title: "Print unavailable",
+        message: printReadiness.reason ?? "Report printing is not available right now."
+      });
       return;
     }
 
@@ -418,7 +458,12 @@ export function SmsReportsPage() {
                   <WorkspaceToggleButton active={preset === "30d"} onClick={() => handlePresetChange("30d")}>
                     Last 30 days
                   </WorkspaceToggleButton>
-                  <WorkspaceToggleButton active={preset === "custom"} onClick={() => handlePresetChange("custom")}>
+                  <WorkspaceToggleButton
+                    active={preset === "custom"}
+                    onClick={() => handlePresetChange("custom")}
+                    disabled={!customWindowReadiness.allowed}
+                    title={customWindowReadiness.reason ?? undefined}
+                  >
                     Custom
                   </WorkspaceToggleButton>
                 </WorkspaceToggleGroup>
@@ -430,6 +475,8 @@ export function SmsReportsPage() {
                     type="date"
                     value={dateFrom}
                     max={dateTo}
+                    disabled={!customWindowReadiness.allowed}
+                    title={customWindowReadiness.reason ?? undefined}
                     onChange={(event) => setDateFrom(event.target.value)}
                   />
                 </WorkspaceField>
@@ -442,6 +489,8 @@ export function SmsReportsPage() {
                     value={dateTo}
                     min={dateFrom}
                     max={defaultDateTo}
+                    disabled={!customWindowReadiness.allowed}
+                    title={customWindowReadiness.reason ?? undefined}
                     onChange={(event) => setDateTo(event.target.value)}
                   />
                 </WorkspaceField>
@@ -449,7 +498,9 @@ export function SmsReportsPage() {
             </WorkspaceToolbar>
 
             <WorkspaceInlineNote className="block leading-6">
-              {reportsQuery.data
+              {!canUseFullReports
+                ? "Limited reports can review the standard 7-day and 30-day windows. Custom date windows and exports require full Reports access."
+                : reportsQuery.data
                 ? `Current window: ${formatDateOnly(reportsQuery.data.reportingWindow.dateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.dateToUtc)}. Previous window: ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateToUtc)}.`
                 : "Select a reporting window to compare current operational activity against the immediately preceding period."}
             </WorkspaceInlineNote>
@@ -834,14 +885,16 @@ export function SmsReportsPage() {
               label: "Export reports as CSV",
               icon: "download",
               onClick: handleExportCsv,
-              disabled: reportsQuery.isLoading || !reportsQuery.data
+              disabled: !exportReadiness.allowed,
+              disabledReason: exportReadiness.reason ?? undefined
             },
             {
               key: "print-report-packet",
               label: "Print report packet",
               icon: "print",
               onClick: handlePrintReport,
-              disabled: reportsQuery.isLoading || !reportsQuery.data
+              disabled: !printReadiness.allowed,
+              disabledReason: printReadiness.reason ?? undefined
             }
           ]}
         />
@@ -878,6 +931,47 @@ function formatRating(value: number | null) {
 
 function formatSignedValue(value: number) {
   return value > 0 ? `+${value}` : String(value);
+}
+
+function getFullReportsReadiness(canUseFullReports: boolean, actionLabel: string): ActionReadiness {
+  if (!canUseFullReports) {
+    return {
+      allowed: false,
+      reason: `${actionLabel} require full Reports module access.`
+    };
+  }
+
+  return { allowed: true, reason: null };
+}
+
+function getReportOutputReadiness(
+  canUseFullReports: boolean,
+  isLoading: boolean,
+  hasData: boolean,
+  actionLabel: string
+): ActionReadiness {
+  if (!canUseFullReports) {
+    return {
+      allowed: false,
+      reason: `${actionLabel} require full Reports module access.`
+    };
+  }
+
+  if (isLoading) {
+    return {
+      allowed: false,
+      reason: "Wait for the report data to finish loading."
+    };
+  }
+
+  if (!hasData) {
+    return {
+      allowed: false,
+      reason: "No report data is available to output."
+    };
+  }
+
+  return { allowed: true, reason: null };
 }
 
 function formatDeltaPercentage(value: number) {

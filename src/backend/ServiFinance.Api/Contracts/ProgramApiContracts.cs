@@ -70,6 +70,50 @@ internal sealed record SuperadminSubscriptionTierResponse(
 internal sealed record SuperadminSubscriptionCatalogResponse(
     IReadOnlyList<SuperadminSubscriptionTierResponse> Tiers,
     IReadOnlyList<SuperadminCatalogModuleResponse> Modules);
+internal sealed record SuperadminSubscriptionRecoverySummaryResponse(
+    int TotalTenantAccounts,
+    int HighRiskTenants,
+    int PaymentFailedTenants,
+    int DueSoonTenants,
+    int PastDueTenants,
+    int ReadOnlyRecommendedTenants,
+    int SuspensionReviewTenants,
+    int PendingPlanChanges,
+    int CooldownLockedTenants);
+internal sealed record SuperadminSubscriptionRecoveryRowResponse(
+    Guid TenantId,
+    string TenantName,
+    string DomainSlug,
+    string BusinessSizeSegment,
+    string SubscriptionEdition,
+    string SubscriptionPlan,
+    string SubscriptionStatus,
+    bool IsActive,
+    string BillingProvider,
+    string AccountStanding,
+    string SuspensionRisk,
+    string RecoveryStage,
+    string RecoveryStageDescription,
+    int? OverdueDays,
+    DateTime? ReadOnlyRecommendedAtUtc,
+    DateTime? SuspensionReviewAtUtc,
+    DateTime? NextRenewalDateUtc,
+    decimal? ExpectedRenewalAmount,
+    string? ExpectedRenewalCurrencyCode,
+    DateTime? LastConfirmedCoverageEndUtc,
+    string? LatestBillingStatus,
+    DateTime? LatestBillingAtUtc,
+    int PendingReviewCount,
+    string? PendingPlanChange,
+    DateTime? PendingPlanChangeEffectiveAtUtc,
+    DateTime? CooldownUntilUtc,
+    string RecommendedAction);
+internal sealed record SuperadminSubscriptionRecoveryResponse(
+    SuperadminSubscriptionRecoverySummaryResponse Summary,
+    IReadOnlyList<SuperadminSubscriptionRecoveryRowResponse> Rows);
+internal sealed record SuperadminSubscriptionRecoveryActionResponse(
+    string Message,
+    SuperadminSubscriptionRecoveryRowResponse Row);
 internal sealed record UpsertSuperadminSubscriptionTierRequest(
     string Code,
     string DisplayName,
@@ -359,6 +403,50 @@ internal sealed record TenantBillingPlanSummaryResponse(
     string? AudienceSummary,
     string? PlanSummary,
     IReadOnlyList<TenantBillingModuleAccessRowResponse> Modules);
+internal sealed record TenantBillingTierOptionResponse(
+    Guid Id,
+    string Code,
+    string DisplayName,
+    string BusinessSizeSegment,
+    string SubscriptionEdition,
+    decimal MonthlyPriceAmount,
+    string CurrencyCode,
+    string PriceDisplay,
+    string BillingLabel,
+    string AudienceSummary,
+    string PlanSummary,
+    bool IncludesServiceManagementWeb,
+    bool IncludesMicroLendingDesktop,
+    IReadOnlyList<TenantBillingModuleAccessRowResponse> Modules);
+internal sealed record TenantBillingModuleImpactRowResponse(
+    string ModuleCode,
+    string ModuleName,
+    string Channel,
+    string? CurrentAccessLevel,
+    string? TargetAccessLevel);
+internal sealed record TenantBillingWorkloadImpactRowResponse(
+    string ModuleCode,
+    string ModuleName,
+    int ActiveWorkCount,
+    string Detail);
+internal sealed record TenantBillingDowngradeImpactResponse(
+    bool IsDowngrade,
+    IReadOnlyList<TenantBillingModuleImpactRowResponse> LockedModules,
+    IReadOnlyList<TenantBillingWorkloadImpactRowResponse> WorkloadWarnings,
+    string Summary);
+internal sealed record TenantBillingPendingPlanChangeResponse(
+    Guid TargetTierId,
+    string TargetPlan,
+    string TargetEdition,
+    string TargetSegment,
+    string ChangeDirection,
+    DateTime RequestedAtUtc,
+    DateTime EffectiveAtUtc,
+    TenantBillingDowngradeImpactResponse Impact);
+internal sealed record TenantBillingChangeControlsResponse(
+    bool CanRequestChange,
+    DateTime? CooldownUntilUtc,
+    string? BlockedReason);
 internal sealed record TenantBillingStandingResponse(
     string AccountStanding,
     string SuspensionRisk,
@@ -392,8 +480,21 @@ internal sealed record TenantBillingRecordRowResponse(
 internal sealed record TenantBillingOverviewResponse(
     TenantBillingPlanSummaryResponse Plan,
     TenantBillingStandingResponse Standing,
-    IReadOnlyList<TenantBillingRecordRowResponse> History);
+    IReadOnlyList<TenantBillingRecordRowResponse> History,
+    IReadOnlyList<TenantBillingTierOptionResponse> AvailableTiers,
+    TenantBillingPendingPlanChangeResponse? PendingPlanChange,
+    TenantBillingChangeControlsResponse ChangeControls);
 internal sealed record TenantBillingPortalSessionResponse(string Url);
+internal sealed record TenantBillingPlanChangeRequest(
+    Guid TargetTierId,
+    bool ConfirmDowngrade);
+internal sealed record TenantBillingPlanChangeResponse(
+    string Message,
+    TenantBillingPendingPlanChangeResponse PendingPlanChange,
+    TenantBillingDowngradeImpactResponse Impact);
+internal sealed record TenantBillingCancelPlanChangeResponse(
+    string Message,
+    DateTime CooldownUntilUtc);
 internal sealed record TenantMlsDashboardSummaryResponse(
     int FinanceReadyInvoices,
     int ConvertedLoans,

@@ -37,7 +37,7 @@ internal static class TenantSmsPricingEndpointMappings {
               presets.Select(CreateServiceCostPresetResponse).ToList(),
               ServiceCostCategories));
         })
-        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing, ModuleAccessLevelIncluded);
 
     tenantApi.MapPut("/sms/pricing/policy", async Task<IResult> (
         HttpContext httpContext,
@@ -70,7 +70,7 @@ internal static class TenantSmsPricingEndpointMappings {
 
           return Results.Ok(CreateTenantCostingPolicyResponse(policy));
         })
-        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing, ModuleAccessLevelIncluded);
 
     tenantApi.MapPost("/sms/pricing/presets", async Task<IResult> (
         HttpContext httpContext,
@@ -106,7 +106,7 @@ internal static class TenantSmsPricingEndpointMappings {
           await dbContext.SaveChangesAsync(cancellationToken);
           return Results.Ok(CreateServiceCostPresetResponse(preset));
         })
-        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing, ModuleAccessLevelIncluded);
 
     tenantApi.MapPut("/sms/pricing/presets/{presetId:guid}", async Task<IResult> (
         HttpContext httpContext,
@@ -143,7 +143,7 @@ internal static class TenantSmsPricingEndpointMappings {
 
           return Results.Ok(CreateServiceCostPresetResponse(preset));
         })
-        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing, ModuleAccessLevelIncluded);
 
     tenantApi.MapDelete("/sms/pricing/presets/{presetId:guid}", async Task<IResult> (
         HttpContext httpContext,
@@ -166,7 +166,7 @@ internal static class TenantSmsPricingEndpointMappings {
           await dbContext.SaveChangesAsync(cancellationToken);
           return Results.NoContent();
         })
-        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing);
+        .RequireTenantSmsPermission("sms.pricing.manage", SmsModuleCodeInvoicing, ModuleAccessLevelIncluded);
 
     return tenantApi;
   }

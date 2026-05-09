@@ -3,6 +3,7 @@ import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import type { TenantMlsDashboardResponse } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { MlsModuleCodes } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { WorkspaceActionLink, WorkspaceNotice, WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
@@ -72,6 +73,7 @@ export function MlsDashboardPage() {
     <ProtectedRoute
       requireSurface="TenantDesktop"
       requirePermission="mls.dashboard.view"
+      requireModule={MlsModuleCodes.serviceLinkedLoans}
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >

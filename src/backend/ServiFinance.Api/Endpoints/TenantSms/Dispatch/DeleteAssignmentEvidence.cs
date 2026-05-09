@@ -74,6 +74,6 @@ internal static class DeleteAssignmentEvidence {
 
               return Results.NoContent();
             })
-            .RequireTenantSmsPermission("sms.dispatch.evidence.manage", SmsModuleCodeJobUpdates);
+            .RequireTenantSmsPermission("sms.dispatch.evidence.manage", SmsModuleCodeJobUpdates, ModuleAccessLevelIncluded);
     }
 }

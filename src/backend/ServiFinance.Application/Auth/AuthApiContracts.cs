@@ -51,4 +51,5 @@ public sealed record CurrentSessionUser(
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> PlatformScopes,
     IReadOnlyList<string> PermissionKeys,
+    IReadOnlyList<SessionModuleAccess> ModuleAccess,
     AuthenticationSurface Surface);

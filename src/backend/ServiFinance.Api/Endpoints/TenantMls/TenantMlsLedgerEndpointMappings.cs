@@ -130,7 +130,7 @@ internal static class TenantMlsLedgerEndpointMappings {
                   currentRunningBalance),
               entries));
         })
-        .RequireTenantMlsPermission("mls.ledger.view", MlsModuleCodeLedgerReports);
+        .RequireTenantMlsPermission("mls.ledger.view", MlsModuleCodeLedgerReports, ModuleAccessLevelIncluded);
 
     return tenantApi;
   }

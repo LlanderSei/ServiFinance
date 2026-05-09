@@ -73,6 +73,6 @@ internal static class HandoverAssignment {
               await dbContext.SaveChangesAsync(cancellationToken);
               return Results.NoContent();
             })
-            .RequireTenantSmsPermission("sms.dispatch.schedule", SmsModuleCodeScheduling);
+            .RequireTenantSmsPermission("sms.dispatch.schedule", SmsModuleCodeScheduling, ModuleAccessLevelIncluded);
     }
 }

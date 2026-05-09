@@ -126,10 +126,10 @@ export function AuthenticatedShell({ user, children }: Props) {
                 No workspace views
               </p>
               <h1 className="mt-3 text-3xl font-black tracking-[-0.05em] text-base-content">
-                This account has no view permissions yet.
+                This account has no available workspace views yet.
               </h1>
               <p className="mt-3 text-sm leading-6 text-base-content/68">
-                The account can sign in, but its assigned roles do not grant any visible workspace screens. Ask an owner or administrator to add at least one view permission to the role.
+                The account can sign in, but its assigned roles and the active tenant plan do not currently unlock any visible workspace screens. Ask an owner or administrator to add a view permission or update the plan module access.
               </p>
             </section>
           </main>

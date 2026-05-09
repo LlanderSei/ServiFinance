@@ -373,12 +373,117 @@ Current implementation:
 - Superadmin subscription management now controls which active tier exposes each SMS/MLS module, with `Included`, `Limited`, and `Not Included` tier-module access levels
 - root registration now presents the live tier catalog by Standard/Premium edition before opening a Stripe checkout modal for the chosen tier
 - MLS endpoint filters now enforce role permissions on top of the existing MLS subscription and module entitlement checks across dashboard, customer finance, settlement review, loan conversion, standalone loans, loan accounts, collections, reports, ledger, and audit
+- login and refresh session payloads now expose effective tenant module access, so the frontend can make the same subscription-entitlement decisions as the API
+- tenant SMS and MLS sidebar navigation now hides screens when either the view permission or the subscription module entitlement is missing
+- route-level SMS and MLS guards now show a plan-access message when a user has role permission but the tenant subscription tier does not include the requested module
+- `Limited` and `Included` now differ at runtime: limited modules unlock base surfaces, while full-only actions such as SMS role matrix management, pricing settings, dispatch reschedule/handover, evidence management, report exports/custom windows, and MLS ledger drilldown require `Included`
+- backend module guards now explicitly deny `Not Included` access levels instead of relying only on missing tier-module assignments
 - MLS settlement approval and rejection now use an explicit `mls.settlements.manage` permission so customer-submitted service-invoice settlement proofs can be delegated without granting broader owner or administrator authority
 - tenant billing and tenant audit APIs now use explicit billing and audit permission keys instead of broad owner/admin role checks
 - Roles & Permissions no longer renders SMS and MLS as two separate content blocks; roles, permissions, and matrix views now merge the alternate platform into the main table/list when the cross-platform toggle is enabled
+- SMS service request finance actions now expose frontend readiness states before calling the API: create request, edit costing, finalize invoice, and direct settlement buttons are disabled with permission/module/status reasons instead of relying on a backend `403`
+- the service request details modal now includes a finance-tab completion review so invoice finalization is tied more clearly to service completion, costing readiness, and settlement eligibility
+- Dispatch assignment details now keep eligible lifecycle actions visible but disabled with permission/module/status reasons for evidence, rescheduling, status movement, cancellation, handover, and abandonment
+- Customer record create/update actions now use permission-plus-Service Intake readiness with disabled reasons across table actions, FAB actions, and modal submits
+- Pricing management actions now use frontend readiness that matches the backend's full Invoicing requirement before saving costing policy or preset catalog changes
+- Reports custom windows, CSV export, and print output now expose full-Reports readiness reasons and warning toasts instead of silently no-oping when the tenant only has limited reporting access
 
 Remaining after this slice:
 
-- frontend action affordances still need a wider pass so every create/update/delete/status button is disabled or hidden from effective permission keys before a backend `403`
-- invoice-finalization is now permission-gated, but the UX still needs to be aligned more clearly to the service-completion review flow
+- remaining action-affordance work is now mostly shared/cross-scope polish, such as platform user-management edge states, root mutable-role endpoint migration, and any newly added module pages that gain write actions later
 - superadmin/root endpoints still mostly rely on the locked `SuperAdmin` role and should be migrated to root permission keys if mutable root roles are used seriously
+
+## Phase 11: Medium SMS Control Modules
+
+Goal:
+
+- give `Medium` tenants a real subscription difference over `Small` without turning SMS into a separate product.
+
+Added SMS module direction:
+
+- `W8_SLA_ESCALATIONS`: overdue service windows, due-today risk, unscheduled requests, and escalation priority
+- `W9_FEEDBACK_CRM`: customer ratings, feedback windows, low-rating follow-up, suggestion categories, and CRM-style review cues
+- `W10_PARTS_COST_CONTROL`: costing gaps, invoice readiness, preset coverage, category totals, and transparent cost exposure
+
+Current implementation:
+
+- module catalog seeding now includes `W8_SLA_ESCALATIONS`, `W9_FEEDBACK_CRM`, and `W10_PARTS_COST_CONTROL`
+- `Medium Standard` receives `W8` and `W9` as `Included`, plus `W10` as `Limited`
+- `Medium Premium` receives full `W8`, `W9`, and `W10`
+- backend SMS module constants and module labels now cover the new Medium SMS modules
+- new permission keys exist for `sms.sla-escalations.view`, `sms.feedback-crm.view`, and `sms.cost-control.view`
+- tenant SMS endpoints now expose dedicated, module-guarded read models for SLA escalations, feedback CRM, and cost control
+- tenant SMS sidebar and route guards now hide/show the new pages based on both permission and subscription module access
+- the new SMS pages reuse existing service request, feedback, costing, invoice, and assignment data instead of introducing new tables
+
+Follow-up MLS Medium implementation:
+
+- module catalog seeding now includes `D8_PORTFOLIO_RISK_DASHBOARD`, `D9_LOAN_APPROVAL_WORKFLOW`, and `D10_FINANCE_POLICY_CONTROL`
+- `Medium Premium` receives the new MLS control modules as `Included`; Standard remains SMS web-only
+- backend MLS module constants and module labels now cover the new Medium Premium desktop modules
+- new permission keys exist for `mls.portfolio-risk.view`, `mls.loan-approvals.view`, and `mls.finance-policy.view`
+- tenant MLS endpoints now expose dedicated, module-guarded read models for portfolio risk, loan approval readiness, and finance policy control
+- tenant MLS desktop sidebar and routes now hide/show the new pages based on both permission and subscription module access
+- the first approval page is intentionally read-only because persisted maker-checker approval states are not yet part of the loan schema; it reports readiness, payment-review blockers, and released loan signals from existing data
+
+## Phase 12: Subscription Recovery and Downgrade Operations
+
+Goal:
+
+- make tenant subscription failure, payment-method recovery, and downgrade cleanup visible before locked modules interrupt SMS or MLS work.
+
+Must add:
+
+- billing recovery surface that explains what happens when auto-renewal fails
+- clear recovery path for hosted provider payment-method updates or removal
+- visibility into pending downgrade locked modules and active work that should be cleared before renewal
+- shared SMS/MLS billing behavior so tenant owners see the same recovery posture regardless of workspace entry point
+
+Current implementation:
+
+- tenant billing now includes a dedicated `Recovery` tab as a separate interface file
+- recovery posture summarizes account standing, suspension risk, provider state, expected renewal amount, latest billing event, and last confirmed coverage
+- Stripe or configured-provider tenants can open the hosted billing portal from the recovery tab to update or remove the renewal payment method
+- high-risk, failed-payment, overdue, and due-soon states now show recovery notices instead of only passive billing history
+- pending downgrades now surface locked-module impact and active-work cleanup queues from the same billing workspace
+- the recovery tab is shared by SMS and MLS tenant billing because both routes use the same tenant-scoped billing workspace and provider state
+
+Next hardening candidates:
+
+- platform-side failed-renewal operations for superadmin review and manual recovery intervention
+- provider webhook coverage for unpaid, paused, cancelled, or expired subscription states if additional Stripe events are not yet synced
+- backend enforcement policy for grace periods, read-only mode, and final suspension once renewal recovery fails
+
+## Phase 13: Platform Subscription Recovery Operations
+
+Goal:
+
+- give the root platform operator a single recovery queue for failed renewals, overdue coverage, pending tenant plan switches, and downgrade cleanup readiness.
+
+Must add:
+
+- superadmin subscription-recovery endpoint that aggregates tenant standing from tenant billing records and provider state
+- root Subscription Management tab that separates catalog editing from tenant recovery operations
+- renewal-risk KPIs for high-risk tenants, payment failures, due-soon renewals, pending plan switches, and switch-cancellation cooldowns
+- recommended recovery actions so superadmin can tell whether the next step belongs to Stripe/provider recovery, tenant cleanup, billing review, or manual suspension review
+
+Current implementation:
+
+- superadmin Subscription Management now has `Catalog` and `Recovery` top-level tabs
+- `/api/superadmin/subscriptions/recovery` now returns platform-wide tenant renewal posture without adding new tables
+- the recovery queue surfaces tenant plan, billing provider, subscription status, account standing, suspension risk, next renewal date, latest billing state, pending reviews, pending plan switches, cooldown state, and recommended action
+- the recovery queue now classifies each tenant into an explicit recovery stage: `Active`, `Past due`, `Read-only recommended`, or `Suspension review`
+- the recovery response now includes overdue age, the 7-day read-only review threshold, and the 14-day suspension-review threshold so operators can see where each tenant sits in the grace policy before enforcement is automated
+- the Superadmin Recovery tab now exposes these recovery-stage counts as KPIs and shows the stage per tenant row beside the existing standing and recommended action
+- tenant SMS, MLS, and shared tenant-administration API guards now enforce the same grace policy centrally: the first overdue week stays operational, day 7+ blocks unsafe non-billing actions as read-only recovery, and day 14+ blocks non-billing tenant workspace access until recovery or platform intervention
+- the tenant Billing workspace remains accessible during read-only or suspension-review recovery so owners can open the billing portal, update payment methods, or review subscription state
+- the recovery tab reuses the existing authenticated workspace patterns and is guarded by `root.subscriptions.manage`
+- superadmin recovery now exposes intervention actions from the recovery queue: provider sync re-reads Stripe subscription status, and force suspension locks tenant workspace access once the tenant reaches suspension review
+- Stripe subscription status normalization now treats provider status casing consistently so a successful provider sync or invoice payment does not accidentally deactivate an otherwise active tenant
+- this phase now has visibility, central API enforcement, and manual platform intervention; it does not yet automatically mutate tenant status from a scheduled background reconciliation job
+
+Next hardening candidates:
+
+- automatic tenant status mutation or scheduled reconciliation when provider recovery passes the suspension-review threshold
+- optional superadmin recovery notes/contact tracking if the platform needs a persisted call log outside the audit trail
+- provider webhook expansion for cancellation, unpaid, paused, incomplete-expired, and payment-method update events

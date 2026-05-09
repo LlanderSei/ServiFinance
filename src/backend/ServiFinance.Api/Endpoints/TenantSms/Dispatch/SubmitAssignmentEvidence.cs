@@ -125,6 +125,6 @@ internal static class SubmitAssignmentEvidence {
 
               return Results.Ok(evidence);
             })
-            .RequireTenantSmsPermission("sms.dispatch.evidence.manage", SmsModuleCodeJobUpdates);
+            .RequireTenantSmsPermission("sms.dispatch.evidence.manage", SmsModuleCodeJobUpdates, ModuleAccessLevelIncluded);
     }
 }

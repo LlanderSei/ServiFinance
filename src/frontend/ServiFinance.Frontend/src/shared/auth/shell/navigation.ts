@@ -1,5 +1,10 @@
 import type { CurrentSessionUser } from "@/shared/api/contracts";
-import { hasPermission as userHasPermission } from "@/shared/auth/permissions";
+import {
+  MlsModuleCodes,
+  SmsModuleCodes,
+  hasModuleAccess as userHasModuleAccess,
+  hasPermission as userHasPermission
+} from "@/shared/auth/permissions";
 
 export type NavItem = {
   to?: string;
@@ -22,6 +27,8 @@ export type NavItem = {
   badge?: string;
   unavailableMessage?: string;
   permissionKey?: string;
+  moduleCode?: string;
+  requireFullModule?: boolean;
 };
 
 export type NavSection = {
@@ -38,7 +45,10 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
     sections
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => !item.permissionKey || userHasPermission(user, item.permissionKey))
+        items: section.items.filter((item) =>
+          (!item.permissionKey || userHasPermission(user, item.permissionKey)) &&
+          (!item.moduleCode || userHasModuleAccess(user, item.moduleCode, item.requireFullModule ? "full" : "any"))
+        )
       }))
       .filter((section) => section.items.length > 0);
 
@@ -85,14 +95,23 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
         key: "finance",
         title: "Micro-Lending",
         items: [
-          { to: `${mlsBase}/dashboard`, label: "MLS Dashboard", icon: "desktop", badge: "Desk", permissionKey: "mls.dashboard.view" },
-          { to: `${mlsBase}/customers`, label: "Customer Records", icon: "customers", permissionKey: "mls.customer-finance.view" },
-          { to: `${mlsBase}/loan-conversion`, label: "Loan Conversion", icon: "requests", permissionKey: "mls.loan-conversion.manage" },
-          { to: `${mlsBase}/standalone-loans`, label: "Standalone Loans", icon: "customers", permissionKey: "mls.standalone-loans.manage" },
-          { to: `${mlsBase}/loans`, label: "Loan Accounts", icon: "reports", permissionKey: "mls.loan-accounts.view" },
-          { to: `${mlsBase}/collections`, label: "Collections", icon: "service", permissionKey: "mls.collections.manage" },
-          { to: `${mlsBase}/reports`, label: "Reports", icon: "reports", permissionKey: "mls.reports.view" },
-          { to: `${mlsBase}/ledger`, label: "Ledger", icon: "dashboard", permissionKey: "mls.ledger.view" }
+          { to: `${mlsBase}/dashboard`, label: "MLS Dashboard", icon: "desktop", badge: "Desk", permissionKey: "mls.dashboard.view", moduleCode: MlsModuleCodes.serviceLinkedLoans },
+          { to: `${mlsBase}/customers`, label: "Customer Records", icon: "customers", permissionKey: "mls.customer-finance.view", moduleCode: MlsModuleCodes.financialRecords },
+          { to: `${mlsBase}/loan-conversion`, label: "Loan Conversion", icon: "requests", permissionKey: "mls.loan-conversion.manage", moduleCode: MlsModuleCodes.serviceLinkedLoans },
+          { to: `${mlsBase}/standalone-loans`, label: "Standalone Loans", icon: "customers", permissionKey: "mls.standalone-loans.manage", moduleCode: MlsModuleCodes.standaloneLoans },
+          { to: `${mlsBase}/loans`, label: "Loan Accounts", icon: "reports", permissionKey: "mls.loan-accounts.view", moduleCode: MlsModuleCodes.financialRecords },
+          { to: `${mlsBase}/collections`, label: "Collections", icon: "service", permissionKey: "mls.collections.manage", moduleCode: MlsModuleCodes.collectionsQueue },
+          { to: `${mlsBase}/reports`, label: "Reports", icon: "reports", permissionKey: "mls.reports.view", moduleCode: MlsModuleCodes.ledgerReports },
+          { to: `${mlsBase}/ledger`, label: "Ledger", icon: "dashboard", permissionKey: "mls.ledger.view", moduleCode: MlsModuleCodes.ledgerReports, requireFullModule: true }
+        ]
+      },
+      {
+        key: "risk-control",
+        title: "Risk & Control",
+        items: [
+          { to: `${mlsBase}/portfolio-risk`, label: "Portfolio Risk", icon: "reports", permissionKey: "mls.portfolio-risk.view", moduleCode: MlsModuleCodes.portfolioRiskDashboard },
+          { to: `${mlsBase}/loan-approvals`, label: "Loan Approvals", icon: "requests", permissionKey: "mls.loan-approvals.view", moduleCode: MlsModuleCodes.loanApprovalWorkflow },
+          { to: `${mlsBase}/finance-policy`, label: "Finance Policy", icon: "audits", permissionKey: "mls.finance-policy.view", moduleCode: MlsModuleCodes.financePolicyControl }
         ]
       },
       {
@@ -101,7 +120,14 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
         items: [
           { to: `${mlsBase}/users`, label: "Platform Users", icon: "users" as const, permissionKey: "mls.users.manage" },
           { to: `${mlsBase}/roles-permissions`, label: "Roles & Permissions", icon: "users" as const, permissionKey: "mls.roles-permissions.manage" },
-          { to: `${mlsBase}/audit`, label: "Audits", icon: "audits" as const, permissionKey: "mls.audits.view" }
+          { to: `${mlsBase}/audit`, label: "Audits", icon: "audits" as const, permissionKey: "mls.audits.view", moduleCode: MlsModuleCodes.auditLogs }
+        ]
+      },
+      {
+        key: "commercial",
+        title: "Commercial",
+        items: [
+          { to: `${mlsBase}/billing`, label: "Billing", icon: "subscriptions" as const, permissionKey: "mls.billing.view" }
         ]
       },
       {
@@ -123,11 +149,13 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
       key: "service",
       title: "Service Management",
       items: [
-        { to: `${tenantBase}/sms/dashboard`, label: "SMS Dashboard", icon: "service", permissionKey: "sms.dashboard.view" },
-        { to: `${tenantBase}/sms/customers`, label: "Customers", icon: "customers", permissionKey: "sms.customers.view" },
-        { to: `${tenantBase}/sms/service-requests`, label: "Service Requests", icon: "requests", permissionKey: "sms.service-requests.view" },
-        { to: `${tenantBase}/sms/dispatch`, label: "Dispatch", icon: "dispatch", permissionKey: "sms.dispatch.view" },
-        { to: `${tenantBase}/sms/reports`, label: "Reports", icon: "reports", permissionKey: "sms.reports.view" }
+        { to: `${tenantBase}/sms/dashboard`, label: "SMS Dashboard", icon: "service", permissionKey: "sms.dashboard.view", moduleCode: SmsModuleCodes.serviceIntake },
+        { to: `${tenantBase}/sms/customers`, label: "Customers", icon: "customers", permissionKey: "sms.customers.view", moduleCode: SmsModuleCodes.serviceIntake },
+        { to: `${tenantBase}/sms/service-requests`, label: "Service Requests", icon: "requests", permissionKey: "sms.service-requests.view", moduleCode: SmsModuleCodes.serviceIntake },
+        { to: `${tenantBase}/sms/dispatch`, label: "Dispatch", icon: "dispatch", permissionKey: "sms.dispatch.view", moduleCode: SmsModuleCodes.scheduling },
+        { to: `${tenantBase}/sms/reports`, label: "Reports", icon: "reports", permissionKey: "sms.reports.view", moduleCode: SmsModuleCodes.reports },
+        { to: `${tenantBase}/sms/sla-escalations`, label: "SLA Escalations", icon: "reports", permissionKey: "sms.sla-escalations.view", moduleCode: SmsModuleCodes.slaEscalations },
+        { to: `${tenantBase}/sms/feedback-crm`, label: "Feedback CRM", icon: "customers", permissionKey: "sms.feedback-crm.view", moduleCode: SmsModuleCodes.feedbackCrm }
       ]
     },
     {
@@ -135,15 +163,16 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
       title: "Administration",
       items: [
         { to: `${tenantBase}/sms/audits`, label: "Audits", icon: "audits" as const, permissionKey: "sms.audits.view" },
-        { to: `${tenantBase}/sms/users`, label: "Platform Users", icon: "users" as const, permissionKey: "sms.users.manage" },
-        { to: `${tenantBase}/sms/roles-permissions`, label: "Roles & Permissions", icon: "users" as const, permissionKey: "sms.roles-permissions.manage" }
+        { to: `${tenantBase}/sms/users`, label: "Platform Users", icon: "users" as const, permissionKey: "sms.users.manage", moduleCode: SmsModuleCodes.staffAccounts },
+        { to: `${tenantBase}/sms/roles-permissions`, label: "Roles & Permissions", icon: "users" as const, permissionKey: "sms.roles-permissions.manage", moduleCode: SmsModuleCodes.staffAccounts, requireFullModule: true }
       ]
     },
     {
       key: "commercial",
       title: "Commercial",
       items: [
-        { to: `${tenantBase}/sms/pricing`, label: "Pricing", icon: "subscriptions" as const, permissionKey: "sms.pricing.manage" },
+        { to: `${tenantBase}/sms/cost-control`, label: "Cost Control", icon: "subscriptions" as const, permissionKey: "sms.cost-control.view", moduleCode: SmsModuleCodes.partsCostControl },
+        { to: `${tenantBase}/sms/pricing`, label: "Pricing", icon: "subscriptions" as const, permissionKey: "sms.pricing.manage", moduleCode: SmsModuleCodes.invoicing, requireFullModule: true },
         { to: `${tenantBase}/billing`, label: "Billing", icon: "subscriptions" as const, permissionKey: "sms.billing.view" }
       ]
     },
@@ -151,7 +180,7 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
       key: "desktop-entry",
       title: "",
       items: [
-        { to: `${mlsBase}/dashboard`, label: "MLS Dashboard", icon: "desktop", badge: "Desk", permissionKey: "mls.dashboard.view" }
+        { to: `${mlsBase}/dashboard`, label: "MLS Dashboard", icon: "desktop", badge: "Desk", permissionKey: "mls.dashboard.view", moduleCode: MlsModuleCodes.serviceLinkedLoans }
       ]
     }
   ]);

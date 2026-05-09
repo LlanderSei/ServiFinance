@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { TenantMlsLedgerWorkspaceResponse } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
+import { MlsModuleCodes } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -77,6 +78,8 @@ export function MlsLedgerPage() {
     <ProtectedRoute
       requireSurface="TenantDesktop"
       requirePermission="mls.ledger.view"
+      requireModule={MlsModuleCodes.ledgerReports}
+      requireFullModule
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >

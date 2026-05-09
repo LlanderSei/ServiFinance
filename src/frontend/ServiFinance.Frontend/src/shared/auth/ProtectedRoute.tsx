@@ -5,13 +5,15 @@ import { getAuthenticatedHomeRoute } from "./routing";
 import { getCurrentSession } from "./session";
 import { useRefreshSession } from "./useRefreshSession";
 import { AuthenticatedShell } from "./AuthenticatedShell";
-import { hasPermission } from "./permissions";
+import { hasModuleAccess, hasPermission } from "./permissions";
 
 type Props = {
   children?: ReactNode;
   requireRole?: string;
   requireAnyRole?: string[];
   requirePermission?: string;
+  requireModule?: string;
+  requireFullModule?: boolean;
   tenantSlug?: string;
   requireSurface?: CurrentSessionUser["surface"];
   unauthenticatedRedirectTo?: string;
@@ -23,6 +25,8 @@ export function ProtectedRoute({
   requireRole,
   requireAnyRole,
   requirePermission,
+  requireModule,
+  requireFullModule = false,
   tenantSlug,
   requireSurface,
   unauthenticatedRedirectTo,
@@ -79,6 +83,28 @@ export function ProtectedRoute({
             </h1>
             <p className="mt-3 text-sm leading-6 text-base-content/68">
               Your account can sign in to this workspace, but the assigned role does not include <span className="font-semibold text-base-content">{requirePermission}</span>. Ask an owner or administrator to update the role before using this screen.
+            </p>
+          </section>
+        </main>
+      </AuthenticatedShell>
+    );
+  }
+
+  if (requireModule && !hasModuleAccess(session.user, requireModule, requireFullModule ? "full" : "any")) {
+    return (
+      <AuthenticatedShell user={session.user}>
+        <main className="grid h-full min-h-0 place-items-center p-6">
+          <section className="max-w-xl rounded-[2rem] border border-blue-200/80 bg-base-100 p-8 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+            <p className="text-[0.75rem] font-extrabold uppercase tracking-[0.14em] text-blue-600">
+              Plan access required
+            </p>
+            <h1 className="mt-3 text-3xl font-black tracking-[-0.05em] text-base-content">
+              {requireFullModule
+                ? "This action requires full module access."
+                : "This module is not included in the current tenant plan."}
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-base-content/68">
+              Your role can reach this workspace, but the active subscription {requireFullModule ? "only grants limited access to" : "does not include"} <span className="font-semibold text-base-content">{requireModule}</span>. Ask the tenant owner to review the Billing workspace or ask Superadmin to update the tier module assignment.
             </p>
           </section>
         </main>

@@ -30,3 +30,10 @@ public sealed record PlatformTenantRegistrationStatus(
     DateTime? ProvisionedAtUtc);
 
 public sealed record TenantBillingPortalSession(string Url);
+
+public sealed record TenantSubscriptionProviderSyncResult(
+    Guid TenantId,
+    string Provider,
+    string ProviderStatus,
+    string SubscriptionStatus,
+    bool IsActive);

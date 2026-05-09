@@ -43,6 +43,7 @@ function normalizeSessionResponse(response: AuthSessionResponse): AuthSessionRes
       ...response.user,
       platformScopes: response.user.platformScopes ?? [],
       permissionKeys: response.user.permissionKeys ?? [],
+      moduleAccess: response.user.moduleAccess ?? [],
       surface: normalizeSurface(response.user.surface as AuthSessionResponse["user"]["surface"] | number)
     }
   };

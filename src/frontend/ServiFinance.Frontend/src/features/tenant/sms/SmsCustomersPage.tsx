@@ -1,9 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import type { CreateTenantCustomerRequest, TenantCustomerRow, UpdateTenantCustomerRequest } from "@/shared/api/contracts";
+import type {
+  CreateTenantCustomerRequest,
+  CurrentSessionUser,
+  TenantCustomerRow,
+  UpdateTenantCustomerRequest
+} from "@/shared/api/contracts";
 import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
-import { hasPermission } from "@/shared/auth/permissions";
+import { SmsModuleCodes, hasModuleAccess, hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import { formatFullAddress } from "@/shared/location/formatAddress";
@@ -26,12 +31,18 @@ import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWork
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
 import { useToast } from "@/shared/toast/ToastProvider";
 
+type ActionReadiness = {
+  allowed: boolean;
+  reason: string | null;
+};
+
 export function SmsCustomersPage() {
   const { tenantDomainSlug = "" } = useParams();
   const queryClient = useQueryClient();
   const toast = useToast();
   const currentUser = getCurrentSession()?.user ?? null;
-  const canManageCustomers = hasPermission(currentUser, "sms.customers.manage");
+  const customerManageReadiness = getCustomerManageReadiness(currentUser);
+  const canManageCustomers = customerManageReadiness.allowed;
   const [selectedCustomer, setSelectedCustomer] = useState<TenantCustomerRow | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<TenantCustomerRow | null>(null);
@@ -138,7 +149,7 @@ export function SmsCustomersPage() {
     if (!canManageCustomers) {
       toast.warning({
         title: "Permission required",
-        message: "Your role cannot create customer records."
+        message: customerManageReadiness.reason ?? "Your role cannot create customer records."
       });
       return;
     }
@@ -150,7 +161,7 @@ export function SmsCustomersPage() {
     if (!canManageCustomers) {
       toast.warning({
         title: "Permission required",
-        message: "Your role cannot update customer records."
+        message: customerManageReadiness.reason ?? "Your role cannot update customer records."
       });
       return;
     }
@@ -175,7 +186,7 @@ export function SmsCustomersPage() {
     if (!canManageCustomers) {
       toast.warning({
         title: "Permission required",
-        message: "Your role cannot update customer records."
+        message: customerManageReadiness.reason ?? "Your role cannot update customer records."
       });
       return;
     }
@@ -239,6 +250,7 @@ export function SmsCustomersPage() {
                         <RecordTableActionButton
                           onClick={() => openEditModal(customer)}
                           disabled={!canManageCustomers}
+                          title={customerManageReadiness.reason ?? undefined}
                         >
                           Update
                         </RecordTableActionButton>
@@ -264,7 +276,8 @@ export function SmsCustomersPage() {
                   label: "Create customer record",
                   icon: "plus",
                   onClick: () => setIsCreateModalOpen(true),
-                  disabled: !canManageCustomers
+                  disabled: !canManageCustomers,
+                  disabledReason: customerManageReadiness.reason ?? undefined
                 }
               ]}
             />
@@ -286,6 +299,7 @@ export function SmsCustomersPage() {
                 form="tenant-customer-form"
                 tone="primary"
                 disabled={!canManageCustomers || createCustomerMutation.isPending}
+                title={customerManageReadiness.reason ?? undefined}
               >
                 {createCustomerMutation.isPending ? "Creating..." : "Create customer"}
               </WorkspaceModalButton>
@@ -354,6 +368,7 @@ export function SmsCustomersPage() {
                 form="tenant-customer-edit-form"
                 tone="primary"
                 disabled={!canManageCustomers || updateCustomerMutation.isPending || editingCustomer === null}
+                title={customerManageReadiness.reason ?? undefined}
               >
                 {updateCustomerMutation.isPending ? "Saving..." : "Save changes"}
               </WorkspaceModalButton>
@@ -416,4 +431,22 @@ export function SmsCustomersPage() {
         />
     </>
   );
+}
+
+function getCustomerManageReadiness(user: CurrentSessionUser | null): ActionReadiness {
+  if (!hasPermission(user, "sms.customers.manage")) {
+    return {
+      allowed: false,
+      reason: "Requires sms.customers.manage permission."
+    };
+  }
+
+  if (!hasModuleAccess(user, SmsModuleCodes.serviceIntake)) {
+    return {
+      allowed: false,
+      reason: "Requires Service Intake module access."
+    };
+  }
+
+  return { allowed: true, reason: null };
 }

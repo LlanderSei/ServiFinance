@@ -38,6 +38,9 @@ public static class RolePermissionCatalog {
     Permission("sms.dispatch.evidence.manage", "Manage dispatch evidence", "Dispatch", "Add or update technician evidence attached to assignments.", PlatformRolePolicy.SmsScope),
     Permission("sms.reports.view", "View operational reports", "Reports", "Review SMS operational windows, turnaround, and comparison metrics.", PlatformRolePolicy.SmsScope),
     Permission("sms.reports.export", "Export operational reports", "Reports", "Download or print SMS operational reporting outputs.", PlatformRolePolicy.SmsScope),
+    Permission("sms.sla-escalations.view", "View SLA escalations", "Service Controls", "Review overdue service windows, escalation pressure, and unscheduled request risk.", PlatformRolePolicy.SmsScope),
+    Permission("sms.feedback-crm.view", "View feedback CRM", "Customer Experience", "Review customer ratings, suggestions, pending feedback, and low-rating follow-up cues.", PlatformRolePolicy.SmsScope),
+    Permission("sms.cost-control.view", "View cost control", "Commercial", "Review service-cost exposure, preset coverage, invoice readiness, and category totals.", PlatformRolePolicy.SmsScope),
     Permission("sms.users.manage", "Manage platform users", "Administration", "Maintain tenant users and assign SMS or MLS platform roles.", PlatformRolePolicy.SmsScope),
     Permission("sms.roles-permissions.manage", "Manage SMS roles and permissions", "Administration", "Review and update mutable SMS role permission sets.", PlatformRolePolicy.SmsScope),
     Permission("sms.audits.view", "View SMS audits", "Administration", "Review SMS system and security audit events.", PlatformRolePolicy.SmsScope),
@@ -57,9 +60,14 @@ public static class RolePermissionCatalog {
     Permission("mls.reports.view", "View MLS reports", "Reports", "Review lending, collection, aging, and borrower reporting.", PlatformRolePolicy.MlsScope),
     Permission("mls.reports.export", "Export MLS reports", "Reports", "Download or print MLS reporting outputs.", PlatformRolePolicy.MlsScope),
     Permission("mls.ledger.view", "View ledger", "Ledger", "Review tenant finance ledger entries and running balance.", PlatformRolePolicy.MlsScope),
+    Permission("mls.portfolio-risk.view", "View portfolio risk", "Risk Control", "Review portfolio-at-risk exposure, overdue balances, aging buckets, and borrower risk rows.", PlatformRolePolicy.MlsScope),
+    Permission("mls.loan-approvals.view", "View loan approvals", "Approval Workflow", "Review loan approval readiness, blocked finance candidates, and release-control queues.", PlatformRolePolicy.MlsScope),
+    Permission("mls.finance-policy.view", "View finance policy control", "Policy Control", "Review interest, term, principal, and loan-policy exception signals.", PlatformRolePolicy.MlsScope),
     Permission("mls.users.manage", "Manage platform users", "Administration", "Maintain tenant users and assign SMS or MLS platform roles.", PlatformRolePolicy.MlsScope),
     Permission("mls.roles-permissions.manage", "Manage MLS roles and permissions", "Administration", "Review and update mutable MLS role permission sets.", PlatformRolePolicy.MlsScope),
-    Permission("mls.audits.view", "View MLS audits", "Administration", "Review MLS system and security audit events.", PlatformRolePolicy.MlsScope)
+    Permission("mls.audits.view", "View MLS audits", "Administration", "Review MLS system and security audit events.", PlatformRolePolicy.MlsScope),
+    Permission("mls.billing.view", "View MLS billing", "Commercial", "Review subscription standing and billing history from the MLS desktop workspace.", PlatformRolePolicy.MlsScope),
+    Permission("mls.billing.manage", "Manage MLS billing", "Commercial", "Open hosted billing portal sessions and manage renewal posture from the MLS desktop workspace.", PlatformRolePolicy.MlsScope)
   ];
 
   private static readonly DefaultRoleDefinition[] RootRoles = [
@@ -102,6 +110,7 @@ public static class RolePermissionCatalog {
         "sms.dispatch.update-status",
         "sms.dispatch.evidence.manage",
         "sms.reports.view",
+        "sms.sla-escalations.view",
         "sms.audits.view"
       ]),
     Role(
@@ -119,7 +128,10 @@ public static class RolePermissionCatalog {
         "sms.costing.manage",
         "sms.invoices.finalize",
         "sms.dispatch.view",
-        "sms.reports.view"
+        "sms.reports.view",
+        "sms.sla-escalations.view",
+        "sms.feedback-crm.view",
+        "sms.cost-control.view"
       ]),
     Role(
       PlatformRolePolicy.SmsTechnicianRole,
@@ -151,7 +163,10 @@ public static class RolePermissionCatalog {
         "mls.loan-accounts.manage",
         "mls.collections.manage",
         "mls.reports.view",
-        "mls.ledger.view"
+        "mls.ledger.view",
+        "mls.portfolio-risk.view",
+        "mls.loan-approvals.view",
+        "mls.finance-policy.view"
       ]),
     Role(
       PlatformRolePolicy.MlsCashierRole,
@@ -166,7 +181,8 @@ public static class RolePermissionCatalog {
         "mls.loan-accounts.view",
         "mls.loan-accounts.manage",
         "mls.collections.manage",
-        "mls.ledger.view"
+        "mls.ledger.view",
+        "mls.portfolio-risk.view"
       ])
   ];
 

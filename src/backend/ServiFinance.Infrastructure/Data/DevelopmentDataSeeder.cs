@@ -638,13 +638,19 @@ public sealed class DevelopmentDataSeeder(
       new("W5_INVOICING", "Invoicing And Customer Self-Service", "Web", "Create invoices and let customers track or pay service work.", 50),
       new("W6_REPORTS", "Operational Reports", "Web", "Review service activity, status, and summary reporting.", 60),
       new("W7_WORKFORCE_OVERVIEW", "Workforce Overview", "Web", "View technician workload, pending jobs, and daily assignment pressure.", 70),
+      new("W8_SLA_ESCALATIONS", "SLA Escalations", "Web", "Track overdue service windows, escalation pressure, and unscheduled request risk.", 80),
+      new("W9_FEEDBACK_CRM", "Customer Feedback CRM", "Web", "Review ratings, suggestions, pending feedback, and customer follow-up signals.", 90),
+      new("W10_PARTS_COST_CONTROL", "Parts And Cost Control", "Web", "Review cost exposure, reusable service pricing coverage, and invoice readiness.", 100),
       new("D1_SERVICE_LINKED_LOANS", "Service-Linked Micro-Loan Processing", "Desktop", "Convert service invoices into micro-loans from the desktop terminal.", 110),
       new("D2_STANDALONE_LOANS", "Standalone Loan Processing", "Desktop", "Create and manage standalone loans outside the service invoice flow.", 120),
       new("D3_FINANCIAL_RECORDS", "Customer Financial Records", "Desktop", "Review customer finance history, balances, and account state.", 130),
       new("D4_AMORTIZATION", "Amortization And Payment Posting", "Desktop", "Generate amortization schedules and post payments.", 140),
       new("D5_LEDGER_REPORTS", "Financial And Ledger Reports", "Desktop", "Review loan summaries, ledger reports, and transaction history.", 150),
       new("D6_AUDIT_LOGS", "Audit Log Review", "Desktop", "Review finance-side audit and activity history.", 160),
-      new("D7_COLLECTIONS_QUEUE", "Collections Queue", "Desktop", "Review due, overdue, and partially paid accounts for follow-up.", 170)
+      new("D7_COLLECTIONS_QUEUE", "Collections Queue", "Desktop", "Review due, overdue, and partially paid accounts for follow-up.", 170),
+      new("D8_PORTFOLIO_RISK_DASHBOARD", "Portfolio Risk Dashboard", "Desktop", "Review aging buckets, overdue exposure, delinquency trend, and portfolio-at-risk summaries.", 180),
+      new("D9_LOAN_APPROVAL_WORKFLOW", "Loan Approval Workflow", "Desktop", "Review approval readiness, maker/checker queues, limits, and release-control exceptions.", 190),
+      new("D10_FINANCE_POLICY_CONTROL", "Finance Policy Control", "Desktop", "Review loan-product rules, interest and fee settings, grace periods, and policy exceptions.", 200)
   ];
 
   private static IReadOnlyList<TierModuleSeed> GetTierModuleSeeds() => [
@@ -693,6 +699,9 @@ public sealed class DevelopmentDataSeeder(
       new(ServiFinanceDatabaseDefaults.MediumStandardSubscriptionTierId, "W5_INVOICING", "Included", 50),
       new(ServiFinanceDatabaseDefaults.MediumStandardSubscriptionTierId, "W6_REPORTS", "Included", 60),
       new(ServiFinanceDatabaseDefaults.MediumStandardSubscriptionTierId, "W7_WORKFORCE_OVERVIEW", "Included", 70),
+      new(ServiFinanceDatabaseDefaults.MediumStandardSubscriptionTierId, "W8_SLA_ESCALATIONS", "Included", 80),
+      new(ServiFinanceDatabaseDefaults.MediumStandardSubscriptionTierId, "W9_FEEDBACK_CRM", "Included", 90),
+      new(ServiFinanceDatabaseDefaults.MediumStandardSubscriptionTierId, "W10_PARTS_COST_CONTROL", "Limited", 100),
 
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "W1_SERVICE_INTAKE", "Included", 10),
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "W2_STAFF_ACCOUNTS", "Included", 20),
@@ -701,13 +710,19 @@ public sealed class DevelopmentDataSeeder(
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "W5_INVOICING", "Included", 50),
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "W6_REPORTS", "Included", 60),
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "W7_WORKFORCE_OVERVIEW", "Included", 70),
+      new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "W8_SLA_ESCALATIONS", "Included", 80),
+      new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "W9_FEEDBACK_CRM", "Included", 90),
+      new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "W10_PARTS_COST_CONTROL", "Included", 100),
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D1_SERVICE_LINKED_LOANS", "Included", 110),
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D2_STANDALONE_LOANS", "Included", 120),
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D3_FINANCIAL_RECORDS", "Included", 130),
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D4_AMORTIZATION", "Included", 140),
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D5_LEDGER_REPORTS", "Included", 150),
       new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D6_AUDIT_LOGS", "Included", 160),
-      new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D7_COLLECTIONS_QUEUE", "Included", 170)
+      new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D7_COLLECTIONS_QUEUE", "Included", 170),
+      new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D8_PORTFOLIO_RISK_DASHBOARD", "Included", 180),
+      new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D9_LOAN_APPROVAL_WORKFLOW", "Included", 190),
+      new(ServiFinanceDatabaseDefaults.MediumPremiumSubscriptionTierId, "D10_FINANCE_POLICY_CONTROL", "Included", 200)
   ];
 
   private static IReadOnlyList<DevelopmentCustomerSeed> GetDevelopmentCustomerSeeds() => [

@@ -160,7 +160,7 @@ export function WorkspaceActionButton({ className, type = "button", ...props }: 
     <button
       type={type}
       className={joinClasses(
-        "btn btn-sm rounded-full border border-base-300/70 bg-base-100/90 text-base-content shadow-none hover:bg-base-200/85",
+        "btn btn-sm rounded-full border border-base-300/70 bg-base-100/90 text-base-content shadow-none hover:bg-base-200/85 disabled:cursor-not-allowed disabled:opacity-65",
         className
       )}
       {...props}

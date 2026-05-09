@@ -171,7 +171,7 @@ export function AuthSidebar({
       <nav className="authed-nav flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden">
         {!hasVisibleNavigation ? (
           <div className="rounded-box border border-base-300/60 bg-base-200/50 p-3 text-sm leading-6 text-base-content/65">
-            {isExpanded ? "No sidebar tabs are visible because this account has no view permissions in this workspace." : "No views"}
+            {isExpanded ? "No sidebar tabs are visible because this account has no matching view permissions or included plan modules in this workspace." : "No views"}
           </div>
         ) : null}
 

@@ -130,3 +130,17 @@ export async function httpDelete(path: string): Promise<void> {
     await throwApiError(response);
   }
 }
+
+export async function httpDeleteJson<TResponse>(path: string): Promise<TResponse> {
+  const response = await fetch(await resolveApiUrl(path), await createRequestInit("DELETE", path));
+
+  if (!response.ok) {
+    await throwApiError(response);
+  }
+
+  if (response.status === 204) {
+    return undefined as TResponse;
+  }
+
+  return response.json() as Promise<TResponse>;
+}

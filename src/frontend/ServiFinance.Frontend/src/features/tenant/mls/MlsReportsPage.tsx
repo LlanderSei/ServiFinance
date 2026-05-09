@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { TenantMlsReportsWorkspaceResponse } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
-import { hasPermission } from "@/shared/auth/permissions";
+import { MlsModuleCodes, hasFullModuleAccess, hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -62,7 +62,8 @@ export function MlsReportsPage() {
   const { data } = useRefreshSession(!currentSession);
   const currentUser = (currentSession ?? data)?.user ?? null;
   const tenantDomainSlug = currentUser?.tenantDomainSlug ?? "";
-  const canExportReports = hasPermission(currentUser, "mls.reports.export");
+  const canUseFullReports = hasFullModuleAccess(currentUser, MlsModuleCodes.ledgerReports);
+  const canExportReports = canUseFullReports && hasPermission(currentUser, "mls.reports.export");
   const [preset, setPreset] = useState<ReportRangePreset>("30d");
   const [dateFrom, setDateFrom] = useState(defaultDateFrom);
   const [dateTo, setDateTo] = useState(defaultDateTo);
@@ -76,6 +77,10 @@ export function MlsReportsPage() {
   });
 
   function handlePresetChange(nextPreset: ReportRangePreset) {
+    if (!canUseFullReports && !["7d", "30d"].includes(nextPreset)) {
+      return;
+    }
+
     setPreset(nextPreset);
     if (nextPreset === "custom") {
       return;
@@ -251,6 +256,7 @@ export function MlsReportsPage() {
     <ProtectedRoute
       requireSurface="TenantDesktop"
       requirePermission="mls.reports.view"
+      requireModule={MlsModuleCodes.ledgerReports}
       unauthenticatedRedirectTo="/t/mls/"
       unauthorizedRedirectTo="/t/mls/"
     >
@@ -296,14 +302,14 @@ export function MlsReportsPage() {
                     <WorkspaceActionButton
                       onClick={handleExportCsv}
                       disabled={!reportsQuery.data || isWindowInvalid || !canExportReports}
-                      title={!canExportReports ? "Requires mls.reports.export." : undefined}
+                      title={!canUseFullReports ? "Requires full ledger reports module access." : !canExportReports ? "Requires mls.reports.export." : undefined}
                     >
                       Export CSV
                     </WorkspaceActionButton>
                     <WorkspaceActionButton
                       onClick={handlePrintPacket}
                       disabled={!reportsQuery.data || isWindowInvalid || !canExportReports}
-                      title={!canExportReports ? "Requires mls.reports.export." : undefined}
+                      title={!canUseFullReports ? "Requires full ledger reports module access." : !canExportReports ? "Requires mls.reports.export." : undefined}
                     >
                       Print packet
                     </WorkspaceActionButton>
@@ -321,13 +327,13 @@ export function MlsReportsPage() {
                     <WorkspaceToggleButton active={preset === "30d"} onClick={() => handlePresetChange("30d")}>
                       Last 30 days
                     </WorkspaceToggleButton>
-                    <WorkspaceToggleButton active={preset === "90d"} onClick={() => handlePresetChange("90d")}>
+                    <WorkspaceToggleButton active={preset === "90d"} onClick={() => handlePresetChange("90d")} disabled={!canUseFullReports}>
                       Last 90 days
                     </WorkspaceToggleButton>
-                    <WorkspaceToggleButton active={preset === "365d"} onClick={() => handlePresetChange("365d")}>
+                    <WorkspaceToggleButton active={preset === "365d"} onClick={() => handlePresetChange("365d")} disabled={!canUseFullReports}>
                       Last 365 days
                     </WorkspaceToggleButton>
-                    <WorkspaceToggleButton active={preset === "custom"} onClick={() => handlePresetChange("custom")}>
+                    <WorkspaceToggleButton active={preset === "custom"} onClick={() => handlePresetChange("custom")} disabled={!canUseFullReports}>
                       Custom
                     </WorkspaceToggleButton>
                   </WorkspaceToggleGroup>
@@ -339,6 +345,7 @@ export function MlsReportsPage() {
                       type="date"
                       value={dateFrom}
                       max={dateTo}
+                      disabled={!canUseFullReports}
                       onChange={(event) => {
                         setPreset("custom");
                         setDateFrom(event.target.value);
@@ -354,6 +361,7 @@ export function MlsReportsPage() {
                       value={dateTo}
                       min={dateFrom}
                       max={defaultDateTo}
+                      disabled={!canUseFullReports}
                       onChange={(event) => {
                         setPreset("custom");
                         setDateTo(event.target.value);
@@ -364,7 +372,9 @@ export function MlsReportsPage() {
               </WorkspaceToolbar>
 
               <WorkspaceInlineNote className="block leading-6">
-                {reportsQuery.data
+                {!canUseFullReports
+                  ? "Limited MLS reports can review standard 7-day and 30-day finance summaries. Long-range windows, custom dates, ledger drilldown, and exports require full Ledger Reports access."
+                  : reportsQuery.data
                   ? `Loaded window: ${formatDateOnly(reportsQuery.data.window.dateFromUtc)} to ${formatDateOnly(reportsQuery.data.window.dateToUtc)}.`
                   : "Select a reporting window to load the current MLS finance snapshot."}
               </WorkspaceInlineNote>

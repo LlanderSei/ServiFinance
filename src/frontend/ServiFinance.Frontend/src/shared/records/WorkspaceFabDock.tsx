@@ -6,6 +6,7 @@ export type WorkspaceFabAction = {
   icon: "plus" | "refresh" | "users" | "request" | "calendar" | "download" | "print" | "layers";
   onClick: () => void;
   disabled?: boolean;
+  disabledReason?: string;
 };
 
 type WorkspaceFabDockProps = {
@@ -45,7 +46,7 @@ export function WorkspaceFabDock({ actions }: WorkspaceFabDockProps) {
             className="btn btn-circle btn-sm pointer-events-auto h-12 w-12 border-base-300/70 bg-base-100 text-base-content shadow-sm transition-colors duration-200 hover:bg-base-200"
             onClick={action.onClick}
             aria-label={action.label}
-            title={action.label}
+            title={action.disabled && action.disabledReason ? action.disabledReason : action.label}
             disabled={action.disabled}
             tabIndex={isExpanded ? 0 : -1}
           >

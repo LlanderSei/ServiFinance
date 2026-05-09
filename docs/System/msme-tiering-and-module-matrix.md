@@ -1,6 +1,6 @@
 # ServiFinance MSME Tiering And Module Matrix
 
-Last updated: 2026-05-08
+Last updated: 2026-05-09
 
 ## 1. Product Tiering Decision
 
@@ -34,8 +34,17 @@ This keeps the solution aligned with the diagrams and avoids an unnecessary numb
 - `W5` Invoicing And Customer Self-Service
 - `W6` Operational Reports
 - `W7` Workforce Overview
+- `W8` SLA Escalations
+- `W9` Customer Feedback CRM
+- `W10` Parts And Cost Control
 
 `W7` is a lightweight added module for `Small` and `Medium`. It should only show technician workload, today's assignments, and pending jobs. It should not become a separate planning subsystem.
+
+`W8`, `W9`, and `W10` are Medium SMS control modules. They should not duplicate the core request, dispatch, reporting, or pricing pages. They should expose stronger management views:
+
+- `W8`: overdue service windows, due-today risk, unscheduled requests, and escalation priority
+- `W9`: ratings, pending feedback, expired feedback windows, low-rating follow-up, and suggestion themes
+- `W10`: costing gaps, invoice readiness, active preset coverage, category totals, and transparent cost exposure
 
 ### 2.2 Desktop Modules
 
@@ -46,15 +55,24 @@ This keeps the solution aligned with the diagrams and avoids an unnecessary numb
 - `D5` Financial And Ledger Reports
 - `D6` Audit Log Review
 - `D7` Collections Queue
+- `D8` Portfolio Risk Dashboard
+- `D9` Loan Approval Workflow
+- `D10` Finance Policy Control
 
 `D7` is a lightweight added module for `Small` and `Medium`. It should only show due today, overdue, and partially paid accounts. It should not become a full collections management suite.
+
+`D8`, `D9`, and `D10` are Medium Premium MLS control modules. They should not replace the core loan, collection, ledger, or audit pages. They should expose stronger management views:
+
+- `D8`: aging buckets, overdue exposure, due-this-week exposure, portfolio-at-risk rate, and borrower risk rows
+- `D9`: loan approval readiness, payment-review blockers, released standalone loans, and release-control signals
+- `D10`: interest-rate range, repayment-term bands, principal exposure, and policy exception visibility
 
 ## 3. Recommended Tier Matrix
 
 ### 3.1 Access Levels
 
 - `Included`: full module is available
-- `Limited`: simplified workflow is available, but advanced screens are hidden
+- `Limited`: simplified workflow is available, but advanced screens/actions are hidden or blocked
 - `Not Included`: module is not available for the tier
 
 ### 3.2 Web Access Matrix
@@ -68,6 +86,9 @@ This keeps the solution aligned with the diagrams and avoids an unnecessary numb
 | `W5` Invoicing And Customer Self-Service | Included | Included | Included | Included | Included | Included |
 | `W6` Operational Reports | Not Included | Not Included | Included | Included | Included | Included |
 | `W7` Workforce Overview | Not Included | Not Included | Included | Included | Included | Included |
+| `W8` SLA Escalations | Not Included | Not Included | Not Included | Not Included | Included | Included |
+| `W9` Customer Feedback CRM | Not Included | Not Included | Not Included | Not Included | Included | Included |
+| `W10` Parts And Cost Control | Not Included | Not Included | Not Included | Not Included | Limited | Included |
 
 ### 3.3 Desktop Access Matrix
 
@@ -80,6 +101,9 @@ This keeps the solution aligned with the diagrams and avoids an unnecessary numb
 | `D5` Financial And Ledger Reports | Not Included | Limited | Not Included | Included | Not Included | Included |
 | `D6` Audit Log Review | Not Included | Not Included | Not Included | Not Included | Not Included | Included |
 | `D7` Collections Queue | Not Included | Not Included | Not Included | Included | Not Included | Included |
+| `D8` Portfolio Risk Dashboard | Not Included | Not Included | Not Included | Not Included | Not Included | Included |
+| `D9` Loan Approval Workflow | Not Included | Not Included | Not Included | Not Included | Not Included | Included |
+| `D10` Finance Policy Control | Not Included | Not Included | Not Included | Not Included | Not Included | Included |
 
 ## 4. Recommended Interpretation Per Segment
 
@@ -114,17 +138,18 @@ Recommendation:
 
 ### 4.3 Medium
 
-`Medium` tenants do not need many new subsystems. They mainly need stronger control and visibility:
+`Medium` tenants do not need a separate product. They mainly need stronger control and visibility:
 
 - broader team coordination
 - richer financial reporting
 - audit visibility for management
+- stronger SLA, feedback, CRM, and costing oversight
 
 Recommendation:
 
-- `Medium Standard` can use the same web modules as `Small Standard`.
-- `Medium Premium` can use the same finance modules as `Small Premium` plus `Audit Log Review`.
-- Prefer broader limits and stronger reporting over introducing many medium-only modules.
+- `Medium Standard` uses the full web baseline plus `W8`, `W9`, and limited `W10`.
+- `Medium Premium` uses full `W8`, `W9`, and `W10`, plus the finance modules from `Small Premium`, `D6 Audit Log Review`, and focused MLS control modules `D8`, `D9`, and `D10`.
+- Prefer focused management/control modules over broad new subsystems.
 
 ## 5. Answer To The Module Design Question
 
@@ -156,16 +181,31 @@ Current rules:
 - Every tenant must have a `SubscriptionEdition`.
 - Every tenant should reference an active `SubscriptionTier`.
 - Effective module access is resolved from `SubscriptionTierModules`, not from hard-coded tier names.
-- `Included` and `Limited` both unlock the module surface; the UI can still simplify or disable advanced affordances for `Limited`.
+- `Included` and `Limited` both unlock the module surface; full-only routes/actions require `Included`.
 - `Not Included`, `Excluded`, missing links, and inactive catalog modules deny the module.
 - Superadmin manages tier-to-module links through the subscription catalog instead of changing code.
+
+Implemented full-only examples:
+
+- `W2 Staff Accounts And Role Assignment`: limited access keeps basic platform-user administration available, while SMS Roles & Permissions management requires full access.
+- `W3 Scheduling And Dispatch`: limited access keeps the dispatch register and basic scheduling available, while timeline, reschedule, and handover workflows require full access.
+- `W4 Job Status Updates And Job Photos`: limited access keeps status updates available, while technician evidence upload, evidence editing, and evidence deletion require full access.
+- `W5 Invoicing And Customer Self-Service`: limited access can keep service-facing invoice flow available, while tenant Pricing policy and preset management require full access.
+- `W6 Operational Reports`: limited access supports standard report windows, while custom windows and export/print actions require full access.
+- `W8 SLA Escalations`: Medium tenants can review overdue, due-today, and unscheduled service risk from a dedicated control surface.
+- `W9 Customer Feedback CRM`: Medium tenants can review ratings, customer suggestions, low-rating follow-up, and pending feedback windows.
+- `W10 Parts And Cost Control`: Medium Standard can review costing exposure and invoice gaps; Medium Premium should own full cost-control governance.
+- `D5 Financial And Ledger Reports`: limited access supports standard MLS report summaries, while long-range/custom windows, exports, and ledger drilldown require full access.
+- `D8 Portfolio Risk Dashboard`: Medium Premium can review overdue exposure, aging buckets, due-this-week balances, and portfolio-at-risk summaries from existing loans and amortization schedules.
+- `D9 Loan Approval Workflow`: Medium Premium can review approval readiness and blockers from current invoices, payment submissions, and released loans; persisted maker-checker approval decisions remain a future hardening slice.
+- `D10 Finance Policy Control`: Medium Premium can review interest, term, principal, and policy-exception signals across the MLS portfolio.
 
 Default balance:
 
 - `Micro Standard` stays SMS-focused and does not unlock MLS desktop modules.
 - `Micro Premium` unlocks service-linked MLS finance, amortization/payment posting, and limited finance reporting.
 - `Small Premium` unlocks practical MLS finance operations and collections, but not audit review.
-- `Medium Premium` unlocks the full SMS + MLS set, including `D6` audit review.
+- `Medium Premium` unlocks the full SMS + MLS set, including `D6` audit review and `D8` to `D10` control modules.
 
 Customer portal rule:
 

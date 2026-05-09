@@ -24,6 +24,7 @@ import {
   WorkspaceSubtable,
   WorkspaceSubtableShell
 } from "@/shared/records/WorkspacePanel";
+import { SuperadminSubscriptionRecoveryTab } from "./SuperadminSubscriptionRecoveryTab";
 
 type TierFormState = {
   code: string;
@@ -55,11 +56,16 @@ const editionTabs = [
   { key: "Standard", label: "Standard" },
   { key: "Premium", label: "Premium" }
 ];
+const workspaceTabs = [
+  { key: "catalog", label: "Catalog" },
+  { key: "recovery", label: "Recovery" }
+];
 const accessLevels = ["Not Included", "Limited", "Included"];
 const segmentOrder = ["Micro", "Small", "Medium"];
 const editionOrder = ["Standard", "Premium"];
 
 export function SubscriptionsPage() {
+  const [activeWorkspace, setActiveWorkspace] = useState("catalog");
   const [activeEdition, setActiveEdition] = useState("All");
   const [editorState, setEditorState] = useState<TierEditorState | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
@@ -138,98 +144,103 @@ export function SubscriptionsPage() {
         recordCount={catalog?.tiers.length ?? 0}
         singularLabel="tier"
         pluralLabel="tiers"
-        headerBottom={<WorkspaceTopTabs tabs={editionTabs} activeTab={activeEdition} onChange={setActiveEdition} />}
+        headerBottom={<WorkspaceTopTabs tabs={workspaceTabs} activeTab={activeWorkspace} onChange={setActiveWorkspace} />}
       >
-        <div className="flex min-h-0 flex-1 flex-col gap-4">
-          <WorkspaceMetricGrid className="md:grid-cols-2 xl:grid-cols-4">
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Active catalog" title={`${activeTierCount} active tiers`} />
-              <p className="text-sm text-base-content/65">Only active tiers appear in public registration and checkout.</p>
+        {activeWorkspace === "catalog" ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <WorkspaceTopTabs tabs={editionTabs} activeTab={activeEdition} onChange={setActiveEdition} />
+            <WorkspaceMetricGrid className="md:grid-cols-2 xl:grid-cols-4">
+              <WorkspacePanel>
+                <WorkspacePanelHeader eyebrow="Active catalog" title={`${activeTierCount} active tiers`} />
+                <p className="text-sm text-base-content/65">Only active tiers appear in public registration and checkout.</p>
+              </WorkspacePanel>
+              <WorkspacePanel>
+                <WorkspacePanelHeader eyebrow="Standard" title={`${standardTierCount} web plans`} />
+                <p className="text-sm text-base-content/65">Standard remains the SMS web-only commercial surface.</p>
+              </WorkspacePanel>
+              <WorkspacePanel>
+                <WorkspacePanelHeader eyebrow="Premium" title={`${premiumTierCount} web + desktop plans`} />
+                <p className="text-sm text-base-content/65">Premium extends Standard with MLS desktop modules.</p>
+              </WorkspacePanel>
+              <WorkspacePanel>
+                <WorkspacePanelHeader eyebrow="Assignments" title={`${assignedModuleCount} tier-module links`} />
+                <p className="text-sm text-base-content/65">Each link can be marked Limited or Included per tier.</p>
+              </WorkspacePanel>
+            </WorkspaceMetricGrid>
+
+            <WorkspacePanel className="min-h-0 flex-1">
+              <WorkspacePanelHeader
+                eyebrow="Catalog table"
+                title="Tiers and module coverage"
+                actions={(
+                  <button type="button" className="btn btn-primary btn-sm rounded-full" onClick={openCreateTier}>
+                    Add tier
+                  </button>
+                )}
+              />
+
+              <RecordTableShell>
+                <RecordTable>
+                  <thead>
+                    <tr>
+                      <th>Tier</th>
+                      <th>Segment</th>
+                      <th>Edition</th>
+                      <th>Delivery</th>
+                      <th>Price</th>
+                      <th>Modules</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {catalogQuery.isLoading ? (
+                      <RecordTableStateRow colSpan={8}>Loading subscription catalog...</RecordTableStateRow>
+                    ) : null}
+
+                    {catalogQuery.isError ? (
+                      <RecordTableStateRow colSpan={8} tone="error">
+                        Unable to load subscription catalog.
+                      </RecordTableStateRow>
+                    ) : null}
+
+                    {!catalogQuery.isLoading && !catalogQuery.isError && !tiers.length ? (
+                      <RecordTableStateRow colSpan={8}>No subscription tiers found for this filter.</RecordTableStateRow>
+                    ) : null}
+
+                    {tiers.map((tier) => {
+                      const includedCount = tier.modules.filter((module) => module.accessLevel === "Included").length;
+                      const limitedCount = tier.modules.filter((module) => module.accessLevel === "Limited").length;
+                      return (
+                        <tr key={tier.id}>
+                          <td>
+                            <div className="grid gap-1">
+                              <strong>{tier.displayName}</strong>
+                              <span className="text-xs text-base-content/55">{tier.code}</span>
+                            </div>
+                          </td>
+                          <td>{tier.businessSizeSegment}</td>
+                          <td>{tier.subscriptionEdition}</td>
+                          <td>{formatDelivery(tier)}</td>
+                          <td>{tier.priceDisplay}</td>
+                          <td>{includedCount} full / {limitedCount} limited</td>
+                          <td>{tier.isActive ? "Active" : "Inactive"}</td>
+                          <td>
+                            <RecordTableActionButton onClick={() => openEditTier(tier)}>
+                              Edit
+                            </RecordTableActionButton>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </RecordTable>
+              </RecordTableShell>
             </WorkspacePanel>
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Standard" title={`${standardTierCount} web plans`} />
-              <p className="text-sm text-base-content/65">Standard remains the SMS web-only commercial surface.</p>
-            </WorkspacePanel>
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Premium" title={`${premiumTierCount} web + desktop plans`} />
-              <p className="text-sm text-base-content/65">Premium extends Standard with MLS desktop modules.</p>
-            </WorkspacePanel>
-            <WorkspacePanel>
-              <WorkspacePanelHeader eyebrow="Assignments" title={`${assignedModuleCount} tier-module links`} />
-              <p className="text-sm text-base-content/65">Each link can be marked Limited or Included per tier.</p>
-            </WorkspacePanel>
-          </WorkspaceMetricGrid>
-
-          <WorkspacePanel className="min-h-0 flex-1">
-            <WorkspacePanelHeader
-              eyebrow="Catalog table"
-              title="Tiers and module coverage"
-              actions={(
-                <button type="button" className="btn btn-primary btn-sm rounded-full" onClick={openCreateTier}>
-                  Add tier
-                </button>
-              )}
-            />
-
-            <RecordTableShell>
-              <RecordTable>
-                <thead>
-                  <tr>
-                    <th>Tier</th>
-                    <th>Segment</th>
-                    <th>Edition</th>
-                    <th>Delivery</th>
-                    <th>Price</th>
-                    <th>Modules</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {catalogQuery.isLoading ? (
-                    <RecordTableStateRow colSpan={8}>Loading subscription catalog...</RecordTableStateRow>
-                  ) : null}
-
-                  {catalogQuery.isError ? (
-                    <RecordTableStateRow colSpan={8} tone="error">
-                      Unable to load subscription catalog.
-                    </RecordTableStateRow>
-                  ) : null}
-
-                  {!catalogQuery.isLoading && !catalogQuery.isError && !tiers.length ? (
-                    <RecordTableStateRow colSpan={8}>No subscription tiers found for this filter.</RecordTableStateRow>
-                  ) : null}
-
-                  {tiers.map((tier) => {
-                    const includedCount = tier.modules.filter((module) => module.accessLevel === "Included").length;
-                    const limitedCount = tier.modules.filter((module) => module.accessLevel === "Limited").length;
-                    return (
-                      <tr key={tier.id}>
-                        <td>
-                          <div className="grid gap-1">
-                            <strong>{tier.displayName}</strong>
-                            <span className="text-xs text-base-content/55">{tier.code}</span>
-                          </div>
-                        </td>
-                        <td>{tier.businessSizeSegment}</td>
-                        <td>{tier.subscriptionEdition}</td>
-                        <td>{formatDelivery(tier)}</td>
-                        <td>{tier.priceDisplay}</td>
-                        <td>{includedCount} full / {limitedCount} limited</td>
-                        <td>{tier.isActive ? "Active" : "Inactive"}</td>
-                        <td>
-                          <RecordTableActionButton onClick={() => openEditTier(tier)}>
-                            Edit
-                          </RecordTableActionButton>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </RecordTable>
-            </RecordTableShell>
-          </WorkspacePanel>
-        </div>
+          </div>
+        ) : (
+          <SuperadminSubscriptionRecoveryTab />
+        )}
       </RecordWorkspace>
 
       {editorState ? (
@@ -445,7 +456,7 @@ function TierEditorModal({
                 </WorkspaceSubtable>
               </WorkspaceSubtableShell>
               <p className="text-sm text-base-content/65">
-                Limited means the module is visible but should stay on simplified workflows. Not Included removes it from subscription entitlement checks.
+                Limited unlocks the base module but blocks full-only actions such as advanced role matrices, custom pricing settings, dispatch handovers, evidence management, ledger drilldown, and exports. Not Included removes it from subscription entitlement checks.
               </p>
             </WorkspacePanel>
           </div>

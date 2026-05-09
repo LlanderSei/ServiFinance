@@ -41,7 +41,8 @@ public sealed class CustomerAuthenticationService(
         FullName: customer.FullName,
         Roles: ["Customer"],
         PlatformScopes: [],
-        PermissionKeys: []);
+        PermissionKeys: [],
+        ModuleAccess: []);
   }
 
   public async Task<AuthenticatedUser> RegisterAsync(CustomerRegisterRequest request, CancellationToken cancellationToken = default) {
@@ -102,7 +103,8 @@ public sealed class CustomerAuthenticationService(
         FullName: customer.FullName,
         Roles: ["Customer"],
         PlatformScopes: [],
-        PermissionKeys: []);
+        PermissionKeys: [],
+        ModuleAccess: []);
   }
 
   private static string? NormalizeOptionalText(string? value) {

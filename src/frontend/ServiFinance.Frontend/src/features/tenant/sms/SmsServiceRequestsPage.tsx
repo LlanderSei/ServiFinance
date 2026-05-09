@@ -14,7 +14,7 @@ import type {
   TenantServiceRequestRow
 } from "@/shared/api/contracts";
 import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
-import { hasPermission } from "@/shared/auth/permissions";
+import { SmsModuleCodes, hasModuleAccess, hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import { formatFullAddress } from "@/shared/location/formatAddress";
@@ -85,6 +85,11 @@ type DetailSection = {
 
 type ServiceRequestDetailTab = "request" | "visit" | "finance" | "costing";
 
+type ActionReadiness = {
+  allowed: boolean;
+  reason: string | null;
+};
+
 const serviceRequestDetailTabs: Array<{ key: ServiceRequestDetailTab; label: string }> = [
   { key: "request", label: "Request Details" },
   { key: "visit", label: "Visit & Status" },
@@ -102,10 +107,13 @@ export function SmsServiceRequestsPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const currentUser = getCurrentSession()?.user ?? null;
-  const canManageRequests = hasPermission(currentUser, "sms.service-requests.manage");
-  const canManageCosting = hasPermission(currentUser, "sms.costing.manage");
-  const canFinalizeInvoices = hasPermission(currentUser, "sms.invoices.finalize");
-  const canSettleInvoices = hasPermission(currentUser, "sms.invoices.settle");
+  const hasManageRequestsPermission = hasPermission(currentUser, "sms.service-requests.manage");
+  const hasManageCostingPermission = hasPermission(currentUser, "sms.costing.manage");
+  const hasFinalizeInvoicesPermission = hasPermission(currentUser, "sms.invoices.finalize");
+  const hasSettleInvoicesPermission = hasPermission(currentUser, "sms.invoices.settle");
+  const canUseServiceIntake = hasModuleAccess(currentUser, SmsModuleCodes.serviceIntake);
+  const canUseInvoicing = hasModuleAccess(currentUser, SmsModuleCodes.invoicing);
+  const canManageCosting = hasManageCostingPermission && canUseInvoicing;
   const [selectedRequest, setSelectedRequest] = useState<TenantServiceRequestRow | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
@@ -306,13 +314,28 @@ export function SmsServiceRequestsPage() {
   const activeCostSheet = requestDetailQuery.data?.costSheet ?? null;
   const costingPolicy = requestDetailQuery.data?.costingPolicy ?? null;
   const costPresets = requestDetailQuery.data?.costPresets ?? [];
-  const canRecordDirectPayment = Boolean(
-    canSettleInvoices &&
-    activeRequest?.invoiceId &&
-    !activeRequest.hasMicroLoan &&
-    (activeRequest.invoiceOutstandingAmount ?? 0) > 0 &&
-    activeRequest.invoiceStatus !== "Payment Submitted" &&
-    activeRequest.invoiceStatus !== "Checkout Pending"
+  const createRequestReadiness = getCreateRequestReadiness(
+    hasManageRequestsPermission,
+    canUseServiceIntake,
+    customersQuery.isLoading,
+    customersQuery.data?.length ?? 0
+  );
+  const costingReadiness = getCostingReadiness(
+    activeRequest,
+    hasManageCostingPermission,
+    canUseInvoicing,
+    requestDetailQuery.isLoading,
+    Boolean(requestDetailQuery.data)
+  );
+  const finalizeInvoiceReadiness = getFinalizeInvoiceReadiness(
+    activeRequest,
+    hasFinalizeInvoicesPermission,
+    canUseInvoicing
+  );
+  const recordPaymentReadiness = getRecordPaymentReadiness(
+    activeRequest,
+    hasSettleInvoicesPermission,
+    canUseInvoicing
   );
   const costLineCategories = useMemo(
     () => [...new Set(["Base Charge", "Part Replacement", "Service", "Fee", "Other", ...costPresets.map((preset) => preset.category)])],
@@ -425,6 +448,35 @@ export function SmsServiceRequestsPage() {
               : activeRequest.canConvertToLoan
                 ? "Ready for desktop loan conversion."
                 : "Not yet eligible for loan conversion."
+          }
+        ]
+      },
+      {
+        title: "Completion review",
+        items: [
+          {
+            label: "Service completion",
+            value: activeRequest.completedAtUtc
+              ? `Completed ${formatDateTime(activeRequest.completedAtUtc)}`
+              : `Still marked as ${activeRequest.currentStatus}`
+          },
+          {
+            label: "Costing readiness",
+            value: activeCostSheet?.lines.length
+              ? `${activeCostSheet.lines.length} line${activeCostSheet.lines.length === 1 ? "" : "s"} ready, total ${formatMoney(activeCostSheet.totalAmount)}`
+              : "No cost sheet lines yet. Finalization can still use a manual subtotal if needed."
+          },
+          {
+            label: "Invoice finalization",
+            value: finalizeInvoiceReadiness.allowed
+              ? "Ready to finalize from the completed service review."
+              : finalizeInvoiceReadiness.reason ?? "Not ready for invoice finalization."
+          },
+          {
+            label: "Direct settlement",
+            value: recordPaymentReadiness.allowed
+              ? "Tenant-side cash or e-payment confirmation can be recorded."
+              : recordPaymentReadiness.reason ?? "Direct settlement is not available yet."
           }
         ]
       },
@@ -564,12 +616,12 @@ export function SmsServiceRequestsPage() {
         ]
       }
     ];
-  }, [activeCostSheet, activeRequest, requestDetailQuery.data?.attachments, requestDetailQuery.data?.auditTrail, requestDetailQuery.isLoading]);
+  }, [activeCostSheet, activeRequest, finalizeInvoiceReadiness.allowed, finalizeInvoiceReadiness.reason, recordPaymentReadiness.allowed, recordPaymentReadiness.reason, requestDetailQuery.data?.attachments, requestDetailQuery.data?.auditTrail, requestDetailQuery.isLoading]);
   const visibleRequestDetails = useMemo(() => {
     const sectionMap: Record<ServiceRequestDetailTab, string[]> = {
       request: ["Request summary", "Work details", "Provenance"],
       visit: ["Visit and availability", "Cancellation state", "Customer feedback", "Customer pictures", "Audit trail"],
-      finance: ["Finance handoff"],
+      finance: ["Finance handoff", "Completion review"],
       costing: ["Service costing"]
     };
     const allowedSections = sectionMap[activeDetailTab];
@@ -578,10 +630,10 @@ export function SmsServiceRequestsPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canManageRequests) {
+    if (!createRequestReadiness.allowed) {
       toast.warning({
         title: "Permission required",
-        message: "Your role cannot create service requests."
+        message: createRequestReadiness.reason ?? "Your account cannot create service requests."
       });
       return;
     }
@@ -606,10 +658,10 @@ export function SmsServiceRequestsPage() {
       return;
     }
 
-    if (!canFinalizeInvoices) {
+    if (!finalizeInvoiceReadiness.allowed) {
       toast.warning({
-        title: "Permission required",
-        message: "Your role cannot finalize service invoices."
+        title: "Invoice finalization unavailable",
+        message: finalizeInvoiceReadiness.reason ?? "This service request is not ready for invoice finalization."
       });
       return;
     }
@@ -634,10 +686,10 @@ export function SmsServiceRequestsPage() {
       return;
     }
 
-    if (!canFinalizeInvoices) {
+    if (!finalizeInvoiceReadiness.allowed) {
       toast.warning({
-        title: "Permission required",
-        message: "Your role cannot finalize service invoices."
+        title: "Invoice finalization unavailable",
+        message: finalizeInvoiceReadiness.reason ?? "This service request is not ready for invoice finalization."
       });
       return;
     }
@@ -656,10 +708,10 @@ export function SmsServiceRequestsPage() {
       return;
     }
 
-    if (!canSettleInvoices) {
+    if (!recordPaymentReadiness.allowed) {
       toast.warning({
-        title: "Permission required",
-        message: "Your role cannot record invoice payments."
+        title: "Direct settlement unavailable",
+        message: recordPaymentReadiness.reason ?? "This invoice is not eligible for direct payment confirmation."
       });
       return;
     }
@@ -679,10 +731,10 @@ export function SmsServiceRequestsPage() {
       return;
     }
 
-    if (!canManageCosting) {
+    if (!costingReadiness.allowed) {
       toast.warning({
-        title: "Permission required",
-        message: "Your role cannot edit service costing."
+        title: "Service costing unavailable",
+        message: costingReadiness.reason ?? "This service request is not available for costing changes."
       });
       return;
     }
@@ -716,10 +768,10 @@ export function SmsServiceRequestsPage() {
       return;
     }
 
-    if (!canManageCosting) {
+    if (!costingReadiness.allowed) {
       toast.warning({
-        title: "Permission required",
-        message: "Your role cannot save service costing."
+        title: "Service costing unavailable",
+        message: costingReadiness.reason ?? "This service request is not available for costing changes."
       });
       return;
     }
@@ -751,10 +803,10 @@ export function SmsServiceRequestsPage() {
       return;
     }
 
-    if (!canSettleInvoices) {
+    if (!recordPaymentReadiness.allowed) {
       toast.warning({
-        title: "Permission required",
-        message: "Your role cannot record invoice payments."
+        title: "Direct settlement unavailable",
+        message: recordPaymentReadiness.reason ?? "This invoice is not eligible for direct payment confirmation."
       });
       return;
     }
@@ -958,7 +1010,8 @@ export function SmsServiceRequestsPage() {
                   label: "Create service request",
                   icon: "request",
                   onClick: () => setIsCreateModalOpen(true),
-                  disabled: !canManageRequests || customersQuery.isLoading || !customersQuery.data?.length
+                  disabled: !createRequestReadiness.allowed,
+                  disabledReason: createRequestReadiness.reason ?? undefined
                 }
               ]}
             />
@@ -979,7 +1032,8 @@ export function SmsServiceRequestsPage() {
                 type="submit"
                 form="tenant-service-request-form"
                 tone="primary"
-                disabled={!canManageRequests || createRequestMutation.isPending || !customersQuery.data?.length}
+                disabled={!createRequestReadiness.allowed || createRequestMutation.isPending}
+                title={createRequestReadiness.reason ?? undefined}
               >
                 {createRequestMutation.isPending ? "Creating..." : "Create service request"}
               </WorkspaceModalButton>
@@ -1133,7 +1187,8 @@ export function SmsServiceRequestsPage() {
                 type="submit"
                 form="tenant-finalize-invoice-form"
                 tone="primary"
-                disabled={!canFinalizeInvoices || finalizeInvoiceMutation.isPending}
+                disabled={!finalizeInvoiceReadiness.allowed || finalizeInvoiceMutation.isPending}
+                title={finalizeInvoiceReadiness.reason ?? undefined}
               >
                 {finalizeInvoiceMutation.isPending ? "Finalizing..." : "Finalize invoice"}
               </WorkspaceModalButton>
@@ -1234,7 +1289,8 @@ export function SmsServiceRequestsPage() {
                 type="submit"
                 form="tenant-record-payment-form"
                 tone="primary"
-                disabled={!canSettleInvoices || recordPaymentMutation.isPending}
+                disabled={!recordPaymentReadiness.allowed || recordPaymentMutation.isPending}
+                title={recordPaymentReadiness.reason ?? undefined}
               >
                 {recordPaymentMutation.isPending ? "Recording..." : "Record payment"}
               </WorkspaceModalButton>
@@ -1313,7 +1369,8 @@ export function SmsServiceRequestsPage() {
                 type="submit"
                 form="tenant-service-cost-sheet-form"
                 tone="primary"
-                disabled={!canManageCosting || saveCostSheetMutation.isPending}
+                disabled={!costingReadiness.allowed || saveCostSheetMutation.isPending}
+                title={costingReadiness.reason ?? undefined}
               >
                 {saveCostSheetMutation.isPending ? "Saving..." : "Save cost sheet"}
               </WorkspaceModalButton>
@@ -1511,21 +1568,32 @@ export function SmsServiceRequestsPage() {
               <WorkspaceModalButton onClick={() => setSelectedRequest(null)}>
                 Close
               </WorkspaceModalButton>
-              {canManageCosting && !activeRequest.invoiceId && !["Cancelled", "Cancellation Requested", "Closed"].includes(activeRequest.currentStatus) ? (
+              {!activeRequest.invoiceId && !["Cancelled", "Cancellation Requested", "Closed"].includes(activeRequest.currentStatus) ? (
                 <WorkspaceModalButton
                   onClick={openCostingModal}
-                  disabled={requestDetailQuery.isLoading || !requestDetailQuery.data}
+                  disabled={!costingReadiness.allowed}
+                  title={costingReadiness.reason ?? undefined}
                 >
                   Edit costing
                 </WorkspaceModalButton>
               ) : null}
-              {canFinalizeInvoices && activeRequest.canFinalizeInvoice ? (
-                <WorkspaceModalButton tone="primary" onClick={openFinalizeInvoiceModal}>
+              {!activeRequest.invoiceId ? (
+                <WorkspaceModalButton
+                  tone="primary"
+                  onClick={openFinalizeInvoiceModal}
+                  disabled={!finalizeInvoiceReadiness.allowed}
+                  title={finalizeInvoiceReadiness.reason ?? undefined}
+                >
                   Finalize invoice
                 </WorkspaceModalButton>
               ) : null}
-              {canRecordDirectPayment ? (
-                <WorkspaceModalButton tone="primary" onClick={openRecordPaymentModal}>
+              {activeRequest.invoiceId ? (
+                <WorkspaceModalButton
+                  tone="primary"
+                  onClick={openRecordPaymentModal}
+                  disabled={!recordPaymentReadiness.allowed}
+                  title={recordPaymentReadiness.reason ?? undefined}
+                >
                   Record payment
                 </WorkspaceModalButton>
               ) : null}
@@ -1576,6 +1644,162 @@ function CostTotal({ label, value, strong = false }: { label: string; value: str
       <strong className={strong ? "text-lg text-base-content" : "text-base-content"}>{value}</strong>
     </div>
   );
+}
+
+function getCreateRequestReadiness(
+  hasActionPermission: boolean,
+  hasModule: boolean,
+  isLoadingCustomers: boolean,
+  customerCount: number
+): ActionReadiness {
+  const accessReason = getAccessBlockReason(
+    hasActionPermission,
+    hasModule,
+    "sms.service-requests.manage",
+    SmsModuleCodes.serviceIntake
+  );
+  if (accessReason) {
+    return { allowed: false, reason: accessReason };
+  }
+
+  if (isLoadingCustomers) {
+    return { allowed: false, reason: "Customer records are still loading." };
+  }
+
+  if (customerCount <= 0) {
+    return { allowed: false, reason: "Create at least one customer record before creating a service request." };
+  }
+
+  return { allowed: true, reason: null };
+}
+
+function getCostingReadiness(
+  request: TenantServiceRequestRow | null,
+  hasActionPermission: boolean,
+  hasModule: boolean,
+  isLoadingDetail: boolean,
+  hasDetail: boolean
+): ActionReadiness {
+  if (!request) {
+    return { allowed: false, reason: "Select a service request first." };
+  }
+
+  const accessReason = getAccessBlockReason(
+    hasActionPermission,
+    hasModule,
+    "sms.costing.manage",
+    SmsModuleCodes.invoicing
+  );
+  if (accessReason) {
+    return { allowed: false, reason: accessReason };
+  }
+
+  if (request.invoiceId) {
+    return { allowed: false, reason: "Costing is locked after invoice finalization." };
+  }
+
+  if (["Cancelled", "Cancellation Requested", "Closed"].includes(request.currentStatus)) {
+    return { allowed: false, reason: "Cancelled or closed service requests cannot be costed." };
+  }
+
+  if (isLoadingDetail) {
+    return { allowed: false, reason: "Request details are still loading." };
+  }
+
+  if (!hasDetail) {
+    return { allowed: false, reason: "Request details must be loaded before editing costing." };
+  }
+
+  return { allowed: true, reason: null };
+}
+
+function getFinalizeInvoiceReadiness(
+  request: TenantServiceRequestRow | null,
+  hasActionPermission: boolean,
+  hasModule: boolean
+): ActionReadiness {
+  if (!request) {
+    return { allowed: false, reason: "Select a service request first." };
+  }
+
+  const accessReason = getAccessBlockReason(
+    hasActionPermission,
+    hasModule,
+    "sms.invoices.finalize",
+    SmsModuleCodes.invoicing
+  );
+  if (accessReason) {
+    return { allowed: false, reason: accessReason };
+  }
+
+  if (request.invoiceId) {
+    return { allowed: false, reason: "This service request already has a finalized invoice." };
+  }
+
+  if (["Cancelled", "Cancellation Requested", "Closed"].includes(request.currentStatus)) {
+    return { allowed: false, reason: "Cancelled or closed service requests cannot be finalized for invoicing." };
+  }
+
+  if (!request.canFinalizeInvoice) {
+    return { allowed: false, reason: "Only completed service work without a finalized invoice can be finalized." };
+  }
+
+  return { allowed: true, reason: null };
+}
+
+function getRecordPaymentReadiness(
+  request: TenantServiceRequestRow | null,
+  hasActionPermission: boolean,
+  hasModule: boolean
+): ActionReadiness {
+  if (!request) {
+    return { allowed: false, reason: "Select a service request first." };
+  }
+
+  const accessReason = getAccessBlockReason(
+    hasActionPermission,
+    hasModule,
+    "sms.invoices.settle",
+    SmsModuleCodes.invoicing
+  );
+  if (accessReason) {
+    return { allowed: false, reason: accessReason };
+  }
+
+  if (!request.invoiceId) {
+    return { allowed: false, reason: "Finalize an invoice before recording a direct payment." };
+  }
+
+  if (request.hasMicroLoan) {
+    return { allowed: false, reason: "This invoice has already been converted into an MLS loan." };
+  }
+
+  if ((request.invoiceOutstandingAmount ?? 0) <= 0) {
+    return { allowed: false, reason: "This invoice has no outstanding balance left to settle." };
+  }
+
+  if (["Payment Submitted", "Checkout Pending"].includes(request.invoiceStatus ?? "")) {
+    return { allowed: false, reason: "A customer payment or checkout flow is already pending review." };
+  }
+
+  return { allowed: true, reason: null };
+}
+
+function getAccessBlockReason(
+  hasActionPermission: boolean,
+  hasModule: boolean,
+  permissionKey: string,
+  moduleCode: string
+) {
+  if (!hasActionPermission) {
+    return `Requires ${permissionKey}.`;
+  }
+
+  if (!hasModule) {
+    return `The current tenant plan does not include ${moduleCode}.`;
+  }
+
+  return null;
 }
 
 function formatMoney(amount: number) {

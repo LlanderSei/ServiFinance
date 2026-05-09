@@ -39,6 +39,11 @@ interface AssignmentDetailsModalProps {
   canManageEvidence: (evidence: TenantDispatchAssignmentEvidenceRow) => boolean;
 }
 
+type ActionReadiness = {
+  allowed: boolean;
+  reason: string | null;
+};
+
 export function AssignmentDetailsModal({
   open,
   onClose,
@@ -73,6 +78,32 @@ export function AssignmentDetailsModal({
   const activeAssignment = useMemo(() => {
     return detailData?.assignment ?? assignment;
   }, [detailData?.assignment, assignment]);
+
+  const isTerminalAssignment = activeAssignment ? isTerminalDispatchAssignment(activeAssignment) : false;
+  const evidenceReadiness = activeAssignment
+    ? getEvidenceReadiness(activeAssignment, canAddEvidenceAction, currentUserId)
+    : unavailableAction("Select an assignment first.");
+  const rescheduleReadiness = activeAssignment
+    ? getRescheduleReadiness(activeAssignment, canRescheduleAction)
+    : unavailableAction("Select an assignment first.");
+  const startWorkReadiness = activeAssignment
+    ? getStatusReadiness(activeAssignment, canUpdateStatusAction, "start work")
+    : unavailableAction("Select an assignment first.");
+  const holdReadiness = activeAssignment
+    ? getStatusReadiness(activeAssignment, canUpdateStatusAction, "put work on hold")
+    : unavailableAction("Select an assignment first.");
+  const completeReadiness = activeAssignment
+    ? getStatusReadiness(activeAssignment, canUpdateStatusAction, "mark work completed")
+    : unavailableAction("Select an assignment first.");
+  const cancelReadiness = activeAssignment
+    ? getCancelReadiness(activeAssignment, canCancel(activeAssignment))
+    : unavailableAction("Select an assignment first.");
+  const handoverReadiness = activeAssignment
+    ? getHandoverReadiness(activeAssignment, canHandover(activeAssignment))
+    : unavailableAction("Select an assignment first.");
+  const abandonReadiness = activeAssignment
+    ? getAbandonReadiness(activeAssignment, canAbandon(activeAssignment))
+    : unavailableAction("Select an assignment first.");
 
   const sections = useMemo(() => {
     if (!activeAssignment) return [];
@@ -271,77 +302,205 @@ export function AssignmentDetailsModal({
           <WorkspaceModalButton onClick={onClose}>
             Close
           </WorkspaceModalButton>
-          {canAddEvidenceAction && activeAssignment.assignedUserId === currentUserId ? (
+          {!isTerminalAssignment ? (
             <WorkspaceModalButton
               onClick={onAddEvidence}
-              disabled={isPendingEvidence}
+              disabled={!evidenceReadiness.allowed || isPendingEvidence}
+              title={evidenceReadiness.reason ?? undefined}
             >
               Add evidence
             </WorkspaceModalButton>
           ) : null}
-          {canRescheduleAction ? (
+          {!isTerminalAssignment ? (
             <WorkspaceModalButton
               onClick={onReschedule}
-              disabled={isPendingReschedule}
+              disabled={!rescheduleReadiness.allowed || isPendingReschedule}
+              title={rescheduleReadiness.reason ?? undefined}
             >
               Reschedule
             </WorkspaceModalButton>
           ) : null}
-          {canUpdateStatusAction && activeAssignment.assignmentStatus !== "In Progress" ? (
+          {!isTerminalAssignment && activeAssignment.assignmentStatus !== "In Progress" ? (
             <WorkspaceModalButton
               tone="primary"
               onClick={() => onStatusUpdate(activeAssignment, "In Progress", "In Service")}
-              disabled={isPendingStatusUpdate}
+              disabled={!startWorkReadiness.allowed || isPendingStatusUpdate}
+              title={startWorkReadiness.reason ?? undefined}
             >
               Start work
             </WorkspaceModalButton>
           ) : null}
-          {canUpdateStatusAction && activeAssignment.assignmentStatus !== "On Hold" ? (
+          {!isTerminalAssignment && activeAssignment.assignmentStatus !== "On Hold" ? (
             <WorkspaceModalButton
               onClick={() => onStatusUpdate(activeAssignment, "On Hold")}
-              disabled={isPendingStatusUpdate}
+              disabled={!holdReadiness.allowed || isPendingStatusUpdate}
+              title={holdReadiness.reason ?? undefined}
             >
               Put on hold
             </WorkspaceModalButton>
           ) : null}
-          {canUpdateStatusAction && activeAssignment.assignmentStatus !== "Completed" ? (
+          {!isTerminalAssignment ? (
             <WorkspaceModalButton
               tone="primary"
               onClick={() => onStatusUpdate(activeAssignment, "Completed")}
-              disabled={isPendingStatusUpdate}
+              disabled={!completeReadiness.allowed || isPendingStatusUpdate}
+              title={completeReadiness.reason ?? undefined}
             >
               Mark completed
             </WorkspaceModalButton>
           ) : null}
-          {canCancel(activeAssignment) && (
+          {!isTerminalAssignment ? (
             <WorkspaceModalButton
               tone="danger"
               onClick={() => onCancel(activeAssignment)}
-              disabled={isPendingCancel}
+              disabled={!cancelReadiness.allowed || isPendingCancel}
+              title={cancelReadiness.reason ?? undefined}
             >
               Cancel assignment
             </WorkspaceModalButton>
-          )}
-          {canHandover(activeAssignment) && (
+          ) : null}
+          {!isTerminalAssignment ? (
             <WorkspaceModalButton
               onClick={() => onHandover(activeAssignment)}
-              disabled={isPendingHandover}
+              disabled={!handoverReadiness.allowed || isPendingHandover}
+              title={handoverReadiness.reason ?? undefined}
             >
               Handover
             </WorkspaceModalButton>
-          )}
-          {canAbandon(activeAssignment) && (
+          ) : null}
+          {!isTerminalAssignment ? (
             <WorkspaceModalButton
               tone="danger"
               onClick={() => onAbandon(activeAssignment)}
-              disabled={isPendingAbandon}
+              disabled={!abandonReadiness.allowed || isPendingAbandon}
+              title={abandonReadiness.reason ?? undefined}
             >
               Abandon
             </WorkspaceModalButton>
-          )}
+          ) : null}
         </>
       }
       onClose={onClose}
     />
   );
+}
+
+function unavailableAction(reason: string): ActionReadiness {
+  return { allowed: false, reason };
+}
+
+function availableAction(): ActionReadiness {
+  return { allowed: true, reason: null };
+}
+
+function isTerminalDispatchAssignment(assignment: TenantDispatchAssignmentRow) {
+  return ["Completed", "Cancelled", "Abandoned"].includes(assignment.assignmentStatus);
+}
+
+function getEvidenceReadiness(
+  assignment: TenantDispatchAssignmentRow,
+  canAddEvidenceAction: boolean,
+  currentUserId: string | undefined
+): ActionReadiness {
+  if (isTerminalDispatchAssignment(assignment)) {
+    return unavailableAction("Terminal assignments cannot receive new technician evidence.");
+  }
+
+  if (!canAddEvidenceAction) {
+    return unavailableAction("Requires evidence management permission and full job update module access.");
+  }
+
+  if (assignment.assignedUserId !== currentUserId) {
+    return unavailableAction("Only the assigned staff member can add technician evidence.");
+  }
+
+  return availableAction();
+}
+
+function getRescheduleReadiness(
+  assignment: TenantDispatchAssignmentRow,
+  canRescheduleAction: boolean
+): ActionReadiness {
+  if (isTerminalDispatchAssignment(assignment)) {
+    return unavailableAction("Terminal assignments cannot be rescheduled.");
+  }
+
+  if (!canRescheduleAction) {
+    return unavailableAction("Requires dispatch scheduling permission and full scheduling module access.");
+  }
+
+  return availableAction();
+}
+
+function getStatusReadiness(
+  assignment: TenantDispatchAssignmentRow,
+  canUpdateStatusAction: boolean,
+  actionLabel: string
+): ActionReadiness {
+  if (isTerminalDispatchAssignment(assignment)) {
+    return unavailableAction(`Terminal assignments cannot ${actionLabel}.`);
+  }
+
+  if (!canUpdateStatusAction) {
+    return unavailableAction("Requires dispatch status update permission.");
+  }
+
+  return availableAction();
+}
+
+function getCancelReadiness(
+  assignment: TenantDispatchAssignmentRow,
+  canPerform: boolean
+): ActionReadiness {
+  if (canPerform) {
+    return availableAction();
+  }
+
+  if (isTerminalDispatchAssignment(assignment)) {
+    return unavailableAction("Terminal assignments cannot be cancelled.");
+  }
+
+  if (assignment.assignmentStatus === "In Progress") {
+    return unavailableAction("In-progress work must be put on hold before cancellation.");
+  }
+
+  return unavailableAction("Requires dispatch scheduling permission for an eligible assignment.");
+}
+
+function getHandoverReadiness(
+  assignment: TenantDispatchAssignmentRow,
+  canPerform: boolean
+): ActionReadiness {
+  if (canPerform) {
+    return availableAction();
+  }
+
+  if (isTerminalDispatchAssignment(assignment)) {
+    return unavailableAction("Terminal assignments cannot be handed over.");
+  }
+
+  if (assignment.assignmentStatus === "In Progress") {
+    return unavailableAction("In-progress work must be paused before handover.");
+  }
+
+  return unavailableAction("Requires dispatch scheduling permission and full scheduling module access.");
+}
+
+function getAbandonReadiness(
+  assignment: TenantDispatchAssignmentRow,
+  canPerform: boolean
+): ActionReadiness {
+  if (canPerform) {
+    return availableAction();
+  }
+
+  if (isTerminalDispatchAssignment(assignment)) {
+    return unavailableAction("Terminal assignments cannot be abandoned.");
+  }
+
+  if (assignment.assignmentStatus === "In Progress") {
+    return unavailableAction("In-progress work must be paused before abandonment.");
+  }
+
+  return unavailableAction("Requires dispatch scheduling permission for an eligible assignment.");
 }

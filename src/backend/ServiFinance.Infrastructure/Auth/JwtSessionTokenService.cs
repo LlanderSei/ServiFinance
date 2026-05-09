@@ -151,6 +151,9 @@ public sealed class JwtSessionTokenService(
     claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
     claims.AddRange(user.PlatformScopes.Select(scope => new Claim("platform_scope", scope)));
     claims.AddRange(user.PermissionKeys.Select(permissionKey => new Claim("permission_key", permissionKey)));
+    claims.AddRange(user.ModuleAccess.Select(moduleAccess => new Claim(
+        SessionModuleAccessClaims.ClaimType,
+        SessionModuleAccessClaims.ToClaimValue(moduleAccess))));
 
     var token = new JwtSecurityToken(
         issuer: _options.Issuer,
@@ -185,8 +188,9 @@ public sealed class JwtSessionTokenService(
     var roles = principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     var platformScopes = principal.FindAll("platform_scope").Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     var permissionKeys = principal.FindAll("permission_key").Select(claim => claim.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    var moduleAccess = SessionModuleAccessClaims.FromClaims(principal.Claims);
 
-    return new CurrentSessionUser(userId, tenantId, tenantDomainSlug, email, fullName, roles, platformScopes, permissionKeys, surface);
+    return new CurrentSessionUser(userId, tenantId, tenantDomainSlug, email, fullName, roles, platformScopes, permissionKeys, moduleAccess, surface);
   }
 
   private static string GenerateRefreshToken() {
@@ -223,6 +227,7 @@ public sealed class JwtSessionTokenService(
         customer.FullName,
         new[] { "Customer" },
         [],
+        [],
         []);
   }
 
@@ -254,6 +259,7 @@ public sealed class JwtSessionTokenService(
         .ToArray();
     var platformScopes = ResolvePlatformScopes(roleRows);
     var permissionKeys = ResolvePermissionKeys(roleRows);
+    var moduleAccess = await TenantModuleAccessResolver.ResolveAsync(dbContext, user.Tenant, cancellationToken);
 
     return new AuthenticatedUser(
         user.Id,
@@ -263,7 +269,8 @@ public sealed class JwtSessionTokenService(
         user.FullName,
         roles,
         platformScopes,
-        permissionKeys);
+        permissionKeys,
+        moduleAccess);
   }
 
   private static bool IsAllowedForSurface(AuthenticatedUser user, AuthenticationSurface surface) {

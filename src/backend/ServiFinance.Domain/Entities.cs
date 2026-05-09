@@ -23,6 +23,11 @@ public sealed class Tenant : Entity {
   public string BillingProvider { get; set; } = "Manual";
   public string? StripeCustomerId { get; set; }
   public string? StripeSubscriptionId { get; set; }
+  public Guid? PendingSubscriptionTierId { get; set; }
+  public DateTime? PendingSubscriptionChangeRequestedAtUtc { get; set; }
+  public DateTime? PendingSubscriptionChangeEffectiveAtUtc { get; set; }
+  public DateTime? PendingSubscriptionChangeCancelledAtUtc { get; set; }
+  public DateTime? SubscriptionChangeCooldownUntilUtc { get; set; }
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
   public bool IsActive { get; set; } = true;
 
@@ -33,6 +38,7 @@ public sealed class Tenant : Entity {
   public TenantCostingPolicy? CostingPolicy { get; set; }
   public ICollection<ServiceCostPreset> ServiceCostPresets { get; set; } = [];
   public TenantTheme? Theme { get; set; }
+  public SubscriptionTier? PendingSubscriptionTier { get; set; }
 }
 
 public sealed class TenantTheme : Entity, ITenantEntity {
