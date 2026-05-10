@@ -398,7 +398,7 @@ export function MlsCollectionsPage() {
                 <WorkspacePanelHeader eyebrow="Queue collections" title="Installments for this record" />
 
                 <WorkspaceNotice>
-                  Collections always start with the next payable installment for the selected loan. If the entered amount is larger, the remaining amount rolls forward to later unpaid installments automatically.
+                  Collections always start with the next payable installment for the selected loan. If the entered amount is larger, the remaining amount rolls forward to later unpaid installments automatically. Outstanding values already include any one-time late fee assessed after the tenant grace window expires.
                 </WorkspaceNotice>
 
                 {selectedGroup.entries.length ? (
@@ -490,6 +490,7 @@ export function MlsCollectionsPage() {
                       <div className="grid gap-3 sm:grid-cols-2">
                         <MetricCard label="Installment amount" value={formatCurrency(selectedEntry.installmentAmount)} description="Scheduled installment for this due row." />
                         <MetricCard label="Already paid" value={formatCurrency(selectedEntry.paidAmount)} description="Amount already posted against this installment." />
+                        <MetricCard label="Late fee assessed" value={formatCurrency(selectedEntry.lateFeeAmount)} description="One-time delinquency fee added once the grace period lapses." />
                         <MetricCard label="Outstanding" value={formatCurrency(selectedEntry.outstandingAmount)} description="Remaining collectible amount on the selected installment." />
                         <MetricCard label="Loan status" value={selectedEntry.loanStatus} description="Current loan lifecycle status for this collection record." />
                       </div>

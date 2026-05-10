@@ -37,6 +37,7 @@ internal static class TenantMlsReportsEndpointMappings {
           var dateFromUtc = reportWindow.DateFromUtc;
           var dateToUtc = reportWindow.DateToUtc;
           var dateToExclusiveUtc = reportWindow.DateToExclusiveUtc;
+          var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
 
           var activeLoans = await dbContext.MicroLoans
               .AsNoTracking()
@@ -46,7 +47,7 @@ internal static class TenantMlsReportsEndpointMappings {
               .ToListAsync(cancellationToken);
 
           var outstandingPortfolioBalance = activeLoans
-              .Sum(entity => RoundCurrency(entity.TotalRepayableAmount - entity.AmortizationSchedules.Sum(item => item.PaidAmount)));
+              .Sum(entity => TenantMlsLoanMath.GetOutstandingBalance(entity, lateFeePolicy, todayUtc));
 
           var overdueSchedules = await dbContext.AmortizationSchedules
               .AsNoTracking()
@@ -57,7 +58,7 @@ internal static class TenantMlsReportsEndpointMappings {
 
           var overdueBalance = overdueSchedules
               .Where(entity => entity.DueDate.Date < todayUtc)
-              .Sum(entity => RoundCurrency(entity.InstallmentAmount - entity.PaidAmount));
+              .Sum(entity => TenantMlsLoanMath.GetInstallmentOutstandingBalance(entity, lateFeePolicy, todayUtc));
 
           var rangedTransactions = await dbContext.Transactions
               .AsNoTracking()
@@ -73,7 +74,7 @@ internal static class TenantMlsReportsEndpointMappings {
               .Where(entity => entity.TransactionType is "LoanCreation" or "StandaloneLoanCreation")
               .Sum(entity => entity.DebitAmount);
 
-          var agingBuckets = BuildAgingBuckets(overdueSchedules, todayUtc);
+          var agingBuckets = BuildAgingBuckets(overdueSchedules, todayUtc, lateFeePolicy);
           var collectionTrend = BuildCollectionTrend(rangedTransactions, normalizedRangeDays);
           var transactionMix = rangedTransactions
               .GroupBy(entity => entity.TransactionType)
@@ -89,9 +90,9 @@ internal static class TenantMlsReportsEndpointMappings {
                   entity.CustomerId,
                   entity.Customer!.FullName,
                   1,
-                  RoundCurrency(entity.TotalRepayableAmount - entity.AmortizationSchedules.Sum(item => item.PaidAmount)),
+                  TenantMlsLoanMath.GetOutstandingBalance(entity, lateFeePolicy, todayUtc),
                   entity.AmortizationSchedules
-                      .Where(item => item.InstallmentStatus != "Paid")
+                      .Where(item => TenantMlsLoanMath.GetInstallmentOutstandingBalance(item, lateFeePolicy, todayUtc) > 0m)
                       .OrderBy(item => item.InstallmentNumber)
                       .Select(item => (DateOnly?)DateOnly.FromDateTime(item.DueDate))
                       .FirstOrDefault()))
@@ -171,7 +172,8 @@ internal static class TenantMlsReportsEndpointMappings {
 
   private static TenantMlsReportsAgingBucketRowResponse[] BuildAgingBuckets(
       IReadOnlyList<AmortizationSchedule> schedules,
-      DateTime todayUtc) {
+      DateTime todayUtc,
+      TenantMlsLateFeePolicySnapshot lateFeePolicy) {
     var current = new List<AmortizationSchedule>();
     var oneToThirty = new List<AmortizationSchedule>();
     var thirtyOneToSixty = new List<AmortizationSchedule>();
@@ -195,21 +197,23 @@ internal static class TenantMlsReportsEndpointMappings {
     }
 
     return [
-      CreateAgingBucket("Current", current),
-      CreateAgingBucket("1-30 days", oneToThirty),
-      CreateAgingBucket("31-60 days", thirtyOneToSixty),
-      CreateAgingBucket("61+ days", sixtyOnePlus)
+      CreateAgingBucket("Current", current, lateFeePolicy, todayUtc),
+      CreateAgingBucket("1-30 days", oneToThirty, lateFeePolicy, todayUtc),
+      CreateAgingBucket("31-60 days", thirtyOneToSixty, lateFeePolicy, todayUtc),
+      CreateAgingBucket("61+ days", sixtyOnePlus, lateFeePolicy, todayUtc)
     ];
   }
 
   private static TenantMlsReportsAgingBucketRowResponse CreateAgingBucket(
       string label,
-      IReadOnlyList<AmortizationSchedule> schedules) {
+      IReadOnlyList<AmortizationSchedule> schedules,
+      TenantMlsLateFeePolicySnapshot lateFeePolicy,
+      DateTime asOfUtc) {
     return new TenantMlsReportsAgingBucketRowResponse(
         label,
         schedules.Select(entity => entity.MicroLoanId).Distinct().Count(),
         schedules.Count,
-        RoundCurrency(schedules.Sum(entity => entity.InstallmentAmount - entity.PaidAmount)));
+        RoundCurrency(schedules.Sum(entity => TenantMlsLoanMath.GetInstallmentOutstandingBalance(entity, lateFeePolicy, asOfUtc))));
   }
 
   private static TenantMlsReportsTrendRowResponse[] BuildCollectionTrend(

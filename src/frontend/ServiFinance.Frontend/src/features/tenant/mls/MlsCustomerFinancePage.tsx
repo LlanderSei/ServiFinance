@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ApproveTenantMlsInvoicePaymentSubmissionRequest,
+  type CreateTenantCustomerRequest,
+  type CurrentSessionUser,
   type RejectTenantMlsInvoicePaymentSubmissionRequest,
   type TenantMlsCustomerFinanceDetailResponse,
   type TenantMlsCustomerFinanceRow,
@@ -10,12 +12,15 @@ import {
   type TenantMlsCustomerServiceInvoiceRow,
   type TenantMlsInvoicePaymentSubmissionRow
 } from "@/shared/api/contracts";
+import { AddressLookupField } from "@/shared/location/AddressLookupField";
+import { formatFullAddress } from "@/shared/location/formatAddress";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
-import { MlsModuleCodes, hasPermission } from "@/shared/auth/permissions";
+import { MlsModuleCodes, hasModuleAccess, hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
+import { RecordFormModal } from "@/shared/records/RecordFormModal";
 import { RecordSurfaceModal } from "@/shared/records/RecordSurfaceModal";
 import { RecordTable, RecordTableActionButton, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
 import {
@@ -29,17 +34,25 @@ import {
   WorkspaceNotice,
   WorkspaceStatusPill
 } from "@/shared/records/WorkspaceControls";
+import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
 import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import {
+  WorkspaceDetailGrid,
+  WorkspaceDetailItem,
   WorkspaceEmptyState,
   WorkspacePanel,
   WorkspacePanelHeader,
   WorkspaceSubtable,
   WorkspaceSubtableShell
 } from "@/shared/records/WorkspacePanel";
+import { useToast } from "@/shared/toast/ToastProvider";
 
 type CustomerFinanceTab = "profile" | "loans" | "settlements" | "ledger";
 type SettlementAction = "approve" | "reject" | null;
+type ActionReadiness = {
+  allowed: boolean;
+  reason: string | null;
+};
 
 const currencyFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
@@ -105,18 +118,29 @@ function isManualSettlementPending(status: string) {
 
 export function MlsCustomerFinancePage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const currentSession = getCurrentSession();
   const { data } = useRefreshSession(!currentSession);
   const currentUser = (currentSession ?? data)?.user ?? null;
   const tenantDomainSlug = currentUser?.tenantDomainSlug ?? "";
   const canManageSettlements = hasPermission(currentUser, "mls.settlements.manage");
+  const customerCreateReadiness = getMlsCustomerCreateReadiness(currentUser);
+  const canCreateCustomers = customerCreateReadiness.allowed;
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<CustomerFinanceTab>("profile");
   const [activeSettlementActionKey, setActiveSettlementActionKey] = useState<string | null>(null);
   const [activeSettlementAction, setActiveSettlementAction] = useState<SettlementAction>(null);
   const [approvedAmount, setApprovedAmount] = useState("");
   const [reviewRemarks, setReviewRemarks] = useState("");
+  const [customerForm, setCustomerForm] = useState<CreateTenantCustomerRequest>({
+    fullName: "",
+    mobileNumber: "",
+    email: "",
+    address: "",
+    addressDetails: ""
+  });
 
   const workspaceQuery = useQuery({
     queryKey: ["tenant", tenantDomainSlug, "mls-customer-finance"],
@@ -140,6 +164,40 @@ export function MlsCustomerFinancePage() {
     queryKey: ["tenant", tenantDomainSlug, "mls-customer-finance-detail", selectedCustomerId],
     queryFn: () => httpGet<TenantMlsCustomerFinanceDetailResponse>(`/api/tenants/${tenantDomainSlug}/mls/customers/${selectedCustomerId}`),
     enabled: Boolean(tenantDomainSlug && selectedCustomerId)
+  });
+
+  const createCustomerMutation = useMutation({
+    mutationFn: (payload: CreateTenantCustomerRequest) =>
+      httpPostJson<TenantMlsCustomerFinanceRow, CreateTenantCustomerRequest>(
+        `/api/tenants/${tenantDomainSlug}/mls/customers`,
+        payload
+      ),
+    onSuccess: (customer) => {
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-customer-finance"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-standalone-loans"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-customers"] });
+      setCustomerForm({
+        fullName: "",
+        mobileNumber: "",
+        email: "",
+        address: "",
+        addressDetails: ""
+      });
+      setSelectedCustomerId(customer.customerId);
+      setActiveTab("profile");
+      setIsCreateModalOpen(false);
+      setIsModalOpen(true);
+      toast.success({
+        title: "Customer record created",
+        message: "This tenant customer is now shared across MLS, SMS, and future standalone-loan selection."
+      });
+    },
+    onError: (error: Error) => {
+      toast.error({
+        title: "Unable to add customer",
+        message: error.message
+      });
+    }
   });
 
   function refreshFinanceQueries(customerId: string) {
@@ -206,6 +264,19 @@ export function MlsCustomerFinancePage() {
     setIsModalOpen(false);
   }
 
+  function handleCreateCustomerSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canCreateCustomers) {
+      toast.warning({
+        title: "Permission required",
+        message: customerCreateReadiness.reason ?? "Your role cannot add customer records from MLS."
+      });
+      return;
+    }
+
+    createCustomerMutation.mutate(customerForm);
+  }
+
   function startSettlementAction(submission: TenantMlsInvoicePaymentSubmissionRow, action: Exclude<SettlementAction, null>) {
     if (!canManageSettlements) {
       return;
@@ -263,7 +334,7 @@ export function MlsCustomerFinancePage() {
       <RecordWorkspace
         breadcrumbs={`${tenantDomainSlug} / MLS / Customer Records`}
         title="Customer financial records"
-        description="Review service invoices, loan exposure, settlement proofs, and finance transaction history from the MLS desktop workspace."
+        description="Review tenant customers, loan exposure, settlement proofs, and finance history from the MLS desktop workspace."
       >
         <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
           <aside className="min-h-0 overflow-y-auto pr-1">
@@ -275,7 +346,7 @@ export function MlsCustomerFinancePage() {
                 </WorkspaceNotice>
               ) : null}
 
-              <MetricCard label="Customers" value={String(summary?.totalBorrowers ?? 0)} description="Customers with service invoices, loan records, or MLS finance history." />
+              <MetricCard label="Customers" value={String(summary?.totalBorrowers ?? 0)} description="Tenant customers currently available for finance review and standalone-loan onboarding." />
               <MetricCard label="Open balance" value={String(summary?.activeBorrowers ?? 0)} description="Customers who still carry unpaid service invoices or active loan exposure." />
               <MetricCard label="Outstanding portfolio" value={formatCurrency(summary?.outstandingPortfolioBalance ?? 0)} description="Remaining unpaid balance across service invoices and MLS loan accounts." />
               <MetricCard label="Collected to date" value={formatCurrency(summary?.totalCollectedAmount ?? 0)} description="Approved collections and confirmed settlement amounts retained in this workspace." />
@@ -299,7 +370,7 @@ export function MlsCustomerFinancePage() {
                   <div className="grid gap-0.5">
                     <strong className="text-sm text-base-content">Customer finance workspace</strong>
                     <span className="text-sm text-base-content/65">
-                      Profile, loans, settlements, and ledger detail open inside a customer modal so the main workspace stays table-focused.
+                      Profile, loans, settlements, and ledger detail open inside a customer modal so the main workspace stays table-focused. Add a customer here first when a standalone loan begins before any SMS service intake exists.
                     </span>
                   </div>
                 </div>
@@ -336,7 +407,7 @@ export function MlsCustomerFinancePage() {
                         ))
                       ) : (
                         <RecordTableStateRow colSpan={8}>
-                          No customer finance records are available yet. Finalize a service invoice or create a loan first to populate this workspace.
+                          No tenant customer records are available yet. Add a customer here first, or let SMS intake or customer self-registration create one for this tenant.
                         </RecordTableStateRow>
                       )}
                     </tbody>
@@ -346,6 +417,88 @@ export function MlsCustomerFinancePage() {
             </WorkspacePanel>
           </section>
         </div>
+
+        <WorkspaceFabDock
+          actions={[
+            {
+              key: "add-mls-customer",
+              label: "Add customer",
+              icon: "plus",
+              onClick: () => setIsCreateModalOpen(true),
+              disabled: !canCreateCustomers,
+              disabledReason: customerCreateReadiness.reason ?? undefined
+            }
+          ]}
+        />
+
+        <RecordFormModal
+          open={isCreateModalOpen}
+          eyebrow="Borrower intake"
+          title="Add customer record"
+          description="Create a tenant customer once here, then reuse the same profile across MLS finance, SMS service intake, dispatch, and billing."
+          actions={
+            <>
+              <WorkspaceModalButton onClick={() => setIsCreateModalOpen(false)}>
+                Cancel
+              </WorkspaceModalButton>
+              <WorkspaceModalButton
+                type="submit"
+                form="mls-customer-create-form"
+                tone="primary"
+                disabled={!canCreateCustomers || createCustomerMutation.isPending}
+                title={customerCreateReadiness.reason ?? undefined}
+              >
+                {createCustomerMutation.isPending ? "Adding..." : "Add customer"}
+              </WorkspaceModalButton>
+            </>
+          }
+          onClose={() => setIsCreateModalOpen(false)}
+        >
+          <WorkspaceForm id="mls-customer-create-form" onSubmit={handleCreateCustomerSubmit}>
+            <WorkspaceFieldGrid>
+              <WorkspaceField label="Full name">
+                <WorkspaceInput
+                  value={customerForm.fullName}
+                  onChange={(event) => setCustomerForm((current) => ({ ...current, fullName: event.target.value }))}
+                  required
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Mobile number">
+                <WorkspaceInput
+                  value={customerForm.mobileNumber}
+                  onChange={(event) => setCustomerForm((current) => ({ ...current, mobileNumber: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <WorkspaceField label="Email">
+                <WorkspaceInput
+                  type="email"
+                  value={customerForm.email}
+                  onChange={(event) => setCustomerForm((current) => ({ ...current, email: event.target.value }))}
+                />
+              </WorkspaceField>
+
+              <AddressLookupField
+                className="md:col-span-2"
+                label="Address"
+                value={customerForm.address}
+                onChange={(value) => setCustomerForm((current) => ({ ...current, address: value }))}
+                placeholder="Enter the borrower's address"
+                variant="workspace"
+              />
+
+              <WorkspaceField label="Address details / landmark" wide={true}>
+                <textarea
+                  className="textarea textarea-bordered min-h-24 w-full border-base-300/70 bg-base-100/95 text-base-content shadow-none"
+                  value={customerForm.addressDetails}
+                  onChange={(event) => setCustomerForm((current) => ({ ...current, addressDetails: event.target.value }))}
+                  placeholder="Unit, lot, building, floor, landmark, gate color, or access directions"
+                />
+              </WorkspaceField>
+            </WorkspaceFieldGrid>
+          </WorkspaceForm>
+        </RecordFormModal>
 
         <CustomerFinanceModal
           open={isModalOpen}
@@ -580,6 +733,12 @@ function CustomerProfileTab({ customer, latestLoanLabel, serviceInvoices }: Cust
                 This customer currently has no loan account rows. Service invoice settlements may still be active.
               </WorkspaceNotice>
             )}
+
+            <WorkspaceDetailGrid>
+              <WorkspaceDetailItem label="Mobile" value={customer.mobileNumber || "Not provided"} />
+              <WorkspaceDetailItem label="Email" value={customer.email || "Not provided"} />
+              <WorkspaceDetailItem label="Address" value={formatFullAddress(customer.address, customer.addressDetails)} />
+            </WorkspaceDetailGrid>
           </div>
         </WorkspacePanel>
 
@@ -927,4 +1086,22 @@ function CustomerLedgerTab({ detail }: CustomerLedgerTabProps) {
       </WorkspacePanel>
     </div>
   );
+}
+
+function getMlsCustomerCreateReadiness(user: CurrentSessionUser | null): ActionReadiness {
+  if (!hasPermission(user, "mls.standalone-loans.manage")) {
+    return {
+      allowed: false,
+      reason: "Requires mls.standalone-loans.manage permission."
+    };
+  }
+
+  if (!hasModuleAccess(user, MlsModuleCodes.standaloneLoans)) {
+    return {
+      allowed: false,
+      reason: "Requires Standalone Loan Processing module access."
+    };
+  }
+
+  return { allowed: true, reason: null };
 }

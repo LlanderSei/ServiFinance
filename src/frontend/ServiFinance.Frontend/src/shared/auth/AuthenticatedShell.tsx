@@ -1,7 +1,15 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { startTransition, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { CurrentSessionUser } from "@/shared/api/contracts";
 import { isDesktopShell } from "@/platform/runtime";
+import {
+  applyTenantBrandingToDocument,
+  clearTenantBrandingFromDocument,
+  defaultTenantBranding,
+  fetchTenantBranding,
+  tenantBrandingQueryKey
+} from "@/shared/tenant/tenantBranding";
 import { AuthSidebar } from "./shell/AuthSidebar";
 import { buildAuthSections } from "./shell/navigation";
 
@@ -17,9 +25,20 @@ const SIDEBAR_THEME_KEY = "sf:sidebar:theme";
 type ShellTheme = "light" | "dark";
 
 export function AuthenticatedShell({ user, children }: Props) {
-  const sections = useMemo(() => buildAuthSections(user), [user]);
+  const [shellUser, setShellUser] = useState(user);
+  const sections = useMemo(() => buildAuthSections(shellUser), [shellUser]);
   const desktopShell = isDesktopShell();
-  const hasAnyVisiblePermission = user.surface === "CustomerWeb" || sections.some((section) => section.items.length > 0);
+  const hasAnyVisiblePermission = shellUser.surface === "CustomerWeb" || sections.some((section) => section.items.length > 0);
+  const canUseTenantBranding = shellUser.surface !== "Root" && Boolean(shellUser.tenantDomainSlug);
+  const tenantBrandingQuery = useQuery({
+    queryKey: tenantBrandingQueryKey(shellUser.tenantDomainSlug),
+    queryFn: () => fetchTenantBranding(shellUser.tenantDomainSlug),
+    enabled: canUseTenantBranding,
+    staleTime: 60_000
+  });
+  const tenantBranding = canUseTenantBranding
+    ? tenantBrandingQuery.data ?? { ...defaultTenantBranding, domainSlug: shellUser.tenantDomainSlug }
+    : null;
 
   const [isExpanded, setIsExpanded] = useState(() => {
     if (typeof window === "undefined") {
@@ -55,6 +74,27 @@ export function AuthenticatedShell({ user, children }: Props) {
     const saved = window.localStorage.getItem(SIDEBAR_THEME_KEY);
     return saved === "dark" ? "dark" : "light";
   });
+
+  useEffect(() => {
+    setShellUser(user);
+  }, [user]);
+
+  useEffect(() => {
+    if (!canUseTenantBranding) {
+      clearTenantBrandingFromDocument();
+      return;
+    }
+
+    if (!tenantBrandingQuery.data) {
+      return;
+    }
+
+    applyTenantBrandingToDocument(tenantBrandingQuery.data);
+
+    return () => {
+      clearTenantBrandingFromDocument();
+    };
+  }, [canUseTenantBranding, tenantBrandingQuery.data]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -93,15 +133,20 @@ export function AuthenticatedShell({ user, children }: Props) {
     : theme === "dark"
       ? "bg-[#0d1220]"
       : "bg-[#f3f6fc]";
+  const shellStyle = tenantBranding?.pageBackgroundColor
+    ? ({ background: tenantBranding.pageBackgroundColor } satisfies CSSProperties)
+    : undefined;
 
   return (
     <div
       data-platform={desktopShell ? "desktop" : "web"}
       data-theme={theme === "dark" ? "servifinance-dark" : "servifinance-light"}
       className={`grid h-dvh min-h-0 grid-cols-1 overflow-hidden text-base-content ${shellTransitionClass} ${shellWidthClass} ${shellThemeClass}`}
+      style={shellStyle}
     >
       <AuthSidebar
-        user={user}
+        user={shellUser}
+        tenantBranding={tenantBranding}
         sections={sections}
         isExpanded={isExpanded}
         theme={theme}
@@ -113,6 +158,14 @@ export function AuthenticatedShell({ user, children }: Props) {
             setCollapsedSections((current) => ({
               ...current,
               [sectionKey]: !current[sectionKey]
+            }));
+          })
+        }
+        onUserUpdated={(patch) =>
+          startTransition(() => {
+            setShellUser((current) => ({
+              ...current,
+              ...patch
             }));
           })
         }

@@ -23,7 +23,8 @@ export type NavItem = {
     | "requests"
     | "dispatch"
     | "reports"
-    | "audits";
+    | "audits"
+    | "branding";
   badge?: string;
   unavailableMessage?: string;
   permissionKey?: string;
@@ -164,7 +165,8 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
       items: [
         { to: `${tenantBase}/sms/audits`, label: "Audits", icon: "audits" as const, permissionKey: "sms.audits.view" },
         { to: `${tenantBase}/sms/users`, label: "Platform Users", icon: "users" as const, permissionKey: "sms.users.manage", moduleCode: SmsModuleCodes.staffAccounts },
-        { to: `${tenantBase}/sms/roles-permissions`, label: "Roles & Permissions", icon: "users" as const, permissionKey: "sms.roles-permissions.manage", moduleCode: SmsModuleCodes.staffAccounts, requireFullModule: true }
+        { to: `${tenantBase}/sms/roles-permissions`, label: "Roles & Permissions", icon: "users" as const, permissionKey: "sms.roles-permissions.manage", moduleCode: SmsModuleCodes.staffAccounts, requireFullModule: true },
+        { to: `${tenantBase}/sms/branding`, label: "Branding", icon: "branding" as const, permissionKey: "sms.branding.manage" }
       ]
     },
     {

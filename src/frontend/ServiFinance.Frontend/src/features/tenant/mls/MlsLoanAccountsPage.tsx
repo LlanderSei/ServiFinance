@@ -624,7 +624,7 @@ function LoanPaymentPostingTab({
             </WorkspaceFieldGrid>
 
             <WorkspaceNotice>
-              Payment posting allocates against unpaid installments in order and refreshes remaining balance immediately after save.
+              Payment posting allocates against unpaid installments in order and refreshes remaining balance immediately after save. When an installment is already beyond the tenant grace period, any one-time late fee is included in the outstanding balance before the payment is distributed.
             </WorkspaceNotice>
           </WorkspaceForm>
         </WorkspacePanel>

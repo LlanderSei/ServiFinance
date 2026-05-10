@@ -61,6 +61,22 @@ export function getCurrentSession() {
   return currentSession;
 }
 
+export function updateCurrentSessionUser(patch: Partial<AuthSessionResponse["user"]>) {
+  if (!currentSession) {
+    return null;
+  }
+
+  currentSession = normalizeSessionResponse({
+    ...currentSession,
+    user: {
+      ...currentSession.user,
+      ...patch
+    }
+  });
+  accessToken = currentSession.tokens.accessToken;
+  return currentSession;
+}
+
 export async function applySession(response: AuthSessionResponse, options: ApplySessionOptions = {}) {
   const normalizedResponse = normalizeSessionResponse(response);
   accessToken = normalizedResponse.tokens.accessToken;

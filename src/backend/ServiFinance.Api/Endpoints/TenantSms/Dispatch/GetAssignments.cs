@@ -37,7 +37,7 @@ internal static class GetAssignments {
               .Include(entity => entity.AssignedByUser)
               .AsQueryable();
 
-              if (!IsTenantAdministrator(httpContext.User)) {
+              if (!CanViewAllTenantDispatchAssignments(httpContext.User)) {
                 assignmentQuery = assignmentQuery.Where(entity => entity.AssignedUserId == currentUserId);
               }
 

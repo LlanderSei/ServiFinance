@@ -3,6 +3,7 @@ namespace ServiFinance.Api.Endpoints;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Api.Services;
 using ServiFinance.Application.Payments;
 using ServiFinance.Domain;
 using ServiFinance.Infrastructure.Data;
@@ -19,7 +20,6 @@ internal static class CustomerPortalApiEndpointMappings {
   private const int FeedbackCommentsMaxLength = 1000;
   private const int FeedbackSuggestionCategoryMaxLength = 80;
   private const int FeedbackWindowDays = 7;
-  private const long AttachmentMaxBytes = 5 * 1024 * 1024;
   private const int PaymentMethodMaxLength = 80;
   private const int PaymentReferenceNumberMaxLength = 120;
   private const int PaymentNoteMaxLength = 1000;
@@ -712,7 +712,7 @@ internal static class CustomerPortalApiEndpointMappings {
         ClaimsPrincipal user,
         HttpRequest httpRequest,
         [FromForm] SubmitCustomerServiceRequestAttachmentRequest payload,
-        IWebHostEnvironment environment,
+        IImageUploadService imageUploadService,
         ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
           var customerId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -745,43 +745,30 @@ internal static class CustomerPortalApiEndpointMappings {
             return Results.BadRequest(new { error = "Select at least one picture to upload." });
           }
 
-          var webRootPath = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
-          var uploadDirectory = Path.Combine(
-              webRootPath,
-              "uploads",
-              "service-request-attachments",
-              tenantDomainSlug,
-              id.ToString("N"));
-          Directory.CreateDirectory(uploadDirectory);
+          IReadOnlyList<ImageUploadResult> uploads;
+          try {
+            uploads = await imageUploadService.UploadBatchAsync(
+                files,
+                new ImageUploadContext(
+                    ImageUploadPurpose.CustomerRequestAttachment,
+                    tenantDomainSlug,
+                    customerId.ToString("N"),
+                    $"service-request-{id:N}"),
+                cancellationToken);
+          } catch (ImageUploadException exception) {
+            return Results.Json(
+                new { error = exception.Message },
+                statusCode: exception.StatusCode);
+          }
 
-          foreach (var file in files) {
-            if (file.Length <= 0) {
-              continue;
-            }
-
-            if (file.Length > AttachmentMaxBytes) {
-              return Results.BadRequest(new { error = $"File '{file.FileName}' exceeds the 5 MB upload limit." });
-            }
-
-            if (!IsSupportedImage(file)) {
-              return Results.BadRequest(new { error = $"File '{file.FileName}' must be an image." });
-            }
-
-            var extension = Path.GetExtension(file.FileName);
-            var storedFileName = $"request-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}{extension}";
-            var absoluteFilePath = Path.Combine(uploadDirectory, storedFileName);
-
-            await using (var stream = File.Create(absoluteFilePath)) {
-              await file.CopyToAsync(stream, cancellationToken);
-            }
-
+          foreach (var upload in uploads) {
             dbContext.ServiceRequestAttachments.Add(new ServiceRequestAttachment {
               ServiceRequestId = id,
               SubmittedByCustomerId = customerId,
-              OriginalFileName = file.FileName,
-              StoredFileName = storedFileName,
-              ContentType = file.ContentType,
-              RelativeUrl = $"/uploads/service-request-attachments/{tenantDomainSlug}/{id:N}/{storedFileName}",
+              OriginalFileName = upload.OriginalFileName,
+              StoredFileName = upload.StoredFileName,
+              ContentType = upload.ContentType,
+              RelativeUrl = upload.PublicUrl,
               CreatedAtUtc = DateTime.UtcNow
             });
           }
@@ -1249,9 +1236,6 @@ internal static class CustomerPortalApiEndpointMappings {
     var normalized = value?.Trim();
     return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
   }
-
-  private static bool IsSupportedImage(IFormFile file) =>
-    file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
 
   private static bool IsSupportedSettlementProof(IFormFile file) =>
     file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||

@@ -29,13 +29,15 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
             return accessResult;
           }
 
+          var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
+
           var loans = await dbContext.MicroLoans
               .AsNoTracking()
               .Include(entity => entity.Customer)
               .Include(entity => entity.Invoice)
               .Include(entity => entity.AmortizationSchedules)
               .OrderByDescending(entity => entity.CreatedAtUtc)
-              .Select(entity => CreateLoanAccountRow(entity))
+              .Select(entity => CreateLoanAccountRow(entity, lateFeePolicy, DateTime.UtcNow))
               .ToListAsync(cancellationToken);
 
           return Results.Ok(new TenantMlsLoanAccountsWorkspaceResponse(loans));
@@ -57,6 +59,8 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
           if (accessResult is not null) {
             return accessResult;
           }
+
+          var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
 
           var loan = await dbContext.MicroLoans
               .AsNoTracking()
@@ -90,7 +94,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               .ToArray();
 
           return Results.Ok(new TenantMlsLoanDetailResponse(
-              CreateLoanAccountRow(loan),
+              CreateLoanAccountRow(loan, lateFeePolicy, DateTime.UtcNow),
               schedule,
               ledger));
         })
@@ -145,11 +149,14 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
             return Results.NotFound(new { error = "The selected loan account was not found." });
           }
 
+          var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
+          var paymentAsOfUtc = request.PaymentDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+
           var orderedSchedules = loan.AmortizationSchedules
               .OrderBy(entity => entity.InstallmentNumber)
               .ToList();
-          var totalPaidBefore = orderedSchedules.Sum(entity => entity.PaidAmount);
-          var outstandingBefore = RoundCurrency(loan.TotalRepayableAmount - totalPaidBefore);
+          TenantMlsLoanMath.EnsureLateFeesApplied(orderedSchedules, lateFeePolicy, paymentAsOfUtc);
+          var outstandingBefore = TenantMlsLoanMath.GetOutstandingBalance(loan, lateFeePolicy, paymentAsOfUtc);
           if (outstandingBefore <= 0m) {
             return Results.BadRequest(new { error = "This loan is already fully settled." });
           }
@@ -162,7 +169,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
           var payableInstallments = orderedSchedules
               .Where(entity =>
                   entity.InstallmentStatus != "Paid" &&
-                  RoundCurrency(entity.InstallmentAmount - entity.PaidAmount) > 0m)
+                  TenantMlsLoanMath.GetInstallmentOutstandingBalance(entity, lateFeePolicy, paymentAsOfUtc) > 0m)
               .ToList();
           if (payableInstallments.Count == 0) {
             return Results.BadRequest(new { error = "This loan has no payable installments remaining." });
@@ -201,20 +208,19 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               break;
             }
 
-            var installmentOutstanding = RoundCurrency(installment.InstallmentAmount - installment.PaidAmount);
+            var installmentOutstanding = TenantMlsLoanMath.GetInstallmentOutstandingBalance(installment, lateFeePolicy, paymentAsOfUtc);
             if (installmentOutstanding <= 0m) {
-              installment.InstallmentStatus = "Paid";
+              TenantMlsLoanMath.RefreshInstallmentStatus(installment, lateFeePolicy, paymentAsOfUtc);
               continue;
             }
 
             var appliedAmount = Math.Min(remainingAmount, installmentOutstanding);
             installment.PaidAmount = RoundCurrency(installment.PaidAmount + appliedAmount);
             remainingAmount = RoundCurrency(remainingAmount - appliedAmount);
-            UpdateInstallmentStatus(installment);
+            TenantMlsLoanMath.RefreshInstallmentStatus(installment, lateFeePolicy, paymentAsOfUtc);
           }
 
-          var totalPaidAfter = orderedSchedules.Sum(entity => entity.PaidAmount);
-          var outstandingAfter = RoundCurrency(loan.TotalRepayableAmount - totalPaidAfter);
+          var outstandingAfter = TenantMlsLoanMath.GetOutstandingBalance(loan, lateFeePolicy, paymentAsOfUtc);
           loan.LoanStatus = outstandingAfter <= 0m
             ? "Paid"
             : "Active";
@@ -313,6 +319,9 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
             return Results.NotFound(new { error = "The selected loan account was not found." });
           }
 
+          var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
+          var reversalAsOfUtc = request.ReversalDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+
           var transaction = loan.Transactions.FirstOrDefault(entity => entity.Id == transactionId);
           if (transaction is null || transaction.TransactionType != "LoanPayment") {
             return Results.NotFound(new { error = "The selected payment entry could not be reversed." });
@@ -342,14 +351,17 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               .ToList();
           var loanLabel = loan.Invoice?.InvoiceNumber ?? "standalone loan";
           var amountToReverse = RoundCurrency(transaction.CreditAmount);
-          if (!TryReversePaymentAcrossSchedules(orderedSchedules, amountToReverse)) {
+          if (!TryReversePaymentAcrossSchedules(orderedSchedules, amountToReverse, lateFeePolicy, reversalAsOfUtc)) {
             return Results.BadRequest(new {
               error = "The selected payment could not be reversed because the amortization schedule no longer matches the posted collection history."
             });
           }
+          TenantMlsLoanMath.EnsureLateFeesApplied(orderedSchedules, lateFeePolicy, reversalAsOfUtc);
+          foreach (var installment in orderedSchedules) {
+            TenantMlsLoanMath.RefreshInstallmentStatus(installment, lateFeePolicy, reversalAsOfUtc);
+          }
 
-          var totalPaidAfter = orderedSchedules.Sum(entity => entity.PaidAmount);
-          var outstandingAfter = RoundCurrency(loan.TotalRepayableAmount - totalPaidAfter);
+          var outstandingAfter = TenantMlsLoanMath.GetOutstandingBalance(loan, lateFeePolicy, reversalAsOfUtc);
           loan.LoanStatus = outstandingAfter <= 0m
             ? "Paid"
             : "Active";
@@ -485,7 +497,9 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
 
   private static bool TryReversePaymentAcrossSchedules(
       IReadOnlyList<AmortizationSchedule> orderedSchedules,
-      decimal amountToReverse) {
+      decimal amountToReverse,
+      TenantMlsLateFeePolicySnapshot lateFeePolicy,
+      DateTime asOfUtc) {
     var remainingAmount = amountToReverse;
 
     foreach (var installment in orderedSchedules.OrderByDescending(entity => entity.InstallmentNumber)) {
@@ -494,32 +508,27 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
       }
 
       if (installment.PaidAmount <= 0m) {
-        UpdateInstallmentStatus(installment);
+        TenantMlsLoanMath.RefreshInstallmentStatus(installment, lateFeePolicy, asOfUtc);
         continue;
       }
 
       var reversedAmount = Math.Min(installment.PaidAmount, remainingAmount);
       installment.PaidAmount = RoundCurrency(installment.PaidAmount - reversedAmount);
       remainingAmount = RoundCurrency(remainingAmount - reversedAmount);
-      UpdateInstallmentStatus(installment);
+      TenantMlsLoanMath.RefreshInstallmentStatus(installment, lateFeePolicy, asOfUtc);
     }
 
     return remainingAmount == 0m;
   }
 
-  private static void UpdateInstallmentStatus(AmortizationSchedule installment) {
-    installment.InstallmentStatus = installment.PaidAmount >= installment.InstallmentAmount
-      ? "Paid"
-      : installment.PaidAmount > 0m
-        ? "Partially Paid"
-        : "Pending";
-  }
-
-  private static TenantMlsLoanAccountRowResponse CreateLoanAccountRow(MicroLoan entity) {
+  private static TenantMlsLoanAccountRowResponse CreateLoanAccountRow(
+      MicroLoan entity,
+      TenantMlsLateFeePolicySnapshot lateFeePolicy,
+      DateTime asOfUtc) {
     var totalPaidAmount = entity.AmortizationSchedules.Sum(item => item.PaidAmount);
-    var outstandingBalance = RoundCurrency(entity.TotalRepayableAmount - totalPaidAmount);
+    var outstandingBalance = TenantMlsLoanMath.GetOutstandingBalance(entity, lateFeePolicy, asOfUtc);
     var nextDueDate = entity.AmortizationSchedules
-        .Where(item => item.InstallmentStatus != "Paid")
+        .Where(item => TenantMlsLoanMath.GetInstallmentOutstandingBalance(item, lateFeePolicy, asOfUtc) > 0m)
         .OrderBy(item => item.InstallmentNumber)
         .Select(item => DateOnly.FromDateTime(item.DueDate))
         .FirstOrDefault();
@@ -533,7 +542,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
         entity.TotalRepayableAmount,
         RoundCurrency(totalPaidAmount),
         outstandingBalance,
-        entity.AmortizationSchedules.Count(item => item.InstallmentStatus != "Paid"),
+        TenantMlsLoanMath.GetPendingInstallmentCount(entity, lateFeePolicy, asOfUtc),
         nextDueDate == default ? null : nextDueDate,
         entity.LoanStatus,
         entity.CreatedAtUtc);

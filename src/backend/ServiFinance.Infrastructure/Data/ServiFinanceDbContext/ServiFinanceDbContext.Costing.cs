@@ -10,6 +10,8 @@ public sealed partial class ServiFinanceDbContext {
     ConfigureTenantOwned(policy);
     policy.Property(entity => entity.TaxLabel).HasMaxLength(80);
     ConfigureMoney(policy.Property(entity => entity.DefaultTaxRate), 6, 2);
+    ConfigureMoney(policy.Property(entity => entity.LoanLateFeeFlatAmount));
+    ConfigureMoney(policy.Property(entity => entity.LoanLateFeeRatePercent), 6, 2);
     policy.HasIndex(entity => entity.TenantId).IsUnique();
     policy.HasOne(entity => entity.Tenant)
         .WithOne(entity => entity.CostingPolicy)

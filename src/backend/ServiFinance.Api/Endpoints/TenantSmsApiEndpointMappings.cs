@@ -15,6 +15,7 @@ internal static class TenantSmsApiEndpointMappings {
 
     tenantApi.MapTenantPlatformUsersEndpoints();
     tenantApi.MapTenantRolePermissionEndpoints();
+    tenantApi.MapTenantBrandingEndpoints();
     tenantApi.MapTenantSmsCustomersEndpoints();
     tenantApi.MapTenantSmsServiceRequestsEndpoints();
     tenantApi.MapTenantSmsDispatchEndpoints();

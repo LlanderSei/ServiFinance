@@ -11,6 +11,9 @@ using ServiFinance.Domain;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class TenantMlsCustomerFinanceEndpointMappings {
+  private const int EmailMaxLength = 50;
+  private const int AddressMaxLength = 500;
+  private const int AddressDetailsMaxLength = 500;
   private const int ReviewRemarksMaxLength = 1000;
 
   public static RouteGroupBuilder MapTenantMlsCustomerFinanceEndpoints(this RouteGroupBuilder tenantApi) {
@@ -29,6 +32,8 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
             return accessResult;
           }
 
+          var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
+
           var customers = await dbContext.Customers
               .AsNoTracking()
               .AsSplitQuery()
@@ -43,8 +48,7 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
               .ToListAsync(cancellationToken);
 
           var rows = customers
-              .Where(HasFinanceExposure)
-              .Select(CreateCustomerFinanceRow)
+              .Select(entity => CreateCustomerFinanceRow(entity, lateFeePolicy, DateTime.UtcNow))
               .ToArray();
 
           return Results.Ok(new TenantMlsCustomerFinanceWorkspaceResponse(
@@ -56,6 +60,55 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
               rows));
         })
         .RequireTenantMlsPermission("mls.customer-finance.view", MlsModuleCodeFinancialRecords);
+
+    tenantApi.MapPost("/mls/customers", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        HttpContext httpContext,
+        string tenantDomainSlug,
+        [FromBody] CreateCustomerRecordRequest request,
+        ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        CancellationToken cancellationToken) => {
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeStandaloneLoans);
+          if (accessResult is not null) {
+            return accessResult;
+          }
+
+          if (string.IsNullOrWhiteSpace(request.FullName)) {
+            return Results.BadRequest(new { error = "Customer full name is required." });
+          }
+
+          if (request.Email.Trim().Length > EmailMaxLength) {
+            return Results.BadRequest(new { error = $"Customer email must be {EmailMaxLength} characters or fewer." });
+          }
+
+          if (request.Address.Trim().Length > AddressMaxLength) {
+            return Results.BadRequest(new { error = $"Customer address must be {AddressMaxLength} characters or fewer." });
+          }
+
+          if ((request.AddressDetails?.Trim().Length ?? 0) > AddressDetailsMaxLength) {
+            return Results.BadRequest(new { error = $"Address details must be {AddressDetailsMaxLength} characters or fewer." });
+          }
+
+          var customer = new Customer {
+            CustomerCode = GenerateReferenceCode("CUS"),
+            FullName = request.FullName.Trim(),
+            MobileNumber = request.MobileNumber.Trim(),
+            Email = request.Email.Trim(),
+            Address = request.Address.Trim(),
+            AddressDetails = NormalizeOptionalText(request.AddressDetails),
+            CreatedAtUtc = DateTime.UtcNow
+          };
+
+          dbContext.Customers.Add(customer);
+          await dbContext.SaveChangesAsync(cancellationToken);
+
+          return Results.Ok(CreateCustomerFinanceRow(customer, TenantMlsLoanMath.CreateLateFeePolicy(null), DateTime.UtcNow));
+        })
+        .RequireTenantMlsPermission("mls.standalone-loans.manage", MlsModuleCodeStandaloneLoans);
 
     tenantApi.MapGet("/mls/customers/{customerId:guid}", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
         HttpContext httpContext,
@@ -72,6 +125,8 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
           if (accessResult is not null) {
             return accessResult;
           }
+
+          var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
 
           var customer = await dbContext.Customers
               .AsNoTracking()
@@ -95,7 +150,7 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
 
           var loans = customer.MicroLoans
               .OrderByDescending(entity => entity.CreatedAtUtc)
-              .Select(entity => CreateLoanAccountRow(entity, customer.FullName))
+              .Select(entity => CreateLoanAccountRow(entity, customer.FullName, lateFeePolicy, DateTime.UtcNow))
               .ToArray();
 
           var ledger = customer.Transactions
@@ -126,7 +181,7 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
               .ToArray();
 
           return Results.Ok(new TenantMlsCustomerFinanceDetailResponse(
-              CreateCustomerFinanceRow(customer),
+              CreateCustomerFinanceRow(customer, lateFeePolicy, DateTime.UtcNow),
               loans,
               ledger,
               serviceInvoices));
@@ -320,21 +375,21 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
     return tenantApi;
   }
 
-  private static bool HasFinanceExposure(Customer entity) =>
-    entity.MicroLoans.Count > 0 || entity.Transactions.Count > 0 || entity.Invoices.Count > 0;
-
-  private static TenantMlsCustomerFinanceRowResponse CreateCustomerFinanceRow(Customer entity) {
+  private static TenantMlsCustomerFinanceRowResponse CreateCustomerFinanceRow(
+      Customer entity,
+      TenantMlsLateFeePolicySnapshot lateFeePolicy,
+      DateTime asOfUtc) {
     var activeLoanCount = entity.MicroLoans.Count(item => item.LoanStatus != "Paid");
     var settledLoanCount = entity.MicroLoans.Count(item => item.LoanStatus == "Paid");
     var serviceInvoiceOutstandingBalance = entity.Invoices
         .Where(item => item.MicroLoan == null)
         .Sum(item => item.OutstandingAmount);
-    var outstandingBalance = entity.MicroLoans.Sum(GetOutstandingBalance) + serviceInvoiceOutstandingBalance;
+    var outstandingBalance = entity.MicroLoans.Sum(item => TenantMlsLoanMath.GetOutstandingBalance(item, lateFeePolicy, asOfUtc)) + serviceInvoiceOutstandingBalance;
     var loanPaymentTransactions = GetActiveLoanPaymentTransactions(entity.Transactions);
     var totalCollectedAmount = loanPaymentTransactions.Sum(item => item.CreditAmount) + GetApprovedServiceInvoicePaymentTotal(entity.Invoices);
     var nextDueDate = entity.MicroLoans
         .SelectMany(item => item.AmortizationSchedules)
-        .Where(item => item.InstallmentStatus != "Paid")
+        .Where(item => TenantMlsLoanMath.GetInstallmentOutstandingBalance(item, lateFeePolicy, asOfUtc) > 0m)
         .OrderBy(item => item.DueDate)
         .Select(item => DateOnly.FromDateTime(item.DueDate))
         .FirstOrDefault();
@@ -354,6 +409,10 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         entity.Id,
         entity.CustomerCode,
         entity.FullName,
+        entity.MobileNumber,
+        entity.Email,
+        entity.Address,
+        entity.AddressDetails,
         activeLoanCount,
         settledLoanCount,
         RoundCurrency(outstandingBalance),
@@ -362,11 +421,15 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         lastPaymentDateUtc);
   }
 
-  private static TenantMlsLoanAccountRowResponse CreateLoanAccountRow(MicroLoan entity, string customerName) {
+  private static TenantMlsLoanAccountRowResponse CreateLoanAccountRow(
+      MicroLoan entity,
+      string customerName,
+      TenantMlsLateFeePolicySnapshot lateFeePolicy,
+      DateTime asOfUtc) {
     var totalPaidAmount = entity.AmortizationSchedules.Sum(item => item.PaidAmount);
-    var outstandingBalance = GetOutstandingBalance(entity);
+    var outstandingBalance = TenantMlsLoanMath.GetOutstandingBalance(entity, lateFeePolicy, asOfUtc);
     var nextDueDate = entity.AmortizationSchedules
-        .Where(item => item.InstallmentStatus != "Paid")
+        .Where(item => TenantMlsLoanMath.GetInstallmentOutstandingBalance(item, lateFeePolicy, asOfUtc) > 0m)
         .OrderBy(item => item.InstallmentNumber)
         .Select(item => DateOnly.FromDateTime(item.DueDate))
         .FirstOrDefault();
@@ -380,7 +443,7 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         entity.TotalRepayableAmount,
         RoundCurrency(totalPaidAmount),
         outstandingBalance,
-        entity.AmortizationSchedules.Count(item => item.InstallmentStatus != "Paid"),
+        TenantMlsLoanMath.GetPendingInstallmentCount(entity, lateFeePolicy, asOfUtc),
         nextDueDate == default ? null : nextDueDate,
         entity.LoanStatus,
         entity.CreatedAtUtc);
@@ -429,11 +492,6 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         entity.SubmittedAtUtc,
         entity.ReviewedAtUtc,
         entity.ReviewedByUser?.FullName);
-
-  private static decimal GetOutstandingBalance(MicroLoan entity) {
-    var totalPaidAmount = entity.AmortizationSchedules.Sum(item => item.PaidAmount);
-    return RoundCurrency(entity.TotalRepayableAmount - totalPaidAmount);
-  }
 
   private static IReadOnlyList<LedgerTransaction> GetActiveLoanPaymentTransactions(IEnumerable<LedgerTransaction> transactions) {
     var reversedTransactionIds = transactions

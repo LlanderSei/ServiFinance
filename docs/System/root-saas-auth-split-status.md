@@ -1,154 +1,132 @@
-# Root SaaS Landing And Domain-Scoped Auth Status
+# Root SaaS, Tenant Auth, And Surface Split Status
 
-Last updated: 2026-05-03
+Last updated: 2026-05-10
 
-## Scope Implemented
+## Current Split
 
-This milestone introduced a split between:
+ServiFinance now runs four distinct access surfaces:
 
-- the root SaaS surface for platform ownership and superadmin access
-- tenant-scoped web routes for the Service Management System
-- tenant-scoped desktop placeholder routes for the Micro-Lending System
+- `Root SaaS` for platform ownership and superadmin control
+- `Tenant SMS Web` for service operations
+- `Tenant Customer Portal` for customer self-service
+- `Tenant MLS Desktop` for lending and finance operations
 
-The current route contract is:
+The split is implemented in both auth behavior and route ownership.
 
-- `/`
-- `/register`
-- `/superadmin/dashboard`
-- `/superadmin/tenants`
-- `/superadmin/subscriptions`
-- `/{tenant}/login`
-- `/{tenant}/dashboard`
-- `/{tenant}/admin/users`
-- `/desktop/{tenant}/login`
-- `/desktop/{tenant}/dashboard`
-
-## What Is Done
-
-### Root SaaS Surface
-
-- Added a public landing page at `/`.
-- The landing page includes:
-  - a `Login` button that opens a superadmin login modal
-  - a `Register / Sign up` button that routes to `/register`
-- Added a live public registration page at `/register`.
-- Root registration now:
-  - collects tenant business and owner information
-  - creates a Stripe subscription checkout session for the selected tier
-  - provisions the tenant and first administrator account after Stripe confirms the checkout
-- Root login now authenticates only platform superadmin accounts.
-
-### SuperAdmin Area
-
-- Added placeholder pages for:
-  - `/superadmin/dashboard`
-  - `/superadmin/tenants`
-  - `/superadmin/subscriptions`
-- Added route-level checks so only authenticated root superadmins can access this area.
-
-### Tenant Web Area
-
-- Added tenant-specific login at `/{tenant}/login`.
-- Added tenant-specific dashboard at `/{tenant}/dashboard`.
-- Moved tenant user management to `/{tenant}/admin/users`.
-- Added tenant route guards that reject users whose tenant claim does not match the route slug.
-
-### Desktop Placeholder Area
-
-- Added tenant-specific desktop placeholder login at `/desktop/{tenant}/login`.
-- Added tenant-specific desktop placeholder dashboard at `/desktop/{tenant}/dashboard`.
-- Tenant credentials can be used on both tenant web and desktop placeholder entry points.
-
-### Authentication Split
-
-- Split login handling into two endpoint flows:
-  - root superadmin login
-  - tenant login
-- Auth cookies now carry:
-  - `tenant_id`
-  - `tenant_domain_slug`
-  - role claims
-- Root-domain accounts are blocked from tenant routes.
-- Tenant accounts are blocked from root superadmin routes.
-- Tenant users are blocked from other tenant slugs.
-
-### Data Model And Seed Updates
-
-- Added `Tenants.DomainSlug` as the canonical tenant route key.
-- Added a migration for the new tenant slug field.
-- Added a reserved platform tenant for root-domain SaaS ownership.
-- Added a seeded `SuperAdmin` role for the platform tenant.
-- Added a seeded superadmin account for the platform tenant.
-- Updated the example tenant to use the slug `exampledomain`.
-- Kept tenant administrator seeding for the example tenant.
-
-### Navigation Cleanup
-
-- Updated shared navigation to show:
-  - superadmin links for platform users
-  - tenant dashboard and tenant admin links for tenant administrators
-  - desktop placeholder navigation for tenant users
-- Removed the old routed entry points for:
-  - `/login`
-  - `/dashboard`
-  - `/admin/users`
-
-## Current Working Behavior
+## Current Route Contract
 
 ### Root Surface
 
-- Visiting `/` shows the SaaS landing page.
-- The login modal posts to the root superadmin login flow.
-- Visiting `/register` shows the live tenant signup flow.
-- Successful Stripe checkout returns to `/register`, where the page polls provisioning state until the tenant workspace is ready.
+- `/`
+- `/register`
+- `/dashboard`
+- `/system-health`
+- `/tenants`
+- `/root-users`
+- `/subscriptions`
+- `/modules`
+- `/roles-permissions`
+- `/audits`
 
-### Tenant Surface
+### Tenant SMS Web Surface
 
-- Visiting `/exampledomain/login` shows tenant web login.
-- Visiting `/desktop/exampledomain/login` shows tenant desktop placeholder login.
-- Authenticated tenant users are redirected only within their own slug.
+- `/t/{tenant}/sms/`
+- `/t/{tenant}/sms/dashboard`
+- `/t/{tenant}/sms/customers`
+- `/t/{tenant}/sms/service-requests`
+- `/t/{tenant}/sms/dispatch`
+- `/t/{tenant}/sms/reports`
+- `/t/{tenant}/sms/sla-escalations`
+- `/t/{tenant}/sms/feedback-crm`
+- `/t/{tenant}/sms/cost-control`
+- `/t/{tenant}/sms/pricing`
+- `/t/{tenant}/sms/audits`
+- `/t/{tenant}/sms/users`
+- `/t/{tenant}/sms/roles-permissions`
+- `/t/{tenant}/sms/branding`
+- `/t/{tenant}/billing`
 
-### Accounts Seeded For Development
+### Tenant Customer Surface
 
-- SuperAdmin credentials are sourced from:
-  - `ServiFinance__SuperAdminEmail`
-  - `ServiFinance__SuperAdminPassword`
-- Example tenant administrator credentials are sourced from:
-  - `ServiFinance__DevelopmentAdminEmail`
-  - `ServiFinance__DevelopmentAdminPassword`
+- `/t/{tenant}/c/login`
+- `/t/{tenant}/c/register`
+- `/t/{tenant}/c/dashboard`
+- `/t/{tenant}/c/profile`
+- `/t/{tenant}/c/requests`
+- `/t/{tenant}/c/requests/{requestId}`
+- `/t/{tenant}/c/invoices`
+- `/t/{tenant}/c/feedback`
 
-## Future Implementation
+### Tenant MLS Desktop Surface
+
+- `/t/mls/`
+- `/t/mls/dashboard`
+- `/t/mls/customers`
+- `/t/mls/loan-conversion`
+- `/t/mls/standalone-loans`
+- `/t/mls/loans`
+- `/t/mls/collections`
+- `/t/mls/reports`
+- `/t/mls/ledger`
+- `/t/mls/portfolio-risk`
+- `/t/mls/loan-approvals`
+- `/t/mls/finance-policy`
+- `/t/mls/users`
+- `/t/mls/roles-permissions`
+- `/t/mls/audit`
+- `/t/mls/branding`
+- `/t/mls/billing`
+
+## What Is Implemented
 
 ### Root SaaS
 
-- real SaaS metrics on the superadmin dashboard
-- subscribed tenant lifecycle management
-- broader subscription billing and plan enforcement
-- stronger Stripe subscription lifecycle tooling for upgrades, downgrade policy, and platform-side billing review
+- Public landing and live registration
+- Stripe-backed tenant onboarding
+- Root superadmin auth isolated from tenant auth
+- Superadmin workspaces for tenants, health, subscriptions, modules, audits, root users, and roles-permissions
 
-### Service Management System
+### Tenant Auth Split
 
-- customer management
-- service request intake
-- technician assignment and work tracking
-- invoicing from service work
+- Tenant users cannot access root-only superadmin routes
+- Root users cannot authenticate into tenant workspaces as tenant operators
+- Customer accounts are isolated from staff surfaces and staff APIs
+- Tenant domain validation blocks cross-tenant SMS and customer access
+- MLS desktop access is surface-bound and uses desktop-scoped auth/session behavior
 
-### Micro-Lending System
+### Billing Split
 
-- MAUI desktop login integration
-- invoice-to-loan conversion workflow
-- amortization schedule generation
-- payment posting and ledger review
+- Root registration starts the first Stripe subscription checkout
+- Tenant subscription renewal is now provider-managed through Stripe auto-renewal
+- Tenant billing recovery uses the hosted billing portal instead of manual renewal proof submission
+- Customer invoice settlement is separate from tenant subscription billing and supports:
+  - hosted Stripe Checkout for eligible direct-settlement invoices
+  - manual proof submission for offline review
 
-### Security And Admin
+## Current Working Behavior
 
-- stronger password and lockout policy
-- audit trail for sign-in and admin actions
-- finer-grained permission model beyond role names
-- email verification, password recovery, and linked external login for tenant owners
+- Visiting `/` shows the SaaS landing page and root login path.
+- Visiting `/register` shows the live tier catalog and launches Stripe onboarding for the selected tier.
+- Visiting `/t/{tenant}/sms/` enters the tenant SMS entry surface.
+- Visiting `/t/{tenant}/c/*` stays inside the customer-only shell.
+- Visiting MLS routes in the browser redirects to the desktop-required surface where applicable.
+- Visiting `/t/mls/*` in the desktop shell uses the tenant desktop route set.
+
+## Guard Status
+
+- Root and SMS routes already used consistent route-level permission wrappers.
+- MLS desktop direct routes now also use route-level permission wrappers aligned with the root and SMS pattern.
+- MLS pages still keep their page-level protected wrappers, so permission and module enforcement remains redundant-safe during this transition.
+
+## Remaining Future Work
+
+- Google auth, MFA, and password recovery
+- broader Stripe lifecycle tooling and provider-event hardening
+- deeper MLS reporting and persisted loan approval decisions
+- final cleanup of redundant page-level versus route-level MLS guard duplication once the route hardening settles
 
 ## Notes
 
-- The desktop routes are currently web placeholders, not the final MAUI client implementation.
-- All account access is tenant-bound. Tenant-scoped users cannot cross into other tenant routes.
-- The root platform tenant is internal and reserved for SaaS ownership and superadmin access only.
+- `/superadmin/*` is no longer the primary root route contract; root workspaces now live directly on the root surface.
+- `/t/{tenant}/mls/*` is not the active desktop route contract; MLS uses `/t/mls/*`.
+- Tenant subscription renewal proof submission has been discontinued at the API boundary.

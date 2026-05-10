@@ -43,6 +43,7 @@ public static class RolePermissionCatalog {
     Permission("sms.cost-control.view", "View cost control", "Commercial", "Review service-cost exposure, preset coverage, invoice readiness, and category totals.", PlatformRolePolicy.SmsScope),
     Permission("sms.users.manage", "Manage platform users", "Administration", "Maintain tenant users and assign SMS or MLS platform roles.", PlatformRolePolicy.SmsScope),
     Permission("sms.roles-permissions.manage", "Manage SMS roles and permissions", "Administration", "Review and update mutable SMS role permission sets.", PlatformRolePolicy.SmsScope),
+    Permission("sms.branding.manage", "Manage SMS branding", "Administration", "Update tenant display name, logo, and SMS web theme colors.", PlatformRolePolicy.SmsScope),
     Permission("sms.audits.view", "View SMS audits", "Administration", "Review SMS system and security audit events.", PlatformRolePolicy.SmsScope),
     Permission("sms.billing.view", "View tenant billing", "Commercial", "Review subscription standing and billing history.", PlatformRolePolicy.SmsScope),
     Permission("sms.billing.manage", "Manage tenant billing", "Commercial", "Open hosted billing portal sessions and review online renewal posture.", PlatformRolePolicy.SmsScope)
@@ -65,6 +66,7 @@ public static class RolePermissionCatalog {
     Permission("mls.finance-policy.view", "View finance policy control", "Policy Control", "Review interest, term, principal, and loan-policy exception signals.", PlatformRolePolicy.MlsScope),
     Permission("mls.users.manage", "Manage platform users", "Administration", "Maintain tenant users and assign SMS or MLS platform roles.", PlatformRolePolicy.MlsScope),
     Permission("mls.roles-permissions.manage", "Manage MLS roles and permissions", "Administration", "Review and update mutable MLS role permission sets.", PlatformRolePolicy.MlsScope),
+    Permission("mls.branding.manage", "Manage MLS branding", "Administration", "Update tenant display name, logo, and MLS desktop theme colors.", PlatformRolePolicy.MlsScope),
     Permission("mls.audits.view", "View MLS audits", "Administration", "Review MLS system and security audit events.", PlatformRolePolicy.MlsScope),
     Permission("mls.billing.view", "View MLS billing", "Commercial", "Review subscription standing and billing history from the MLS desktop workspace.", PlatformRolePolicy.MlsScope),
     Permission("mls.billing.manage", "Manage MLS billing", "Commercial", "Open hosted billing portal sessions and manage renewal posture from the MLS desktop workspace.", PlatformRolePolicy.MlsScope)

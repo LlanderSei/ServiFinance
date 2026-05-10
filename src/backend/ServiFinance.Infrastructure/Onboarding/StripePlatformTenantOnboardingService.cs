@@ -104,12 +104,19 @@ public sealed class StripePlatformTenantOnboardingService(
         .OrderByDescending(entity => entity.CreatedAtUtc)
         .FirstOrDefaultAsync(cancellationToken);
     if (blockingRegistration is not null) {
+      var supersededBlockingRegistration = await TrySupersedeBlockingRegistrationAsync(
+          blockingRegistration,
+          normalizedOwnerEmail,
+          subscriptionTier,
+          cancellationToken);
+      if (!supersededBlockingRegistration) {
       var reusableSession = await TryResolveBlockingRegistrationAsync(
           blockingRegistration,
           normalizedOwnerEmail,
           cancellationToken);
-      if (reusableSession is not null) {
-        return reusableSession;
+        if (reusableSession is not null) {
+          return reusableSession;
+        }
       }
     }
 
@@ -324,6 +331,43 @@ public sealed class StripePlatformTenantOnboardingService(
     throw new InvalidOperationException("A registration is already in progress for that tenant domain.");
   }
 
+  private async Task<bool> TrySupersedeBlockingRegistrationAsync(
+      PlatformTenantRegistration registration,
+      string ownerEmail,
+      SubscriptionTier requestedTier,
+      CancellationToken cancellationToken) {
+    if (!string.Equals(registration.OwnerEmail, ownerEmail, StringComparison.OrdinalIgnoreCase)) {
+      return false;
+    }
+
+    if (registration.SubscriptionTierId == requestedTier.Id ||
+        registration.TenantId.HasValue ||
+        registration.Status == PaymentCompletedStatus ||
+        registration.Status == ProvisionedStatus ||
+        registration.Status != CheckoutCreatedStatus) {
+      return false;
+    }
+
+    if (!string.IsNullOrWhiteSpace(registration.StripeCheckoutSessionId)) {
+      var existingSession = await TryGetStripeCheckoutSessionAsync(registration.StripeCheckoutSessionId, cancellationToken);
+      if (existingSession is not null && IsCheckoutSessionComplete(existingSession)) {
+        await CompleteRegistrationFromCheckoutSessionAsync(registration, existingSession, cancellationToken);
+        return false;
+      }
+
+      if (existingSession is not null && !IsCheckoutSessionExpired(existingSession)) {
+        await TryExpireStripeCheckoutSessionAsync(existingSession.Id, cancellationToken);
+      }
+    }
+
+    registration.Status = CheckoutExpiredStatus;
+    registration.FailureReason = $"Superseded by a newer {requestedTier.DisplayName} selection before payment completed.";
+    registration.CheckoutExpiresAtUtc = GetUtcNow();
+    registration.UpdatedAtUtc = GetUtcNow();
+    await dbContext.SaveChangesAsync(cancellationToken);
+    return true;
+  }
+
   private async Task TryRefreshRegistrationFromStripeAsync(
       PlatformTenantRegistration registration,
       CancellationToken cancellationToken) {
@@ -373,6 +417,16 @@ public sealed class StripePlatformTenantOnboardingService(
       return await sessionService.GetAsync(checkoutSessionId, cancellationToken: cancellationToken);
     } catch (StripeException) {
       return null;
+    }
+  }
+
+  private async Task TryExpireStripeCheckoutSessionAsync(
+      string checkoutSessionId,
+      CancellationToken cancellationToken) {
+    try {
+      var sessionService = new SessionService(BuildStripeClient());
+      await sessionService.ExpireAsync(checkoutSessionId, cancellationToken: cancellationToken);
+    } catch (StripeException) {
     }
   }
 

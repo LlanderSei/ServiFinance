@@ -117,6 +117,7 @@ public sealed partial class ServiFinanceDbContext {
     ConfigureMoney(schedule.Property(entity => entity.InstallmentAmount));
     ConfigureMoney(schedule.Property(entity => entity.EndingBalance));
     ConfigureMoney(schedule.Property(entity => entity.PaidAmount));
+    ConfigureMoney(schedule.Property(entity => entity.LateFeeAmount));
     schedule.HasIndex(entity => new { entity.MicroLoanId, entity.InstallmentNumber }).IsUnique();
     schedule.HasOne(entity => entity.MicroLoan)
         .WithMany(entity => entity.AmortizationSchedules)

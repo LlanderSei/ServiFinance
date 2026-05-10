@@ -3,6 +3,7 @@ import { FormEvent, useState } from "react";
 import { useParams } from "react-router-dom";
 import type {
   CreateRoleRequest,
+  CurrentSessionUser,
   RolePermissionRoleRow,
   RolePermissionWorkspaceResponse,
   RoleUsersResponse,
@@ -10,6 +11,7 @@ import type {
   UpdateRolePermissionSetRequest
 } from "@/shared/api/contracts";
 import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
+import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
@@ -90,6 +92,7 @@ function RolesPermissionsPage({ scope }: RolesPermissionsPageProps) {
   const { tenantDomainSlug: routeTenantDomainSlug = "" } = useParams();
   const currentSession = getCurrentSession();
   const { data: refreshedSession } = useRefreshSession(!currentSession);
+  const resolvedUser = (currentSession ?? refreshedSession)?.user ?? null;
   const queryClient = useQueryClient();
   const toast = useToast();
   const [activeTab, setActiveTab] = useState("roles");
@@ -99,9 +102,15 @@ function RolesPermissionsPage({ scope }: RolesPermissionsPageProps) {
   const [roleForm, setRoleForm] = useState<RoleFormState>(() => createEmptyRoleForm(scope));
   const [usersRole, setUsersRole] = useState<RoleLookup | null>(null);
   const resolvedTenantSlug = scope === "tenant-mls"
-    ? (currentSession ?? refreshedSession)?.user.tenantDomainSlug ?? ""
+    ? resolvedUser?.tenantDomainSlug ?? ""
     : routeTenantDomainSlug;
   const alternateScope = resolveAlternateScope(scope);
+  const alternateToggleReadiness = getAlternatePlatformToggleReadiness(
+    scope,
+    alternateScope,
+    resolvedTenantSlug,
+    resolvedUser
+  );
   const endpoints = resolveEndpoints(scope, resolvedTenantSlug);
   const queryKey = ["roles-permissions", scope, resolvedTenantSlug];
   const alternateEndpoints = alternateScope ? resolveEndpoints(alternateScope, resolvedTenantSlug) : null;
@@ -117,7 +126,12 @@ function RolesPermissionsPage({ scope }: RolesPermissionsPageProps) {
     queryFn: () => alternateEndpoints
       ? httpGet<RolePermissionWorkspaceResponse>(alternateEndpoints.workspace)
       : Promise.reject(new Error("No alternate role workspace is available.")),
-    enabled: Boolean(alternateScope && showAlternatePlatform && resolvedTenantSlug)
+    enabled: Boolean(
+      alternateScope &&
+      showAlternatePlatform &&
+      resolvedTenantSlug &&
+      alternateToggleReadiness.allowed
+    )
   });
   const usersQuery = useQuery({
     queryKey: usersRole
@@ -339,7 +353,8 @@ function RolesPermissionsPage({ scope }: RolesPermissionsPageProps) {
                 label: toggleAlternateLabel,
                 icon: "layers" as const,
                 onClick: () => setShowAlternatePlatform((current) => !current),
-                disabled: !resolvedTenantSlug
+                disabled: !alternateToggleReadiness.allowed,
+                disabledReason: alternateToggleReadiness.reason ?? undefined
               }] : []),
               {
                 key: "add-role",
@@ -618,4 +633,63 @@ function resolveBreadcrumbs(scope: RolePermissionScope, tenantDomainSlug: string
   }
 
   return `${tenantDomainSlug || "tenant"} / SMS / Administration / Roles and permissions`;
+}
+
+function getAlternatePlatformToggleReadiness(
+  scope: RolePermissionScope,
+  alternateScope: RolePermissionScope | null,
+  tenantDomainSlug: string,
+  user: CurrentSessionUser | null
+) {
+  if (!alternateScope) {
+    return { allowed: false, reason: "This workspace has no alternate platform to load." };
+  }
+
+  if (!tenantDomainSlug) {
+    return { allowed: false, reason: "Tenant context is still loading for this workspace." };
+  }
+
+  if (!user) {
+    return { allowed: false, reason: "Refresh the session before loading another platform catalog." };
+  }
+
+  const requiredChannel = alternateScope === "tenant-mls" ? "Desktop" : "Web";
+  if (!hasGrantedChannelAccess(user, requiredChannel)) {
+    return {
+      allowed: false,
+      reason: requiredChannel === "Desktop"
+        ? "This tenant subscription does not include MLS desktop roles and permissions."
+        : "This tenant subscription does not include SMS web roles and permissions."
+    };
+  }
+
+  const requiredPermission = alternateScope === "tenant-mls"
+    ? "mls.roles-permissions.manage"
+    : "sms.roles-permissions.manage";
+
+  if (!hasPermission(user, requiredPermission)) {
+    return {
+      allowed: false,
+      reason: `Your role cannot manage ${resolvePlatformShortLabel(alternateScope)} roles and permissions.`
+    };
+  }
+
+  if (scope === "tenant-mls" && alternateScope !== "tenant-sms") {
+    return { allowed: false, reason: "Only the SMS catalog can be toggled from the MLS workspace." };
+  }
+
+  if (scope === "tenant-sms" && alternateScope !== "tenant-mls") {
+    return { allowed: false, reason: "Only the MLS catalog can be toggled from the SMS workspace." };
+  }
+
+  return { allowed: true, reason: null };
+}
+
+function hasGrantedChannelAccess(user: CurrentSessionUser, channel: "Web" | "Desktop") {
+  const normalizedChannel = channel.toLowerCase();
+  return (user.moduleAccess ?? []).some((moduleAccess) => {
+    const accessLevel = moduleAccess.accessLevel?.trim().toLowerCase() ?? "";
+    return moduleAccess.channel?.trim().toLowerCase() === normalizedChannel &&
+      !["", "excluded", "none", "not included"].includes(accessLevel);
+  });
 }

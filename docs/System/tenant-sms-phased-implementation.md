@@ -480,10 +480,33 @@ Current implementation:
 - the recovery tab reuses the existing authenticated workspace patterns and is guarded by `root.subscriptions.manage`
 - superadmin recovery now exposes intervention actions from the recovery queue: provider sync re-reads Stripe subscription status, and force suspension locks tenant workspace access once the tenant reaches suspension review
 - Stripe subscription status normalization now treats provider status casing consistently so a successful provider sync or invoice payment does not accidentally deactivate an otherwise active tenant
-- this phase now has visibility, central API enforcement, and manual platform intervention; it does not yet automatically mutate tenant status from a scheduled background reconciliation job
+- scheduled subscription recovery reconciliation now runs in the API host and automatically suspends active tenants once the shared recovery policy reaches the 14-day suspension-review threshold
+- automatic suspension writes a platform-scoped system audit event so root operators can review when the background reconciliation locked a tenant
+- tenant Billing remains accessible for subscription-recovery-suspended tenants, allowing owners to restore billing from the recovery workspace even after the rest of SMS/MLS tenant administration is locked
+- this phase now has visibility, central API enforcement, manual platform intervention, and scheduled auto-suspension; it does not yet persist recovery-contact notes or broader provider event coverage beyond the current Stripe sync/webhook path
 
 Next hardening candidates:
 
-- automatic tenant status mutation or scheduled reconciliation when provider recovery passes the suspension-review threshold
 - optional superadmin recovery notes/contact tracking if the platform needs a persisted call log outside the audit trail
 - provider webhook expansion for cancellation, unpaid, paused, incomplete-expired, and payment-method update events
+
+## Phase 14: Hosted Image Uploads
+
+Goal:
+
+- move customer, technician, and branding image uploads behind a backend-mediated external image host instead of exposing upload provider keys in the browser.
+
+Current implementation:
+
+- backend ImgBB upload integration now uses a named `HttpClient` and the `ServiFinance__ExternalServices__ImgBB__ApiKey` configuration key
+- customer service-request photos now upload through the API to ImgBB, then persist the returned public image URL on the existing service request attachment record
+- dispatch technician evidence photos now upload through the API to ImgBB, then persist the returned public image URL on the existing assignment evidence record
+- tenant branding now supports uploading a logo image through ImgBB from the Branding workspace while still keeping the manual logo URL field for overrides or clearing
+- the API validates image signatures and only accepts JPG, PNG, or WebP for ImgBB-backed uploads
+- upload limits are intentionally lower than ImgBB's provider limit: 5 MB for customer/dispatch evidence, 2 MB for tenant logos, and 5 images per evidence/request batch
+- API-side in-memory rate guards limit repeated uploads per tenant actor and purpose so refreshes or accidental repeated submits do not immediately abuse the external provider
+
+Operational notes:
+
+- set `ServiFinance__ExternalServices__ImgBB__ApiKey` in `.env` or host environment variables before testing image uploads
+- if the ImgBB key is missing, image upload endpoints fail clearly with a service-unavailable message while the rest of SMS/MLS remains usable

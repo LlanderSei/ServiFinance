@@ -28,6 +28,7 @@ internal static class TenantMlsCollectionsEndpointMappings {
           var today = DateOnly.FromDateTime(DateTime.UtcNow);
           var weekEnd = today.AddDays(7);
           var normalizedState = string.IsNullOrWhiteSpace(state) ? string.Empty : state.Trim();
+          var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
 
           var schedules = await dbContext.AmortizationSchedules
               .AsNoTracking()
@@ -38,25 +39,23 @@ internal static class TenantMlsCollectionsEndpointMappings {
               .Where(entity => entity.InstallmentStatus != "Paid")
               .ToListAsync(cancellationToken);
 
-          var entries = schedules
-              .Select(entity => CreateCollectionRow(entity, today))
+          var allEntries = schedules
+              .Select(entity => CreateCollectionRow(entity, today, lateFeePolicy))
+              .ToArray();
+          var entries = allEntries
               .Where(entity => normalizedState.Length == 0 || entity.CollectionState.Equals(normalizedState, StringComparison.OrdinalIgnoreCase))
               .OrderByDescending(entity => entity.CollectionState == "Overdue")
               .ThenByDescending(entity => entity.DaysPastDue)
               .ThenBy(entity => entity.DueDate)
               .ThenBy(entity => entity.CustomerName)
               .ToArray();
-
-          var overdueEntries = schedules
-              .Select(entity => CreateCollectionRow(entity, today))
+          var overdueEntries = allEntries
               .Where(entity => entity.CollectionState == "Overdue")
               .ToArray();
-          var dueTodayEntries = schedules
-              .Select(entity => CreateCollectionRow(entity, today))
+          var dueTodayEntries = allEntries
               .Where(entity => entity.CollectionState == "DueToday")
               .ToArray();
-          var dueThisWeekEntries = schedules
-              .Select(entity => CreateCollectionRow(entity, today))
+          var dueThisWeekEntries = allEntries
               .Where(entity => entity.CollectionState is "DueToday" or "DueThisWeek")
               .ToArray();
 
@@ -74,9 +73,14 @@ internal static class TenantMlsCollectionsEndpointMappings {
     return tenantApi;
   }
 
-  private static TenantMlsCollectionRowResponse CreateCollectionRow(AmortizationSchedule entity, DateOnly today) {
+  private static TenantMlsCollectionRowResponse CreateCollectionRow(
+      AmortizationSchedule entity,
+      DateOnly today,
+      TenantMlsLateFeePolicySnapshot lateFeePolicy) {
     var dueDate = DateOnly.FromDateTime(entity.DueDate);
-    var outstandingAmount = RoundCurrency(entity.InstallmentAmount - entity.PaidAmount);
+    var asOfUtc = today.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    var lateFeeAmount = TenantMlsLoanMath.GetEffectiveLateFeeAmount(entity, lateFeePolicy, asOfUtc);
+    var outstandingAmount = TenantMlsLoanMath.GetInstallmentOutstandingBalance(entity, lateFeePolicy, asOfUtc);
     var daysPastDue = dueDate < today ? today.DayNumber - dueDate.DayNumber : 0;
     var collectionState = dueDate < today
       ? "Overdue"
@@ -95,12 +99,10 @@ internal static class TenantMlsCollectionsEndpointMappings {
         dueDate,
         entity.InstallmentAmount,
         entity.PaidAmount,
+        lateFeeAmount,
         outstandingAmount,
         daysPastDue,
         collectionState,
         entity.MicroLoan.LoanStatus);
   }
-
-  private static decimal RoundCurrency(decimal value) =>
-    Math.Round(value, 2, MidpointRounding.AwayFromZero);
 }

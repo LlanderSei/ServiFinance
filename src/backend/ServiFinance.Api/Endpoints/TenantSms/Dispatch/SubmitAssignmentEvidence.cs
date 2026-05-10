@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiFinance.Api.Contracts;
 using ServiFinance.Api.Infrastructure;
+using ServiFinance.Api.Services;
 using ServiFinance.Application.Auth;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
@@ -16,7 +17,7 @@ internal static class SubmitAssignmentEvidence {
             string tenantDomainSlug,
             Guid assignmentId,
             [FromForm] SubmitTenantAssignmentEvidenceRequest request,
-            IWebHostEnvironment environment,
+            IImageUploadService imageUploadService,
             ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
             CancellationToken cancellationToken) => {
               if (!IsTenantSmsRouteAllowed(httpContext.User, tenantDomainSlug)) {
@@ -43,45 +44,38 @@ internal static class SubmitAssignmentEvidence {
                 return Results.BadRequest(new { error = "Add a note or at least one photo attachment." });
               }
 
-              var webRootPath = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
-              var uploadDirectory = Path.Combine(
-              webRootPath,
-              "uploads",
-              "assignment-evidence",
-              tenantDomainSlug,
-              assignmentId.ToString("N"));
-              Directory.CreateDirectory(uploadDirectory);
-
-              foreach (var file in request.Files) {
-                if (file.Length <= 0) {
-                  continue;
+              IReadOnlyList<ImageUploadResult> uploads = [];
+              if (request.Files.Count > 0) {
+                try {
+                  uploads = await imageUploadService.UploadBatchAsync(
+                      request.Files,
+                      new ImageUploadContext(
+                          ImageUploadPurpose.DispatchEvidence,
+                          tenantDomainSlug,
+                          currentUserId.ToString("N"),
+                          $"dispatch-evidence-{assignmentId:N}"),
+                      cancellationToken);
+                } catch (ImageUploadException exception) {
+                  return Results.Json(
+                      new { error = exception.Message },
+                      statusCode: exception.StatusCode);
                 }
+              }
 
-                if (file.Length > 5 * 1024 * 1024) {
-                  return Results.BadRequest(new { error = $"File '{file.FileName}' exceeds the 5 MB upload limit." });
-                }
-
-                var extension = Path.GetExtension(file.FileName);
-                var storedFileName = $"evidence-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}{extension}";
-                var absoluteFilePath = Path.Combine(uploadDirectory, storedFileName);
-
-                await using (var stream = File.Create(absoluteFilePath)) {
-                  await file.CopyToAsync(stream, cancellationToken);
-                }
-
+              foreach (var upload in uploads) {
                 dbContext.AssignmentEvidenceItems.Add(new ServiFinance.Domain.AssignmentEvidence {
                   AssignmentId = assignment.Id,
                   SubmittedByUserId = currentUserId,
                   Note = request.Note?.Trim() ?? string.Empty,
-                  OriginalFileName = file.FileName,
-                  StoredFileName = storedFileName,
-                  ContentType = file.ContentType,
-                  RelativeUrl = $"/uploads/assignment-evidence/{tenantDomainSlug}/{assignmentId:N}/{storedFileName}",
+                  OriginalFileName = upload.OriginalFileName,
+                  StoredFileName = upload.StoredFileName,
+                  ContentType = upload.ContentType,
+                  RelativeUrl = upload.PublicUrl,
                   CreatedAtUtc = DateTime.UtcNow
                 });
               }
 
-              if (request.Files.Count == 0) {
+              if (uploads.Count == 0) {
                 dbContext.AssignmentEvidenceItems.Add(new ServiFinance.Domain.AssignmentEvidence {
                   AssignmentId = assignment.Id,
                   SubmittedByUserId = currentUserId,
@@ -101,7 +95,7 @@ internal static class SubmitAssignmentEvidence {
                 ScheduledEndUtc = assignment.ScheduledEndUtc,
                 AssignmentStatus = assignment.AssignmentStatus,
                 Remarks = string.IsNullOrWhiteSpace(request.Note)
-                  ? $"Evidence submitted with {request.Files.Count} attachment(s)."
+                  ? $"Evidence submitted with {uploads.Count} attachment(s)."
                   : request.Note.Trim(),
                 ChangedByUserId = currentUserId,
                 CreatedAtUtc = DateTime.UtcNow

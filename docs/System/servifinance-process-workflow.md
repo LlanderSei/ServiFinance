@@ -1,331 +1,281 @@
 # ServiFinance Process Workflow
 
-This document describes the end-to-end operating workflow of ServiFinance as one connected system, covering:
+This document describes the current end-to-end workflow of ServiFinance across:
 
-- superadmin platform operations
-- tenant administration
-- customer portal activity
-- SMS web operations
-- MLS finance and micro-lending workflows
-
-It is written against the current ServiFinance structure and implementation direction.
+- root superadmin operations
+- tenant SMS web operations
+- tenant MLS desktop finance operations
+- tenant-scoped customer portal activity
+- Stripe-backed onboarding and subscription billing
 
 ## 1. System Overview
 
-ServiFinance is a multi-tenant platform with two main business delivery surfaces:
+ServiFinance is a multi-tenant platform with four connected surfaces:
 
-- `SMS Web` for service management, customer intake, dispatch, execution tracking, and operational reporting
-- `MLS Desktop` for invoice finance handling, loan conversion, payment posting, collections, ledger review, and audit review
+- `Root SaaS` for platform control and commercial governance
+- `SMS Web` for service intake, dispatch, execution, costing, invoicing, and reporting
+- `Customer Portal` for tenant-scoped self-service
+- `MLS Desktop` for finance review, loan conversion, collections, ledger work, and audit review
 
-The full business process typically moves in this order:
+The normal business flow is:
 
-1. the platform owner provisions and governs tenants
-2. a tenant operates service workflows in SMS
-3. a customer interacts through the tenant-scoped customer portal
-4. completed service work becomes invoice-ready in SMS
-5. finance staff continue the money-side workflow in MLS when needed
+1. superadmin manages the platform catalog and tenant posture
+2. a tenant is onboarded through Stripe-backed registration
+3. tenant staff operate service workflows in SMS
+4. customers interact through the tenant-scoped portal
+5. finalized service invoices either settle directly or move into MLS finance handling
 
 ## 2. Main Actors
 
-- `Superadmin`: manages the SaaS platform, tenants, subscription catalog visibility, and system health
-- `Tenant Administrator`: manages tenant staff, customer records, service intake, dispatch oversight, invoice finalization, and reporting
-- `Dispatcher / Staff`: operates service request and assignment workflows inside the tenant SMS workspace
-- `Technician`: receives assignments, updates work status, and submits execution evidence
-- `Customer`: registers under a tenant domain, submits service requests, tracks service progress, views invoices, and leaves feedback
-- `Finance / Cashier / Loan Officer`: handles invoice settlement review, loan conversion, payment posting, and ledger follow-up in MLS
+- `Superadmin`: manages the SaaS platform, tenants, subscription catalog, recovery posture, and root administration
+- `Tenant Owner / Administrator`: manages tenant staff, service operations, pricing, billing, branding, and reporting
+- `Dispatcher / Staff`: runs customer intake, service requests, dispatch scheduling, and service follow-up
+- `Technician`: works assigned jobs, updates service status, and submits execution evidence
+- `Customer`: registers inside a tenant domain, submits requests, tracks work, reviews invoices, pays or submits proof, and leaves feedback
+- `Finance / Cashier / Loan Officer`: reviews settlement proofs, converts invoices to loans, posts payments, works collections, and maintains the ledger in MLS
 
-## 3. Platform-Level Workflow
+## 3. Root Platform Workflow
 
 ### 3.1 Superadmin Access
 
-1. The platform operator signs in through the root superadmin surface.
-2. The superadmin opens the platform dashboard to review overall tenant counts, subscription mix, and system health.
-3. The superadmin reviews tenant records, module catalog visibility, and subscription-tier data.
+1. The platform operator signs in through the root surface.
+2. The superadmin opens root workspaces for:
+   - dashboard
+   - system health
+   - tenants
+   - subscription tiers
+   - modules
+   - audits
+   - root users
+   - roles and permissions
 
-### 3.2 Tenant Provisioning
+### 3.2 Tenant Onboarding
 
-1. A new tenant is registered through the platform onboarding flow.
-2. The root registration flow now creates a Stripe subscription checkout session for the selected MSME tier.
-3. After Stripe confirms the checkout, the platform provisions the tenant with:
-   - identity information
+1. A new tenant is registered from `/register`.
+2. The operator selects the commercial tier and edition from the active subscription catalog.
+3. The root onboarding flow creates a Stripe subscription checkout session for that selected tier.
+4. After Stripe confirms the checkout, the platform provisions:
+   - tenant identity
    - domain slug
-   - MSME size segment
-   - subscription edition and plan
-   - activation status
-   - the first tenant administrator account
-4. The tenant then becomes reachable through tenant-scoped routes such as:
-   - `/t/{tenant}/sms/*`
-   - `/t/{tenant}/c/*`
-   - `/t/{tenant}/mls/*` or the MLS desktop channel
+   - business size segment
+   - edition and subscription plan
+   - active Stripe billing linkage
+   - the first tenant owner or administrator account
 
-### 3.3 Platform Governance
+### 3.3 Platform Subscription Governance
 
-1. The superadmin can review whether a tenant is active or suspended.
-2. The superadmin can inspect subscription posture and module catalog metadata.
-3. Tenant billing can now follow two commercial paths:
-   - `Manual`, where tenant admins submit renewal proof for review
-   - `Stripe`, where the subscription is collected through Stripe Checkout and later managed in the Stripe billing portal
-4. Future entitlement enforcement and broader platform-side billing review will tighten this layer further.
+1. Superadmin can review catalog tiers, module access, and tenant recovery posture.
+2. Tenant subscription renewal is now Stripe-managed by default.
+3. Manual tenant subscription renewal proof submission is discontinued.
+4. Recovery actions now focus on:
+   - Stripe sync
+   - billing portal recovery
+   - pending plan switch review
+   - suspension review when renewal stays unresolved
 
 ## 4. Tenant Entry Workflow
 
-### 4.1 Tenant Staff Authentication
+### 4.1 Tenant Staff Entry
 
-1. A tenant staff member signs in under a tenant domain.
-2. The system resolves the tenant context from the tenant route or login scope.
-3. The user enters the internal tenant workspace, primarily the SMS web application.
+1. SMS staff sign in through the tenant web entry under `/t/{tenant}/sms/`.
+2. MLS staff sign in through the desktop entry under `/t/mls/`.
+3. The authenticated surface determines whether the user enters:
+   - SMS web operations
+   - MLS desktop finance operations
 
-### 4.2 Customer Authentication Surface
+### 4.2 Customer Entry
 
-1. A customer signs in or registers under a tenant-specific customer route such as:
-   - `/t/{tenant}/c/login`
-   - `/t/{tenant}/c/register`
-2. Customer identity is isolated per tenant domain.
-3. The customer enters a separate customer portal and does not receive tenant staff navigation or staff APIs.
+1. Customers sign in or register under `/t/{tenant}/c/*`.
+2. Customer identity remains isolated per tenant domain.
+3. The customer shell does not expose tenant staff navigation or staff APIs.
 
 ## 5. Tenant SMS Workflow
 
-### 5.1 Customer Record Preparation
+### 5.1 Customer Records
 
-1. A tenant administrator or staff member creates or updates customer records in SMS.
-2. These records hold the tenant-scoped customer identity used by:
-   - service intake
+1. Tenant staff create or update tenant-scoped customer records.
+2. These records support:
+   - service request linkage
    - dispatch
    - invoice linkage
    - finance handoff
 
-### 5.2 Service Request Intake
+### 5.2 Service Intake
 
-Service requests can begin in two ways:
+Service requests can begin from:
 
-- tenant staff creates the request from the internal SMS workspace
-- the customer creates the request from the tenant-scoped customer portal
+- the tenant SMS workspace
+- the tenant-scoped customer portal
 
-The intake workflow is:
+The flow is:
 
-1. a customer record is selected or already known
-2. the service request is created with item details, issue description, priority, and optional requested date
-3. the request receives a request number and initial status
-4. the request becomes visible in the tenant service request register
+1. the customer is selected or already known
+2. the request captures item, issue, logistics, and scheduling preference details
+3. the system assigns a request number and initial status
+4. the request appears in the SMS request register
 
-### 5.3 Dispatch and Assignment
+### 5.3 Dispatch
 
-1. A tenant administrator or dispatch-capable staff member opens the dispatch workspace.
-2. A service request is scheduled and assigned to a technician or staff owner.
+1. Dispatch-capable staff open the dispatch workspace.
+2. A live service request is scheduled to a technician or staff owner.
 3. The assignment records:
    - assigned staff
-   - assigning staff
+   - assigning user
    - schedule window
    - assignment status
-4. The system keeps assignment history, reassignment events, and conflict checks for overlapping schedules.
+4. The workspace tracks:
+   - acceptance queue
+   - assignment ledger
+   - my tasks
+   - timeline
+   - archive
+   - reassignment and conflict visibility
 
-### 5.4 Technician Execution
+### 5.4 Service Execution
 
-1. The technician opens `My tasks` or assignment views.
-2. The technician accepts, starts, pauses, or completes assigned work.
-3. The technician can submit evidence such as:
-   - job notes
-   - proof attachments
-   - execution updates
-4. Assignment updates push service-state changes back into the linked service request.
+1. The technician accepts or starts assigned work.
+2. The technician can pause, resume, complete, hand over, or abandon work based on permission and status.
+3. The technician submits notes and hosted evidence attachments.
+4. Assignment changes push service-state changes back into the linked request.
 
-### 5.5 Service Status Tracking
+### 5.5 Costing And Invoice Finalization
 
-1. Each meaningful status change is logged to the request history.
-2. Tenant staff can inspect the service request and dispatch detail views for:
-   - current service status
-   - audit trail
-   - assignment trail
-   - evidence trail
-3. The customer portal can read the customer-safe subset of this history for tracking.
-
-### 5.6 Invoice Finalization in SMS
-
-1. Once the work is assessed or completed, tenant staff finalizes the service request into an invoice.
-2. The invoice becomes linked to the originating customer and service request.
-3. SMS then marks the record for finance handoff visibility:
-   - not yet invoiced
-   - finance-ready
-   - already converted into MLS flow
-4. This is the transition point from pure service operations into finance handling.
+1. Tenant staff maintain service costing with base charges, services, parts, tax options, and notes.
+2. The costing sheet stays visible to the customer for transparency.
+3. Once ready, the service request is finalized into an invoice.
+4. The invoice then follows one of two paths:
+   - direct settlement
+   - MLS finance conversion review
 
 ## 6. Customer Portal Workflow
 
-### 6.1 Customer Registration and Login
+### 6.1 Customer Requests
 
-1. The customer creates a tenant-scoped account under the active tenant domain.
-2. The customer signs in through the customer portal.
-3. The customer reaches a separate authenticated shell designed for customer-only actions.
+1. The customer creates a service request from the portal.
+2. The request enters the same tenant SMS pipeline used by internal staff.
+3. Customers can track ongoing work and view completed or cancelled history separately.
 
-### 6.2 Customer Request Submission
+### 6.2 Customer Tracking
 
-1. The customer creates a new service request from the portal.
-2. The request is saved directly into the same tenant service pipeline used by internal SMS staff.
-3. The request appears in both:
-   - the customer portal request list
-   - the tenant SMS service request register
+1. The customer opens request details to see customer-safe operational history.
+2. Notifications can reflect service movement from the tenant side.
+3. After completion, the customer can leave a rating, suggestion category, and optional comment within the feedback window.
 
-### 6.3 Customer Request Tracking
+### 6.3 Customer Invoice And Settlement
 
-1. The customer opens the request list.
-2. The customer can open a request detail page to inspect:
-   - current service status
-   - status timeline
-   - assignment context
-   - invoice handoff visibility
-3. This gives the customer tracking visibility without exposing internal back-office controls.
+1. Finalized invoices appear in the customer invoice workspace.
+2. For eligible direct-settlement invoices, the customer can:
+   - start hosted Stripe Checkout
+   - submit manual payment proof for offline settlement review
+3. The customer can also see:
+   - settlement review outcomes
+   - approved or rejected proof history
+   - linked finance status
+   - whether the invoice has already been converted into an MLS loan
 
-### 6.4 Customer Invoice Visibility
+## 7. Payment And Settlement Responsibility
 
-1. Once a service invoice exists, it appears in the customer invoice list.
-2. The customer can view:
-   - invoice number
-   - total amount
-   - outstanding amount
-   - invoice status
-   - linked service request
-   - whether the invoice has already become an MLS loan account
-3. The customer side currently tracks invoice and settlement state only.
+ServiFinance separates visibility from authority.
 
-### 6.5 Customer Feedback
+### 7.1 Tenant Subscription Billing
 
-1. After a request is completed or closed, the customer can submit a rating and comment.
-2. The feedback is attached directly to the completed service request.
-3. This allows later reporting or service-quality review from the tenant side.
+- handled by Stripe-backed auto-renewal
+- reviewed through the tenant billing workspace and hosted billing portal
+- recovered through Stripe sync and payment-method update flows
 
-## 7. Payment and Settlement Responsibility
+### 7.2 Service Invoice Settlement
 
-ServiFinance separates visibility from financial authority.
-
-The intended split is:
-
-- customer portal: see invoice and settlement status
-- tenant internal side: confirm settlement, review proof if later enabled, and control invoice-state changes
-- MLS side: post finance transactions and loan payments when the invoice has already entered loan workflow
-
-This means:
-
-1. Customers may eventually submit proof or payment intent, but they should not self-approve settlement.
-2. Tenant staff remain responsible for confirming normal service-invoice settlement.
-3. MLS finance users remain responsible for loan-related payment posting and ledger mutation.
+- customers can initiate hosted online checkout or submit manual payment proof
+- tenant or MLS finance staff remain responsible for confirming or rejecting settlement outcomes
+- customers never self-approve settlement or mutate ledger-side finance records directly
 
 ## 8. MLS Finance Workflow
 
-### 8.1 Entry Into MLS
+### 8.1 Finance Intake
 
-1. A finalized SMS invoice becomes visible for finance review.
-2. Finance staff open the MLS desktop or tenant MLS finance workspace.
-3. They review the invoice, customer, and finance-ready balance.
+1. Finance staff open the MLS desktop workspace under `/t/mls/*`.
+2. They review customer finance posture, finance-ready invoices, and direct settlement submissions.
 
 ### 8.2 Finance Decision
 
-The finance operator chooses one of the following:
+The operator decides whether to:
 
-- keep the invoice as a normal settled service invoice
+- keep the invoice on a direct-settlement path
+- approve or reject a customer-submitted settlement proof
 - convert the invoice into a micro-loan
-- create a standalone loan when the finance case starts outside a service invoice
+- create a standalone loan outside the service workflow
 
-### 8.3 Invoice-To-Loan Conversion
+### 8.3 Loan Conversion And Creation
 
-1. A finance-ready invoice is selected.
-2. The operator enters financing terms such as:
-   - annual interest rate
-   - term in months
-   - loan start date
+1. A finance-ready invoice can be previewed for conversion.
+2. A standalone borrower can also be originated directly.
 3. The system computes:
    - principal
+   - interest
    - installment amount
-   - total interest
-   - total repayable amount
    - amortization schedule
-4. The system creates the micro-loan and links it back to the source invoice and customer.
+   - total repayable amount
+4. The resulting loan links back to the customer and, when relevant, the original service invoice.
 
-### 8.4 Payment Posting
+### 8.4 Loan Servicing
 
-1. A finance user posts payment against the active loan account.
+1. Finance staff post payments and, where allowed, reverse entries.
 2. The system updates:
-   - amortization schedule rows
+   - amortization rows
    - outstanding balance
-   - payment counts
-   - ledger entries
-3. Collections and balances can then be reviewed through:
-   - loan accounts
-   - collections workspace
-   - customer finance view
-   - ledger
-   - audit
-
-### 8.5 MLS Monitoring
-
-Finance users can continue reviewing:
-
-- finance-ready invoices
-- active loan portfolio
-- overdue collections
-- payment history
-- ledger trail
-- audit events
-- finance reports
+   - payment history
+   - ledger transactions
+3. Collections, reports, and audit views then reflect the updated posture.
 
 ## 9. Reporting Workflow
 
 ### 9.1 SMS Reporting
 
-Tenant staff can review operational reporting for:
+SMS reporting covers:
 
-- customer growth
-- intake volume
-- assignment scheduling
-- completion counts
-- invoice finalization activity
+- intake movement
 - technician workload
-- service-status distribution
-- turnaround performance
+- assignment completion
+- invoicing and finance handoff
+- feedback and suggestion signals
+- turnaround and operational comparisons
 
 ### 9.2 MLS Reporting
 
-Finance users can review financial reporting for:
+MLS reporting currently covers:
 
 - active loans
 - outstanding balances
-- collections in period
-- payment counts
+- payment volume
 - overdue exposure
 - borrower concentration
-- ledger transaction mix
+- ledger and collections signals
 
-## 10. Current Deferred Workflow Areas
+This area exists today, but it is still a known depth gap compared with the richer SMS reporting surface.
 
-These are part of the broader product direction but are still incomplete or deferred:
+## 10. Current Deferred Or Incomplete Areas
 
-- tenant-facing subscription billing workspace
-- tenant renewal and payment-history workflow
-- direct online customer invoice payment capture
-- customer proof-of-payment submission surface
-- guest or token-only tracking without customer login
-- full role-permission matrix across admin, dispatcher, technician, and finance actions
-- full MSME subscription-entitlement enforcement across all routes and backend actions
+- deeper MLS reporting and comparison depth
+- persisted maker-checker loan approval decisions
+- Google auth, MFA, password recovery, and stronger lockout or throttling
+- broader Stripe provider-event coverage and recovery hardening
+- final cleanup of redundant page-level and route-level MLS guard duplication
 
 ## 11. Condensed End-To-End Scenario
 
-The system-wide business flow can be summarized as:
-
-1. superadmin provisions and activates a tenant
-2. tenant administrator signs in and sets up staff operations
-3. customer registers under that tenant domain or is created by tenant staff
-4. service request enters SMS from staff intake or customer self-service
-5. tenant staff schedules and assigns the request
-6. technician performs the work and submits evidence
-7. tenant staff updates statuses and finalizes the invoice
-8. customer tracks progress and reviews invoice state from the portal
-9. tenant finance staff either confirms direct settlement or hands the invoice into MLS
-10. MLS finance users convert to loan if needed, post payments, and maintain the ledger until fully settled
+1. superadmin maintains the commercial catalog and platform recovery posture
+2. a tenant is onboarded through Stripe-backed registration
+3. tenant staff operate service workflows in SMS
+4. customer requests move through intake, dispatch, execution, and invoice finalization
+5. the customer tracks work, pays online, or submits settlement proof when needed
+6. tenant or MLS finance staff confirm direct settlement or move the invoice into MLS
+7. MLS staff convert to loan when needed, post payments, work collections, and maintain the ledger until fully settled
 
 ## 12. Operational Boundary Summary
 
-- `Superadmin` owns platform and tenant governance
+- `Root SaaS` owns platform governance and commercial catalog control
 - `Tenant SMS` owns service operations
-- `Customer Portal` owns customer self-service and visibility only
-- `Tenant MLS` owns finance execution, loan conversion, payment posting, and ledger accountability
+- `Customer Portal` owns customer self-service and transparency
+- `Tenant MLS` owns finance execution, collections, ledger mutation, and loan accountability
 
-That separation is the core workflow boundary of ServiFinance as a whole.
+That surface split remains the core workflow boundary of ServiFinance.

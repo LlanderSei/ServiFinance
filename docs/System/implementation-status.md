@@ -1,153 +1,107 @@
 # ServiFinance Implementation Status
 
-Last updated: 2026-05-04
+Last updated: 2026-05-10
 
-## What Has Been Implemented
+## Current Delivery State
 
-### Foundation and Database
+ServiFinance is no longer a foundation-only build. The platform now has working root SaaS operations, tenant SMS web operations, tenant MLS desktop operations, customer portal flows, Stripe-backed onboarding, and tenant billing recovery surfaces.
 
-- Multi-tenant core domain entities are defined in the infrastructure layer.
-- `ServiFinanceDbContext` now includes the main schema for:
-  - tenants
-  - users
-  - roles
-  - user-role assignments
-  - customers
-  - service requests
-  - status logs
-  - assignments
-  - invoices
-  - invoice lines
-  - micro-loans
-  - amortization schedules
-  - ledger transactions
-- Tenant-aware query filters and save-time tenant stamping are implemented.
-- SQL Server migration support is configured.
-- Initial migration has been generated and applied:
-  - `src/backend/ServiFinance.Infrastructure/Migrations/20260324164507_InitialFoundation.cs`
+The remaining work is mostly:
 
-### Development Seeding
+- route and guard consistency
+- recovery and webhook hardening
+- deeper MLS reporting and approval flow depth
+- account-security upgrades such as Google auth, MFA, and password recovery
+- documentation sync
 
-- The application now seeds a development tenant on startup.
-- The application now seeds:
-  - one `Administrator` role
-  - one `Staff` role
-  - one development admin user
-  - one admin role assignment
-- Development credentials are configurable through:
-  - `.env`
-  - host environment variables
+## Implemented Surfaces
 
-### Authentication
+### Root / Superadmin
 
-- Cookie-based authentication is wired into the web application.
-- Login is implemented through a real credential validation flow against the `Users` table.
-- Passwords are now stored and verified using ASP.NET Core password hashing.
-- Logout is implemented.
-- Unauthorized access redirects to the login page.
-- Access-denied routing is available.
+- Public SaaS landing page and live tenant registration flow at `/` and `/register`
+- Stripe-backed tenant onboarding with provisioning after checkout confirmation
+- Superadmin dashboard, system health, tenants, subscription tiers, modules, audits, root users, and roles-permissions workspaces
+- Subscription recovery queue for failed renewals, pending plan switches, cooldown state, and intervention actions
+- Root-scoped roles and permissions with mutable non-authority roles
 
-### User Management
+### Tenant SMS Web
 
-- An administrator-only user management page exists at:
-  - `/admin/users`
-- The page currently supports:
-  - viewing tenant users
-  - creating a new user
-  - assigning one role at creation
-  - enabling or disabling a user
-  - resetting a user's password
+- Tenant landing and authenticated SMS workspace under `/t/{tenant}/sms/*`
+- Dashboard, customers, service requests, dispatch, reports, SLA escalations, feedback CRM, cost control, pricing, billing, branding, audits, users, and roles-permissions
+- Service request lifecycle from intake through dispatch, execution, costing, invoice finalization, and finance handoff
+- Dispatch timeline, ledger, assignment history, evidence, reassignment, cancellation, abandonment, and conflict visibility
+- Service costing with presets, tax options, totals, and customer-facing transparency
+- Customer feedback, suggestions, pending and expired feedback windows, and service-linked CRM cues
 
-### Role and Permission Administration
+### Customer Portal
 
-- Scoped Roles & Permissions administration now exists for:
-  - Superadmin root website
-  - Tenant SMS web workspace
-  - Tenant MLS desktop workspace
-- Roles now store platform scope, rank, system-role state, and locked permission-set state.
-- The `RolePermissions` table now stores granted permission keys per role.
-- SuperAdmin and tenant Owner/Admin roles are locked authority roles.
-- Operational roles such as SMS Staff, SMS Dispatcher, SMS Technician, MLS Staff, and MLS Cashier can carry dedicated permission sets.
-- Roles & Permissions now has `Roles`, `Permissions`, and `Matrix` tabs wired to independent interfaces.
-- The `Roles` table now exposes actions for editing editable roles and viewing users assigned to each role.
-- Editable roles can update name, description, platform scope, and rank through the role modal.
-- Changing an editable tenant role between SMS and MLS retargets the permission matrix to the selected scope and clears out-of-scope permission keys.
-- The Add Role floating action is available across the Roles & Permissions workspace.
-- Role rank uniqueness is guarded within the tenant/root role catalog so two roles cannot share the same rank in the same management boundary.
-- The permission matrix is intentionally not enforced across the whole website yet; current enforcement remains route and owner/admin guard based.
+- Tenant-scoped customer registration and login under `/t/{tenant}/c/*`
+- Customer dashboard, profile, service requests, request details, invoices, and feedback
+- New request submission, request cancellation windows, profile contact and address management, and request tracking
+- Finalized invoice visibility with:
+  - hosted Stripe Checkout for eligible direct-settlement invoices
+  - manual payment proof submission for offline review
+  - settlement review outcomes and submission history
 
-### Initial Authenticated UI
+### Tenant MLS Desktop
 
-- A protected dashboard page exists at:
-  - `/dashboard`
-- Navigation now changes based on authentication state.
-- The sidebar exposes the administrator user management link only to users in the `Administrator` role.
+- Desktop login and desktop workspace under `/t/mls/*`
+- Dashboard, customer finance, loan conversion, standalone loans, loan accounts, collections, reports, ledger, audits, roles-permissions, users, billing, branding, portfolio risk, finance policy, and loan-approvals workspaces
+- Invoice-to-loan conversion preview and creation
+- Standalone loan preview and creation
+- Payment posting, reversal, collections review, and ledger mutation
+- MLS settlement review for customer-submitted service invoice payment proofs
 
-## What Is Working Right Now
+### Billing, Subscription, and Entitlements
 
-- The solution builds successfully through:
-  - `src/backend/ServiFinance.Api/ServiFinance.Api.csproj`
-- The local SQL Server database has:
-  - 1 tenant
-  - 2 roles
-  - 1 user
-  - 1 user-role assignment
-- The development login is sourced from:
-  - `ServiFinance__DevelopmentAdminEmail`
-  - `ServiFinance__DevelopmentAdminPassword`
-- The app can start, apply migrations, and seed auth data automatically.
-- The seeded admin account can be used as the first back-office operator account.
+- Root subscription catalog with segment, edition, price, module coverage, and limited/full access metadata
+- Tenant billing workspace shared across SMS and MLS entry points
+- Stripe-managed auto-renewal and hosted billing portal access
+- Pending plan switch scheduling for the next renewal cycle, cancellation cooldowns, and recovery posture
+- Subscription recovery enforcement and tenant grace-policy behavior
+- Route and endpoint module gating across most SMS and MLS workspaces
 
-## Current Limitations
+## Working Right Now
 
-- Authentication is only implemented for the web application so far.
-- There is no full registration workflow yet.
-- There is no self-service password reset or email flow.
-- Custom role creation is now implemented for mutable role scopes; locked authority roles remain system-defined.
-- A fine-grained permission matrix now exists, but website-wide action enforcement has not been wired to it yet.
-- MSME segment and subscription-based module entitlement enforcement is not implemented yet.
-- Audit logging for login activity, password changes, and user admin actions is not implemented yet.
-- The legacy template pages still exist and are not yet fully replaced by service-specific modules.
-- The MAUI desktop channel is not yet wired to the auth flow.
+- Root onboarding provisions tenants from the live subscription catalog after Stripe confirms checkout.
+- Tenant SMS and MLS workspaces both run against real tenant-scoped data and shared auth.
+- Customer service requests, feedback, and direct settlement activity flow back into tenant operations.
+- Stripe subscription billing and customer invoice checkout both use hosted Stripe flows instead of embedded card forms.
+- Manual tenant subscription renewal proof submission is disabled; renewal follows provider-managed auto-renewal and hosted billing portal recovery.
+- MLS direct routes now have route-level permission wrappers aligned with the existing SMS and root route pattern.
 
-Reference:
+## Known Gaps And Hardening Areas
 
-- `Docs/msme-tiering-and-module-matrix.md` now defines the target module matrix for `Micro`, `Small`, and `Medium` tenants under `Standard` and `Premium`.
+### MLS Depth
 
-## Recommended Next Implementation Steps
+- MLS reporting exists, but it is still shallower than SMS operational reporting and can be expanded with stronger period comparison, delinquency mix, and collection trend depth.
+- Loan approval workflow is present as a readiness and review workspace, but full persisted maker-checker approval decisions remain future hardening.
 
-### Auth and Security Hardening
+### Security
 
-- Add password policy enforcement.
-- Add user lockout or throttling for repeated failed logins.
-- Add audit logs for login, logout, password reset, and user status changes.
-- Add explicit authorization policies instead of relying only on role names.
+- Google auth, MFA, self-service password recovery, and lockout or throttling are still not implemented.
+- Root mutable-role behavior still has some backend assumptions around locked SuperAdmin authority instead of pure permission-key enforcement everywhere.
 
-### User Administration Expansion
+### Billing And Recovery
 
-- Add role assignment editing for existing users.
-- Add website-wide action enforcement from the persisted permission matrix.
-- Add user profile editing.
-- Add tenant-specific admin onboarding flows.
+- Stripe recovery is working, but broader webhook/event coverage can still be extended for more provider states and failure cases.
+- Downgrade cleanup behavior for locked modules with unfinished work is surfaced, but deeper operational handling can still be tightened.
 
-### Business Module Development
+### Documentation
 
-- Build customer management.
-- Build service request intake.
-- Build service request status tracking and assignment workflows.
-- Build invoice creation from service work.
-- Build the shared loan engine and payment posting workflows.
-- Add tenant module entitlement resolution based on MSME segment and subscription edition.
-- Gate web and desktop routes based on the documented module matrix.
+- Phase and status docs must stay in sync with the current route contract, billing model, and customer/payment behavior.
 
-### Desktop and Shared Experience
+## Recommended Near-Term Slices
 
-- Add authenticated desktop terminal access.
-- Reuse the same user and tenant rules in the MAUI application.
-- Replace placeholder template pages with actual business pages.
+1. Expand MLS reporting depth and loan approval persistence.
+2. Continue Stripe recovery and provider-event hardening.
+3. Tighten remaining root permission enforcement assumptions.
+4. Add account-security slices: Google auth, MFA, password recovery, and lockout policy.
 
-## Important Notes for Developers
+## Developer Notes
 
-- The web app currently assumes a development tenant context from configuration.
-- Startup seeding is meant for development bootstrap, not final production provisioning.
-- If the development admin password is changed in `.env` or host configuration, startup seeding will refresh the seeded admin's password hash on the next application start.
+- Root superadmin routes live on the root surface, not a separate `/superadmin/*` prefix.
+- SMS tenant routes live under `/t/{tenant}/sms/*`.
+- Customer portal routes live under `/t/{tenant}/c/*`.
+- MLS desktop routes live under `/t/mls/*`; browser web sessions are redirected to the desktop-required screen instead of loading the MLS workspace directly.
+- Billing behavior now assumes provider-managed renewal for tenant subscriptions and mixed direct-settlement options for customer invoices.

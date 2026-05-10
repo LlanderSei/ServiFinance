@@ -11,6 +11,9 @@ using ServiFinance.Infrastructure.Extensions;
 DotEnvLoader.LoadFromCurrentDirectory();
 
 var builder = WebApplication.CreateBuilder(args);
+var imgBbApiKey = builder.Configuration["ServiFinance:ExternalServices:ImgBB:ApiKey"]?.Trim()
+    ?? builder.Configuration["ExternalServices:ImgBB:ApiKey"]?.Trim()
+    ?? builder.Configuration["IMGBB_API_KEY"]?.Trim();
 var nominatimUserAgent = builder.Configuration["ServiFinance:ExternalServices:Nominatim:UserAgent"]?.Trim()
     ?? builder.Configuration["ExternalServices:Nominatim:UserAgent"]?.Trim();
 var nominatimContactEmail = builder.Configuration["ServiFinance:ExternalServices:Nominatim:ContactEmail"]?.Trim()
@@ -24,6 +27,16 @@ if (string.IsNullOrWhiteSpace(sessionTokenOptions.SigningKey)) {
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
+builder.Services.Configure<ImgBbUploadOptions>(options => {
+  options.ApiKey = imgBbApiKey ?? string.Empty;
+});
+builder.Services.AddHttpClient(ImgBbImageUploadService.HttpClientName, client => {
+  client.BaseAddress = new Uri("https://api.imgbb.com/");
+  client.Timeout = TimeSpan.FromSeconds(20);
+  client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
+builder.Services.AddSingleton<IImageUploadRateLimiter, MemoryImageUploadRateLimiter>();
+builder.Services.AddScoped<IImageUploadService, ImgBbImageUploadService>();
 builder.Services.AddHttpClient(NominatimAddressLookupService.HttpClientName, client => {
   client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
   client.Timeout = TimeSpan.FromSeconds(10);
@@ -65,6 +78,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 builder.Services.AddServiFinanceSqlServer(builder.Configuration);
+builder.Services.AddHostedService<SubscriptionRecoveryReconciliationHostedService>();
 
 var app = builder.Build();
 await app.Services.EnsureServiFinanceDatabaseAsync();
@@ -91,6 +105,7 @@ var api = app.MapGroup("/api")
 api.MapPlatformApiEndpoints();
 api.MapAddressLookupApiEndpoints();
 api.MapAuthApiEndpoints(sessionTokenOptions);
+api.MapAccountApiEndpoints();
 api.MapSuperadminApiEndpoints();
 api.MapTenantSmsApiEndpoints();
 api.MapAuditApiEndpoints();

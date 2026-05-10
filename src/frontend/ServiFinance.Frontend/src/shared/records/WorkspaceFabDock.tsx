@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useToast } from "@/shared/toast/ToastProvider";
 
 export type WorkspaceFabAction = {
   key: string;
@@ -15,6 +16,7 @@ type WorkspaceFabDockProps = {
 
 export function WorkspaceFabDock({ actions }: WorkspaceFabDockProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const toast = useToast();
 
   if (!actions.length) {
     return null;
@@ -43,11 +45,27 @@ export function WorkspaceFabDock({ actions }: WorkspaceFabDockProps) {
           <button
             key={action.key}
             type="button"
-            className="btn btn-circle btn-sm pointer-events-auto h-12 w-12 border-base-300/70 bg-base-100 text-base-content shadow-sm transition-colors duration-200 hover:bg-base-200"
-            onClick={action.onClick}
+            className={`btn btn-circle btn-sm pointer-events-auto h-12 w-12 border-base-300/70 bg-base-100 text-base-content shadow-sm transition-colors duration-200 ${
+              action.disabled
+                ? "cursor-not-allowed opacity-55 hover:bg-base-100"
+                : "hover:bg-base-200"
+            }`}
+            onClick={() => {
+              if (action.disabled) {
+                if (action.disabledReason) {
+                  toast.warning({
+                    title: `${action.label} unavailable`,
+                    message: action.disabledReason
+                  });
+                }
+                return;
+              }
+
+              action.onClick();
+            }}
             aria-label={action.label}
+            aria-disabled={action.disabled}
             title={action.disabled && action.disabledReason ? action.disabledReason : action.label}
-            disabled={action.disabled}
             tabIndex={isExpanded ? 0 : -1}
           >
             <WorkspaceFabIcon name={action.icon} />

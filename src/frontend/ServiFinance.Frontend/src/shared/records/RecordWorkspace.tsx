@@ -41,9 +41,15 @@ export function RecordWorkspace({
   const hasCountBadge = typeof recordCount === "number" && singularLabel;
 
   return (
-    <main className="authed-workspace mx-auto h-full min-h-0 max-w-none overflow-hidden bg-base-100 text-base-content">
+    <main
+      className="authed-workspace mx-auto h-full min-h-0 max-w-none overflow-hidden bg-base-100 text-base-content"
+      style={{ background: "var(--tenant-page-bg)" }}
+    >
       <section className="grid h-full min-h-0 grid-rows-[auto_1fr] gap-0 bg-transparent">
-        <header className="flex flex-col border-b border-base-300/70 bg-base-100 px-6 pt-5">
+        <header
+          className="flex flex-col border-b border-base-300/70 bg-base-100 px-6 pt-5"
+          style={{ background: "var(--tenant-header-bg)" }}
+        >
           {/* Upper row: breadcrumbs + title row + count badge + description */}
           <div className="grid gap-0.5">
             <p className="m-0 text-[0.74rem] font-extrabold uppercase tracking-[0.14em] text-base-content/60">{breadcrumbs}</p>

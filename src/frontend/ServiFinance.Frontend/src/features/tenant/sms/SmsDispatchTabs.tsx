@@ -24,6 +24,7 @@ import {
   WorkspaceFieldGrid,
   WorkspaceInput,
   WorkspaceSelect,
+  WorkspaceStatusPill,
   WorkspaceToggleButton,
   WorkspaceToggleGroup
 } from "@/shared/records/WorkspaceControls";
@@ -65,10 +66,12 @@ export function SmsDispatchPage() {
   const permissionKeys = new Set(currentUser?.permissionKeys ?? []);
   const canUseAdvancedScheduling = hasFullModuleAccess(currentUser, SmsModuleCodes.scheduling);
   const canUseFullEvidence = hasFullModuleAccess(currentUser, SmsModuleCodes.jobUpdates);
-  const canViewRegister = permissionKeys.has("sms.dispatch.view");
+  const canViewDispatchRegister = permissionKeys.has("sms.dispatch.view");
   const canScheduleAssignments = permissionKeys.has("sms.dispatch.schedule");
   const canUpdateAssignments = permissionKeys.has("sms.dispatch.update-status");
   const canManageDispatchEvidence = permissionKeys.has("sms.dispatch.evidence.manage") && canUseFullEvidence;
+  const canViewAllAssignments = canUserSeeAllDispatchAssignments(permissionKeys);
+  const canViewDispatchOverview = canViewDispatchRegister && canViewAllAssignments;
   
   const [selectedAssignment, setSelectedAssignment] = useState<TenantDispatchAssignmentRow | null>(null);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -111,6 +114,13 @@ export function SmsDispatchPage() {
     queryFn: () => httpGet<TenantDispatchMetaResponse>(`/api/tenants/${tenantDomainSlug}/sms/dispatch/meta`),
     enabled: canScheduleAssignments
   });
+
+  const scheduleAssignmentReadiness = getScheduleAssignmentReadiness(
+    canScheduleAssignments,
+    dispatchMetaQuery.isLoading,
+    dispatchMetaQuery.data?.assignableUsers.length ?? 0,
+    dispatchMetaQuery.data?.serviceRequests.length ?? 0
+  );
 
   const assignmentDetailQuery = useQuery({
     queryKey: ["tenant", tenantDomainSlug, "sms-dispatch-detail", selectedAssignment?.id],
@@ -313,13 +323,15 @@ export function SmsDispatchPage() {
     }
   });
 
+  const effectiveViewMode = canViewAllAssignments ? viewMode : "mine";
+
   const visibleAssignments = useMemo(() => {
     const assignments = dispatchQuery.data ?? [];
-    if (viewMode === "mine" && currentUser?.userId) {
+    if (effectiveViewMode === "mine" && currentUser?.userId) {
       return assignments.filter((assignment) => assignment.assignedUserId === currentUser.userId);
     }
     return assignments;
-  }, [currentUser?.userId, dispatchQuery.data, viewMode]);
+  }, [currentUser?.userId, dispatchQuery.data, effectiveViewMode]);
 
   const myAssignments = useMemo(() => {
     const assignments = dispatchQuery.data ?? [];
@@ -340,12 +352,13 @@ export function SmsDispatchPage() {
     [visibleAssignments]
   );
   const dispatchTabs = useMemo(
-    () => getDispatchTabs(canViewRegister, canScheduleAssignments, canUseAdvancedScheduling),
-    [canViewRegister, canScheduleAssignments, canUseAdvancedScheduling]
+    () => getDispatchTabs(canViewDispatchOverview, canViewDispatchRegister, canScheduleAssignments, canUseAdvancedScheduling),
+    [canViewDispatchOverview, canViewDispatchRegister, canScheduleAssignments, canUseAdvancedScheduling]
   );
+  const fallbackDispatchTab = dispatchTabs[0]?.key ?? "mytasks";
   const visibleActiveTab = dispatchTabs.some((tab) => tab.key === activeTab)
     ? activeTab
-    : "overview";
+    : fallbackDispatchTab;
 
   function handleStatusUpdate(assignment: TenantDispatchAssignmentRow, assignmentStatus: string, serviceStatus?: string) {
     if (!canUpdateAssignments) {
@@ -411,7 +424,7 @@ export function SmsDispatchPage() {
     const commonProps = {
       isLoading: dispatchQuery.isLoading,
       isError: dispatchQuery.isError,
-      viewMode,
+      viewMode: effectiveViewMode,
       onSelectAssignment: setSelectedAssignment,
       formatDateTime,
       getFinanceTone
@@ -444,7 +457,17 @@ export function SmsDispatchPage() {
           />
         );
       case "assignments":
-        return <SmsDispatchAssignments assignments={visibleAssignments} {...commonProps} />;
+        return (
+          <div className="grid gap-4">
+            <WorkspacePanel className="shrink-0">
+              <WorkspacePanelHeader eyebrow="Dispatch ledger" title="Assignment ledger" />
+              <p className="text-sm text-base-content/68">
+                Ledger keeps the flat assignment queue for filtered review. Use this tab for the broad dispatch board, while My Tasks stays scoped to the signed-in assignee.
+              </p>
+            </WorkspacePanel>
+            <SmsDispatchAssignments assignments={visibleAssignments} {...commonProps} />
+          </div>
+        );
       case "mytasks":
         return (
           <SmsDispatchMyTasks
@@ -461,7 +484,7 @@ export function SmsDispatchPage() {
           <SmsDispatchTimeline
             assignments={dispatchQuery.data ?? []}
             currentUserId={currentUser?.userId ?? null}
-            viewMode={viewMode}
+            viewMode={effectiveViewMode}
             setViewMode={(mode) => setViewMode(mode)}
           />
         );
@@ -483,14 +506,18 @@ export function SmsDispatchPage() {
         headerBottom={
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <WorkspaceTopTabs tabs={dispatchTabs} activeTab={visibleActiveTab} onChange={setActiveTab} />
-            <WorkspaceToggleGroup className="w-max max-w-full overflow-x-auto">
-              <WorkspaceToggleButton active={viewMode === "all"} onClick={() => setViewMode("all")}>
-                All assignments
-              </WorkspaceToggleButton>
-              <WorkspaceToggleButton active={viewMode === "mine"} onClick={() => setViewMode("mine")}>
-                My assignments
-              </WorkspaceToggleButton>
-            </WorkspaceToggleGroup>
+            {canViewAllAssignments ? (
+              <WorkspaceToggleGroup className="w-max max-w-full overflow-x-auto">
+                <WorkspaceToggleButton active={effectiveViewMode === "all"} onClick={() => setViewMode("all")}>
+                  All assignments
+                </WorkspaceToggleButton>
+                <WorkspaceToggleButton active={effectiveViewMode === "mine"} onClick={() => setViewMode("mine")}>
+                  My assignments
+                </WorkspaceToggleButton>
+              </WorkspaceToggleGroup>
+            ) : (
+              <WorkspaceStatusPill tone="neutral">My assignments only</WorkspaceStatusPill>
+            )}
           </div>
         }
       >
@@ -500,7 +527,7 @@ export function SmsDispatchPage() {
               filters={filters}
               setFilters={setFilters}
               meta={dispatchMetaQuery.data}
-              canFilterStaff={canScheduleAssignments}
+              canFilterStaff={canViewAllAssignments}
             />
           ) : null}
           {renderTabContent()}
@@ -529,12 +556,27 @@ export function SmsDispatchPage() {
                       return;
                     }
 
+                    if (!result.data?.assignableUsers.length) {
+                      toast.warning({
+                        title: "No active staff available",
+                        message: "Activate or add an assignable tenant user before scheduling a dispatch assignment."
+                      });
+                      return;
+                    }
+
+                    if (!result.data?.serviceRequests.length) {
+                      toast.warning({
+                        title: "No schedulable service requests",
+                        message: "Only live service requests can be scheduled into dispatch."
+                      });
+                      return;
+                    }
+
                     setIsScheduleModalOpen(true);
                   });
                 },
-                disabled: dispatchMetaQuery.isLoading ||
-                  !dispatchMetaQuery.data?.assignableUsers.length ||
-                  !dispatchMetaQuery.data?.serviceRequests.length
+                disabled: !scheduleAssignmentReadiness.allowed,
+                disabledReason: scheduleAssignmentReadiness.reason ?? undefined
               }] : [])
             ]}
           />
@@ -655,15 +697,57 @@ export function SmsDispatchPage() {
   );
 }
 
-function getDispatchTabs(canViewRegister: boolean, canScheduleAssignments: boolean, canUseAdvancedScheduling: boolean) {
+function getDispatchTabs(
+  canViewOverview: boolean,
+  canViewRegister: boolean,
+  canScheduleAssignments: boolean,
+  canUseAdvancedScheduling: boolean
+) {
   return [
-    { key: "overview", label: "Overview" },
-    { key: "pending", label: "Pending Tasks" },
-    ...(canViewRegister ? [{ key: "assignments", label: "Register" }] : []),
+    ...(canViewOverview ? [{ key: "overview", label: "Overview" }] : []),
+    { key: "pending", label: "Acceptance Queue" },
+    ...(canViewRegister ? [{ key: "assignments", label: "Ledger" }] : []),
     { key: "mytasks", label: "My Tasks" },
     ...(canUseAdvancedScheduling ? [{ key: "timeline", label: "Timeline" }] : []),
     ...(canScheduleAssignments ? [{ key: "archive", label: "Archive" }] : []),
   ];
+}
+
+function canUserSeeAllDispatchAssignments(permissionKeys: Set<string>) {
+  return permissionKeys.has("sms.dispatch.schedule") ||
+    permissionKeys.has("sms.customers.view") ||
+    permissionKeys.has("sms.reports.view") ||
+    permissionKeys.has("sms.sla-escalations.view") ||
+    permissionKeys.has("sms.feedback-crm.view") ||
+    permissionKeys.has("sms.cost-control.view") ||
+    permissionKeys.has("sms.users.manage") ||
+    permissionKeys.has("sms.roles-permissions.manage") ||
+    permissionKeys.has("sms.audits.view");
+}
+
+function getScheduleAssignmentReadiness(
+  hasActionPermission: boolean,
+  isLoadingMeta: boolean,
+  assignableUserCount: number,
+  schedulableRequestCount: number
+) {
+  if (!hasActionPermission) {
+    return { allowed: false, reason: "Your role cannot schedule dispatch assignments." };
+  }
+
+  if (isLoadingMeta) {
+    return { allowed: false, reason: "Dispatch options are still loading." };
+  }
+
+  if (assignableUserCount <= 0) {
+    return { allowed: false, reason: "Add or activate an assignable tenant user before scheduling work." };
+  }
+
+  if (schedulableRequestCount <= 0) {
+    return { allowed: false, reason: "Only live service requests can be scheduled into dispatch." };
+  }
+
+  return { allowed: true, reason: null };
 }
 
 function DispatchFilterPanel({
@@ -681,7 +765,7 @@ function DispatchFilterPanel({
     <WorkspacePanel className="shrink-0">
       <WorkspacePanelHeader
         eyebrow="Filters"
-        title="Assignment register filters"
+        title="Assignment ledger filters"
         actions={(
           <WorkspaceActionButton
             onClick={() => setFilters({

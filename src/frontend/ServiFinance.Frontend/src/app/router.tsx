@@ -9,7 +9,9 @@ import { RouteErrorPage } from "@/features/system/RouteErrorPage";
 import { isDesktopShell } from "@/platform/runtime";
 import { PermissionGate } from "@/shared/auth/PermissionGate";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
-import { MlsModuleCodes, SmsModuleCodes } from "@/shared/auth/permissions";
+import { MlsModuleCodes, SmsModuleCodes, hasPermission } from "@/shared/auth/permissions";
+import { getCurrentSession } from "@/shared/auth/session";
+import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { TenantDomainGuard } from "@/shared/tenant/TenantDomainGuard";
 
 function lazyPage<TModule extends Record<string, unknown>, TKey extends keyof TModule & string>(
@@ -36,6 +38,7 @@ const PlatformAuditsPage = lazyPage(() => import("@/features/administration/audi
 const PlatformRolesPermissionsPage = lazyPage(() => import("@/features/administration/roles-permissions/RolesPermissionsPage"), "PlatformRolesPermissionsPage");
 const TenantLandingPage = lazyPage(() => import("@/features/tenant/TenantLandingPage"), "TenantLandingPage");
 const TenantBillingPage = lazyPage(() => import("@/features/tenant/TenantBillingPage"), "TenantBillingPage");
+const TenantBrandingPage = lazyPage(() => import("@/features/tenant/TenantBrandingPage"), "TenantBrandingPage");
 const CustomerLoginPage = lazyPage(() => import("@/features/customer/CustomerLoginPage"), "CustomerLoginPage");
 const CustomerRegisterPage = lazyPage(() => import("@/features/customer/CustomerRegisterPage"), "CustomerRegisterPage");
 const CustomerDashboardPage = lazyPage(() => import("@/features/customer/CustomerDashboardPage"), "CustomerDashboardPage");
@@ -163,6 +166,7 @@ const browserRoutes = [
               { path: "sms/pricing", element: withPermission(<SmsPricingPage />, "sms.pricing.manage", undefined, SmsModuleCodes.invoicing, true) },
               { path: "sms/audits", element: withPermission(<TenantSmsAuditsPage />, "sms.audits.view") },
               { path: "sms/roles-permissions", element: withPermission(<TenantSmsRolesPermissionsPage />, "sms.roles-permissions.manage", undefined, SmsModuleCodes.staffAccounts, true) },
+              { path: "sms/branding", element: withPermission(<TenantBrandingPage />, "sms.branding.manage") },
               { path: "sms/users", element: withPermission(<SmsUsersPage />, "sms.users.manage", undefined, SmsModuleCodes.staffAccounts) }
             ]
           },
@@ -201,21 +205,34 @@ const desktopRoutes = [
       { path: "error", element: <ErrorPage /> },
       { path: "not-found", element: <NotFoundPage /> },
       { path: "t/mls", element: <MlsDesktopLoginPage /> },
-      { path: "t/mls/dashboard", element: <MlsDashboardPage /> },
-      { path: "t/mls/billing", element: withPermission(<TenantBillingPage />, "mls.billing.view") },
-      { path: "t/mls/customers", element: <MlsCustomerFinancePage /> },
-      { path: "t/mls/loan-conversion", element: <MlsLoanConversionPage /> },
-      { path: "t/mls/standalone-loans", element: <MlsStandaloneLoanPage /> },
-      { path: "t/mls/loans", element: <MlsLoanAccountsPage /> },
-      { path: "t/mls/collections", element: <MlsCollectionsPage /> },
+      { path: "t/mls/dashboard", element: withPermission(<MlsDashboardPage />, "mls.dashboard.view", undefined, MlsModuleCodes.serviceLinkedLoans) },
+      {
+        path: "t/mls/billing",
+        element: (
+          <ProtectedRoute
+            requireSurface="TenantDesktop"
+            requirePermission="mls.billing.view"
+            unauthenticatedRedirectTo="/t/mls/"
+            unauthorizedRedirectTo="/t/mls/"
+          >
+            <TenantBillingPage />
+          </ProtectedRoute>
+        )
+      },
+      { path: "t/mls/branding", element: <TenantDesktopBrandingRedirect /> },
+      { path: "t/mls/customers", element: withPermission(<MlsCustomerFinancePage />, "mls.customer-finance.view", undefined, MlsModuleCodes.financialRecords) },
+      { path: "t/mls/loan-conversion", element: withPermission(<MlsLoanConversionPage />, "mls.loan-conversion.manage", undefined, MlsModuleCodes.serviceLinkedLoans) },
+      { path: "t/mls/standalone-loans", element: withPermission(<MlsStandaloneLoanPage />, "mls.standalone-loans.manage", undefined, MlsModuleCodes.standaloneLoans) },
+      { path: "t/mls/loans", element: withPermission(<MlsLoanAccountsPage />, "mls.loan-accounts.view", undefined, MlsModuleCodes.financialRecords) },
+      { path: "t/mls/collections", element: withPermission(<MlsCollectionsPage />, "mls.collections.manage", undefined, MlsModuleCodes.collectionsQueue) },
       { path: "t/mls/portfolio-risk", element: withPermission(<MlsPortfolioRiskPage />, "mls.portfolio-risk.view", undefined, MlsModuleCodes.portfolioRiskDashboard) },
       { path: "t/mls/loan-approvals", element: withPermission(<MlsLoanApprovalsPage />, "mls.loan-approvals.view", undefined, MlsModuleCodes.loanApprovalWorkflow) },
       { path: "t/mls/finance-policy", element: withPermission(<MlsFinancePolicyPage />, "mls.finance-policy.view", undefined, MlsModuleCodes.financePolicyControl) },
-      { path: "t/mls/users", element: <MlsPlatformUsersPage /> },
-      { path: "t/mls/roles-permissions", element: <MlsRolesPermissionsPage /> },
-      { path: "t/mls/audit", element: <MlsAuditPage /> },
-      { path: "t/mls/reports", element: <MlsReportsPage /> },
-      { path: "t/mls/ledger", element: <MlsLedgerPage /> },
+      { path: "t/mls/users", element: withPermission(<MlsPlatformUsersPage />, "mls.users.manage") },
+      { path: "t/mls/roles-permissions", element: withPermission(<MlsRolesPermissionsPage />, "mls.roles-permissions.manage") },
+      { path: "t/mls/audit", element: withPermission(<MlsAuditPage />, "mls.audits.view", undefined, MlsModuleCodes.auditLogs) },
+      { path: "t/mls/reports", element: withPermission(<MlsReportsPage />, "mls.reports.view", undefined, MlsModuleCodes.ledgerReports) },
+      { path: "t/mls/ledger", element: withPermission(<MlsLedgerPage />, "mls.ledger.view", undefined, MlsModuleCodes.ledgerReports, true) },
       {
         path: "t/:tenantDomainSlug",
         element: <TenantDomainGuard />,
@@ -262,6 +279,7 @@ const desktopRoutes = [
               { path: "sms/pricing", element: withPermission(<SmsPricingPage />, "sms.pricing.manage", undefined, SmsModuleCodes.invoicing, true) },
               { path: "sms/audits", element: withPermission(<TenantSmsAuditsPage />, "sms.audits.view") },
               { path: "sms/roles-permissions", element: withPermission(<TenantSmsRolesPermissionsPage />, "sms.roles-permissions.manage", undefined, SmsModuleCodes.staffAccounts, true) },
+              { path: "sms/branding", element: withPermission(<TenantBrandingPage />, "sms.branding.manage") },
               { path: "sms/users", element: withPermission(<SmsUsersPage />, "sms.users.manage", undefined, SmsModuleCodes.staffAccounts) }
             ]
           },
@@ -302,6 +320,26 @@ function LegacyMlsRouteRedirect() {
   const { "*": legacyPath = "" } = useParams();
   const normalizedTarget = legacyPath ? `/t/mls/${legacyPath}` : "/t/mls/";
   return <Navigate to={normalizedTarget} replace />;
+}
+
+function TenantDesktopBrandingRedirect() {
+  const currentSession = getCurrentSession();
+  const { data, isLoading } = useRefreshSession(!currentSession);
+  const user = (currentSession ?? data)?.user ?? null;
+
+  if (!user && isLoading) {
+    return null;
+  }
+
+  if (!user?.tenantDomainSlug) {
+    return <Navigate to="/t/mls/" replace />;
+  }
+
+  if (!hasPermission(user, "sms.branding.manage")) {
+    return <Navigate to="/t/mls/dashboard" replace />;
+  }
+
+  return <Navigate to={`/t/${user.tenantDomainSlug}/sms/branding`} replace />;
 }
 
 export const router = isDesktopShell()

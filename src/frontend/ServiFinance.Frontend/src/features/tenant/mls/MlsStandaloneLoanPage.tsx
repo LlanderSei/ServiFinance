@@ -236,7 +236,7 @@ export function MlsStandaloneLoanPage() {
                         ))
                       ) : (
                         <RecordTableStateRow colSpan={3}>
-                          No tenant customers exist yet. Create a customer record in SMS first, then return here to issue a standalone loan.
+                          No tenant customers exist yet. Add one from MLS Customer Records or from SMS Customers first, then return here to issue a standalone loan.
                         </RecordTableStateRow>
                       )}
                     </tbody>

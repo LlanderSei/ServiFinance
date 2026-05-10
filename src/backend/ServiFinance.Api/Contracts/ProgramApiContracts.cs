@@ -645,6 +645,7 @@ internal sealed record TenantMlsCollectionRowResponse(
     DateOnly DueDate,
     decimal InstallmentAmount,
     decimal PaidAmount,
+    decimal LateFeeAmount,
     decimal OutstandingAmount,
     int DaysPastDue,
     string CollectionState,
@@ -661,6 +662,10 @@ internal sealed record TenantMlsCustomerFinanceRowResponse(
     Guid CustomerId,
     string CustomerCode,
     string CustomerName,
+    string MobileNumber,
+    string Email,
+    string Address,
+    string? AddressDetails,
     int ActiveLoanCount,
     int SettledLoanCount,
     decimal OutstandingBalance,
@@ -748,6 +753,43 @@ internal sealed record AuditEventRowResponse(
 internal sealed record AuditWorkspaceResponse(
     AuditSummaryResponse Summary,
     IReadOnlyList<AuditEventRowResponse> Events);
+internal sealed record AccountProfileResponse(
+    Guid UserId,
+    Guid TenantId,
+    string TenantDomainSlug,
+    string Email,
+    string FullName,
+    IReadOnlyList<string> Roles,
+    IReadOnlyList<string> PlatformScopes,
+    string Surface,
+    DateTime CreatedAtUtc,
+    bool IsActive);
+internal sealed record UpdateAccountProfileRequest(string FullName);
+internal sealed record ChangeAccountPasswordRequest(
+    string CurrentPassword,
+    string NewPassword,
+    string ConfirmPassword);
+internal sealed record AccountPasswordChangeResponse(string Message);
+internal sealed record TenantBrandingSettingsResponse(
+    Guid TenantId,
+    string TenantDomainSlug,
+    string TenantName,
+    string? DisplayName,
+    string? LogoUrl,
+    string? PrimaryColor,
+    string? SecondaryColor,
+    string? HeaderBackgroundColor,
+    string? PageBackgroundColor);
+internal sealed record UpdateTenantBrandingSettingsRequest(
+    string? DisplayName,
+    string? LogoUrl,
+    string? PrimaryColor,
+    string? SecondaryColor,
+    string? HeaderBackgroundColor,
+    string? PageBackgroundColor);
+internal sealed class UploadTenantBrandingLogoRequest {
+  public IFormFile? LogoFile { get; init; }
+}
 internal sealed record TenantMlsStandaloneLoanCustomerResponse(
     Guid CustomerId,
     string CustomerCode,

@@ -252,6 +252,10 @@ public sealed class TenantCostingPolicy : Entity, ITenantEntity {
   public string TaxLabel { get; set; } = "VAT";
   public decimal DefaultTaxRate { get; set; } = 12m;
   public bool TaxEnabledByDefault { get; set; } = true;
+  public bool LoanLateFeeEnabled { get; set; } = true;
+  public int LoanLateFeeGracePeriodDays { get; set; } = 3;
+  public decimal LoanLateFeeFlatAmount { get; set; } = 100m;
+  public decimal LoanLateFeeRatePercent { get; set; } = 2m;
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
   public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 
@@ -537,6 +541,8 @@ public sealed class AmortizationSchedule : TenantEntity {
   public decimal InstallmentAmount { get; set; }
   public decimal EndingBalance { get; set; }
   public decimal PaidAmount { get; set; }
+  public decimal LateFeeAmount { get; set; }
+  public DateTime? LateFeeAppliedAtUtc { get; set; }
   public string InstallmentStatus { get; set; } = string.Empty;
 
   public MicroLoan? MicroLoan { get; set; }

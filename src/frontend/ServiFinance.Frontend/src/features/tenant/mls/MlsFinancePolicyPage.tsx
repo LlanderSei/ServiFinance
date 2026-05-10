@@ -32,6 +32,14 @@ function formatRate(value: number | null) {
   return value === null ? "No data" : `${value}%`;
 }
 
+function formatLateFeePolicyRule(isEnabled: boolean, flatAmount: number, ratePercent: number) {
+  if (!isEnabled) {
+    return "Disabled";
+  }
+
+  return `${formatCurrency(flatAmount)} + ${formatRate(ratePercent)} once`;
+}
+
 function formatDate(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.valueOf())
@@ -53,6 +61,7 @@ export function MlsFinancePolicyPage() {
     enabled: Boolean(tenantDomainSlug)
   });
   const summary = policyQuery.data?.summary;
+  const lateFeePolicy = policyQuery.data?.lateFeePolicy;
   const rows = policyQuery.data?.rows ?? [];
 
   return (
@@ -87,11 +96,24 @@ export function MlsFinancePolicyPage() {
                 <MetricCard label="Rate range" value={`${formatRate(summary?.minimumInterestRate ?? null)} - ${formatRate(summary?.maximumInterestRate ?? null)}`} description="Minimum and maximum annual interest rate in the current portfolio." />
                 <MetricCard label="Average term" value={`${summary?.averageTermMonths ?? 0} mo`} description="Average repayment term across visible loan accounts." />
                 <MetricCard label="Exceptions" value={summary?.policyExceptionCount ?? 0} description="Loans outside the current hardening guardrails for rate, term, or principal size." />
+                <MetricCard label="Grace period" value={lateFeePolicy?.isEnabled ? `${lateFeePolicy.gracePeriodDays} days` : "Disabled"} description="Days allowed after the due date before the one-time late fee is assessed." />
+                <MetricCard label="Late fee rule" value={formatLateFeePolicyRule(lateFeePolicy?.isEnabled ?? false, lateFeePolicy?.flatAmount ?? 0, lateFeePolicy?.ratePercent ?? 0)} description="Simple borrower penalty rule applied once per overdue installment." />
+                <MetricCard label="Assessed fees" value={formatCurrency(lateFeePolicy?.assessedAmount ?? 0)} description={`${lateFeePolicy?.assessedInstallments ?? 0} installment(s) currently carrying an assessed late fee.`} />
               </>
             )}
           >
             <RecordScrollRegion>
               <div className="grid gap-4">
+                <WorkspacePanel>
+                  <WorkspacePanelHeader eyebrow="Late-term handling" title="Borrower late-payment safeguards" />
+
+                  <WorkspaceNotice>
+                    {lateFeePolicy?.isEnabled
+                      ? `Overdue installments receive a one-time fee after the ${lateFeePolicy.gracePeriodDays}-day grace window. The system does not compound late fees daily, which keeps delinquency charges predictable and auditable.`
+                      : "Late fees are currently disabled for this tenant, so overdue balances only reflect the remaining scheduled installment amount."}
+                  </WorkspaceNotice>
+                </WorkspacePanel>
+
                 <WorkspacePanel>
                   <WorkspacePanelHeader eyebrow="Policy bands" title="Term and high-rate exposure bands" />
 

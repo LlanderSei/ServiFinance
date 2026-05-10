@@ -1,7 +1,9 @@
 import { Link, NavLink } from "react-router-dom";
 import { useState } from "react";
 import type { CurrentSessionUser } from "@/shared/api/contracts";
+import type { TenantBranding } from "@/shared/tenant/tenantBranding";
 import { useLogout } from "../useLogout";
+import { AccountProfileModal } from "../AccountProfileModal";
 import { SidebarIcon } from "./SidebarIcon";
 import type { NavSection } from "./navigation";
 import { useToast } from "@/shared/toast/ToastProvider";
@@ -9,6 +11,7 @@ import { isDesktopShell } from "@/platform/runtime";
 
 type Props = {
   user: CurrentSessionUser;
+  tenantBranding?: TenantBranding | null;
   sections: NavSection[];
   isExpanded: boolean;
   theme: "light" | "dark";
@@ -16,26 +19,30 @@ type Props = {
   onToggleExpanded: () => void;
   onToggleTheme: () => void;
   onToggleSection: (sectionKey: string) => void;
+  onUserUpdated?: (patch: Partial<CurrentSessionUser>) => void;
 };
 
 export function AuthSidebar({
   user,
+  tenantBranding,
   sections,
   isExpanded,
   theme,
   collapsedSections,
   onToggleExpanded,
   onToggleTheme,
-  onToggleSection
+  onToggleSection,
+  onUserUpdated
 }: Props) {
   const desktopShell = isDesktopShell();
   const logout = useLogout();
   const toast = useToast();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
   const isSuperAdmin = user.roles.includes("SuperAdmin");
-  const displayTitle = isSuperAdmin ? "ServiFinance" : user.tenantDomainSlug;
+  const displayTitle = isSuperAdmin ? "ServiFinance" : tenantBranding?.displayName || user.tenantDomainSlug;
   const displaySubtitle = isSuperAdmin ? "Platform control plane" : user.email;
-  const mark = isSuperAdmin ? "SF" : user.tenantDomainSlug.slice(0, 2).toUpperCase();
+  const mark = resolveSidebarMark(isSuperAdmin ? "ServiFinance" : displayTitle || user.tenantDomainSlug);
   const railSpacingClass = isExpanded
     ? "items-stretch md:px-4 md:pr-[1.65rem]"
     : "items-center md:px-[0.7rem] md:pr-[0.7rem]";
@@ -135,14 +142,24 @@ export function AuthSidebar({
 
       <div
         className={`authed-shell__header border-b border-base-300/50 pb-2 ${cardTransitionClass} ${isExpanded ? "" : "flex justify-center"}`}
+        style={!isSuperAdmin && tenantBranding?.headerBackgroundColor ? { background: tenantBranding.headerBackgroundColor } : undefined}
       >
         <Link
           to={sections[0]?.items[0]?.to ?? "/"}
           className={`inline-flex items-center gap-3 text-base-content no-underline ${isExpanded ? "" : "justify-center"}`}
         >
-          <span className="grid h-[2.85rem] w-[2.85rem] place-items-center rounded-2xl bg-gradient-to-br from-[#53d5cb] via-[#7c9cff] to-[#8f7dff] font-bold text-white shadow-[0_16px_34px_rgba(107,145,255,0.22)]">
-            {mark}
-          </span>
+          {tenantBranding?.logoUrl && !isSuperAdmin ? (
+            <span className="grid h-[2.85rem] w-[2.85rem] place-items-center overflow-hidden rounded-2xl border border-base-300/60 bg-base-100 shadow-[0_16px_34px_rgba(107,145,255,0.18)]">
+              <img src={tenantBranding.logoUrl} alt="" className="h-full w-full object-cover" />
+            </span>
+          ) : (
+            <span
+              className="grid h-[2.85rem] w-[2.85rem] place-items-center rounded-2xl bg-gradient-to-br from-[#53d5cb] via-[#7c9cff] to-[#8f7dff] font-bold text-white shadow-[0_16px_34px_rgba(107,145,255,0.22)]"
+              style={!isSuperAdmin && tenantBranding?.primaryColor ? { background: tenantBranding.primaryColor } : undefined}
+            >
+              {mark}
+            </span>
+          )}
           {isExpanded ? (
             <span className={`min-w-0 ${contentRevealMotionClass} ${contentRevealClass}`}>
               <strong className="block truncate text-sm font-semibold">{displayTitle}</strong>
@@ -154,8 +171,10 @@ export function AuthSidebar({
 
       <button
         type="button"
-        className={`authed-user-card flex w-full items-center gap-3 rounded-box border border-base-300/55 bg-base-100 p-2 text-left shadow-sm ${cardTransitionClass} ${isExpanded ? "" : "justify-center"}`}
+        className={`authed-user-card flex w-full items-center gap-3 rounded-box border border-base-300/55 bg-base-100 p-2 text-left shadow-sm hover:border-primary/35 hover:bg-primary/5 ${cardTransitionClass} ${isExpanded ? "" : "justify-center"}`}
         title={user.fullName}
+        aria-label="Open account profile"
+        onClick={() => setShowAccountModal(true)}
       >
         <span className="authed-user-card__avatar inline-flex h-[2.7rem] w-[2.7rem] items-center justify-center rounded-full bg-primary/15 text-[0.86rem] font-bold tracking-[0.04em] text-primary">
           {user.fullName.slice(0, 2).toUpperCase()}
@@ -242,6 +261,13 @@ export function AuthSidebar({
         </button>
       </div>
 
+      <AccountProfileModal
+        user={user}
+        open={showAccountModal}
+        onClose={() => setShowAccountModal(false)}
+        onUserUpdated={onUserUpdated}
+      />
+
       {showLogoutConfirm ? (
         <div className="fixed inset-0 z-[120] grid place-items-center bg-black/45 p-4 backdrop-blur-sm">
           <section className="w-full max-w-md rounded-[1.75rem] border border-base-300/70 bg-base-100 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24)]">
@@ -291,4 +317,22 @@ function resolveLogoutReturnPath(user: CurrentSessionUser) {
   }
 
   return "/?showLogin=true";
+}
+
+function resolveSidebarMark(value: string) {
+  const parts = value
+    .split(/[\s-]+/)
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase() || "SF";
+  }
+
+  const normalized = parts
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return normalized || "SF";
 }

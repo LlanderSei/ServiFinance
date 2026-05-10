@@ -1134,6 +1134,7 @@ export type TenantMlsCollectionRow = {
   dueDate: string;
   installmentAmount: number;
   paidAmount: number;
+  lateFeeAmount: number;
   outstandingAmount: number;
   daysPastDue: number;
   collectionState: string;
@@ -1156,6 +1157,10 @@ export type TenantMlsCustomerFinanceRow = {
   customerId: string;
   customerCode: string;
   customerName: string;
+  mobileNumber: string;
+  email: string;
+  address: string;
+  addressDetails: string | null;
   activeLoanCount: number;
   settledLoanCount: number;
   outstandingBalance: number;
@@ -1267,6 +1272,54 @@ export type AuditEventRow = {
 export type AuditWorkspaceResponse = {
   summary: AuditSummary;
   events: AuditEventRow[];
+};
+
+export type AccountProfileResponse = {
+  userId: string;
+  tenantId: string;
+  tenantDomainSlug: string;
+  email: string;
+  fullName: string;
+  roles: string[];
+  platformScopes: string[];
+  surface: "Root" | "TenantWeb" | "TenantDesktop" | "CustomerWeb";
+  createdAtUtc: string;
+  isActive: boolean;
+};
+
+export type UpdateAccountProfileRequest = {
+  fullName: string;
+};
+
+export type ChangeAccountPasswordRequest = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+export type AccountPasswordChangeResponse = {
+  message: string;
+};
+
+export type TenantBrandingSettingsResponse = {
+  tenantId: string;
+  tenantDomainSlug: string;
+  tenantName: string;
+  displayName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  headerBackgroundColor: string | null;
+  pageBackgroundColor: string | null;
+};
+
+export type UpdateTenantBrandingSettingsRequest = {
+  displayName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  headerBackgroundColor: string | null;
+  pageBackgroundColor: string | null;
 };
 
 export type RolePermissionDefinition = {
@@ -1498,6 +1551,15 @@ export type TenantMlsFinancePolicyBand = {
   principalAmount: number;
 };
 
+export type TenantMlsFinancePolicyLateFeePolicy = {
+  isEnabled: boolean;
+  gracePeriodDays: number;
+  flatAmount: number;
+  ratePercent: number;
+  assessedInstallments: number;
+  assessedAmount: number;
+};
+
 export type TenantMlsFinancePolicyRow = {
   microLoanId: string;
   customerName: string;
@@ -1512,6 +1574,7 @@ export type TenantMlsFinancePolicyRow = {
 
 export type TenantMlsFinancePolicyControlResponse = {
   summary: TenantMlsFinancePolicySummary;
+  lateFeePolicy: TenantMlsFinancePolicyLateFeePolicy;
   policyBands: TenantMlsFinancePolicyBand[];
   rows: TenantMlsFinancePolicyRow[];
 };

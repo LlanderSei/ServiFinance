@@ -26,6 +26,7 @@ internal static class TenantMlsMediumControlsEndpointMappings {
       CancellationToken cancellationToken) {
     var todayUtc = DateTime.UtcNow.Date;
     var weekEndUtc = todayUtc.AddDays(7);
+    var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
     var activeLoans = await dbContext.MicroLoans
         .AsNoTracking()
         .Include(entity => entity.Customer)
@@ -35,7 +36,7 @@ internal static class TenantMlsMediumControlsEndpointMappings {
         .ToListAsync(cancellationToken);
 
     var rows = activeLoans
-        .Select(loan => BuildPortfolioRiskRow(loan, todayUtc))
+        .Select(loan => BuildPortfolioRiskRow(loan, todayUtc, lateFeePolicy))
         .OrderByDescending(row => row.DaysPastDue)
         .ThenByDescending(row => row.OverdueAmount)
         .ThenBy(row => row.CustomerName)
@@ -44,10 +45,10 @@ internal static class TenantMlsMediumControlsEndpointMappings {
     var outstandingBalance = RoundCurrency(rows.Sum(row => row.OutstandingBalance));
     var overdueBalance = RoundCurrency(rows.Sum(row => row.OverdueAmount));
     var dueThisWeekBalance = RoundCurrency(activeLoans.Sum(loan => loan.AmortizationSchedules
-        .Where(schedule => schedule.InstallmentStatus != "Paid" &&
+        .Where(schedule => TenantMlsLoanMath.GetInstallmentOutstandingBalance(schedule, lateFeePolicy, todayUtc) > 0m &&
             schedule.DueDate.Date >= todayUtc &&
             schedule.DueDate.Date <= weekEndUtc)
-        .Sum(schedule => Math.Max(0m, schedule.InstallmentAmount - schedule.PaidAmount))));
+        .Sum(schedule => TenantMlsLoanMath.GetInstallmentOutstandingBalance(schedule, lateFeePolicy, todayUtc))));
 
     return Results.Ok(new {
       Summary = new {
@@ -119,10 +120,13 @@ internal static class TenantMlsMediumControlsEndpointMappings {
   private static async Task<IResult> GetFinancePolicyAsync(
       ServiFinanceDbContext dbContext,
       CancellationToken cancellationToken) {
+    var lateFeePolicy = await TenantMlsLoanMath.LoadLateFeePolicyAsync(dbContext, cancellationToken);
+    var todayUtc = DateTime.UtcNow.Date;
     var loans = await dbContext.MicroLoans
         .AsNoTracking()
         .Include(entity => entity.Customer)
         .Include(entity => entity.Invoice)
+        .Include(entity => entity.AmortizationSchedules)
         .OrderByDescending(entity => entity.CreatedAtUtc)
         .ToListAsync(cancellationToken);
 
@@ -143,24 +147,34 @@ internal static class TenantMlsMediumControlsEndpointMappings {
         AverageTermMonths = rows.Length == 0 ? 0 : (int)Math.Round(rows.Average(row => row.TermMonths), MidpointRounding.AwayFromZero),
         PolicyExceptionCount = rows.Count(row => row.PolicyState == "Policy exception")
       },
+      LateFeePolicy = new {
+        IsEnabled = lateFeePolicy.IsEnabled,
+        GracePeriodDays = lateFeePolicy.GracePeriodDays,
+        FlatAmount = lateFeePolicy.FlatAmount,
+        RatePercent = lateFeePolicy.RatePercent,
+        AssessedInstallments = loans.Sum(loan => loan.AmortizationSchedules.Count(schedule =>
+            TenantMlsLoanMath.GetEffectiveLateFeeAmount(schedule, lateFeePolicy, todayUtc) > 0m)),
+        AssessedAmount = RoundCurrency(loans.Sum(loan => loan.AmortizationSchedules.Sum(schedule =>
+            TenantMlsLoanMath.GetEffectiveLateFeeAmount(schedule, lateFeePolicy, todayUtc))))
+      },
       PolicyBands = BuildPolicyBands(rows),
       Rows = rows
     });
   }
 
-  private static PortfolioRiskRow BuildPortfolioRiskRow(MicroLoan loan, DateTime todayUtc) {
+  private static PortfolioRiskRow BuildPortfolioRiskRow(
+      MicroLoan loan,
+      DateTime todayUtc,
+      TenantMlsLateFeePolicySnapshot lateFeePolicy) {
     var unpaidSchedules = loan.AmortizationSchedules
-        .Where(schedule => schedule.InstallmentStatus != "Paid")
+        .Where(schedule => TenantMlsLoanMath.GetInstallmentOutstandingBalance(schedule, lateFeePolicy, todayUtc) > 0m)
         .ToArray();
     var overdueSchedules = unpaidSchedules
         .Where(schedule => schedule.DueDate.Date < todayUtc)
         .ToArray();
-    var outstandingBalance = RoundCurrency(Math.Max(
-        0m,
-        loan.TotalRepayableAmount - loan.AmortizationSchedules.Sum(schedule => schedule.PaidAmount)));
-    var overdueAmount = RoundCurrency(overdueSchedules.Sum(schedule => Math.Max(
-        0m,
-        schedule.InstallmentAmount - schedule.PaidAmount)));
+    var outstandingBalance = TenantMlsLoanMath.GetOutstandingBalance(loan, lateFeePolicy, todayUtc);
+    var overdueAmount = RoundCurrency(overdueSchedules.Sum(schedule =>
+        TenantMlsLoanMath.GetInstallmentOutstandingBalance(schedule, lateFeePolicy, todayUtc)));
     var daysPastDue = overdueSchedules.Length == 0
         ? 0
         : overdueSchedules.Max(schedule => (todayUtc - schedule.DueDate.Date).Days);

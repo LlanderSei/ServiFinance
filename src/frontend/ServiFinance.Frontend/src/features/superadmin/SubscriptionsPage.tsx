@@ -14,6 +14,8 @@ import {
   RecordTableStateRow
 } from "@/shared/records/RecordTable";
 import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { WorkspaceToggleButton, WorkspaceToggleGroup } from "@/shared/records/WorkspaceControls";
+import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
 import { WorkspaceTopTabs } from "@/shared/records/WorkspaceTopTabs";
 import {
   WorkspaceDetailGrid,
@@ -147,8 +149,7 @@ export function SubscriptionsPage() {
         headerBottom={<WorkspaceTopTabs tabs={workspaceTabs} activeTab={activeWorkspace} onChange={setActiveWorkspace} />}
       >
         {activeWorkspace === "catalog" ? (
-          <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <WorkspaceTopTabs tabs={editionTabs} activeTab={activeEdition} onChange={setActiveEdition} />
+          <div className="relative flex min-h-0 flex-1 flex-col gap-4">
             <WorkspaceMetricGrid className="md:grid-cols-2 xl:grid-cols-4">
               <WorkspacePanel>
                 <WorkspacePanelHeader eyebrow="Active catalog" title={`${activeTierCount} active tiers`} />
@@ -173,9 +174,17 @@ export function SubscriptionsPage() {
                 eyebrow="Catalog table"
                 title="Tiers and module coverage"
                 actions={(
-                  <button type="button" className="btn btn-primary btn-sm rounded-full" onClick={openCreateTier}>
-                    Add tier
-                  </button>
+                  <WorkspaceToggleGroup className="w-max max-w-full overflow-x-auto">
+                    {editionTabs.map((tab) => (
+                      <WorkspaceToggleButton
+                        key={tab.key}
+                        active={activeEdition === tab.key}
+                        onClick={() => setActiveEdition(tab.key)}
+                      >
+                        {tab.label}
+                      </WorkspaceToggleButton>
+                    ))}
+                  </WorkspaceToggleGroup>
                 )}
               />
 
@@ -237,6 +246,17 @@ export function SubscriptionsPage() {
                 </RecordTable>
               </RecordTableShell>
             </WorkspacePanel>
+
+            <WorkspaceFabDock
+              actions={[
+                {
+                  key: "add-subscription-tier",
+                  label: "Add tier",
+                  icon: "plus",
+                  onClick: openCreateTier
+                }
+              ]}
+            />
           </div>
         ) : (
           <SuperadminSubscriptionRecoveryTab />

@@ -159,6 +159,26 @@ internal static class ProgramEndpointSupport {
     principal.IsInRole(PlatformRolePolicy.AdministratorRole) ||
     principal.IsInRole(PlatformRolePolicy.OwnerRole);
 
+  internal static bool CanViewAllTenantDispatchAssignments(ClaimsPrincipal principal) {
+    if (IsTenantAdministrator(principal)) {
+      return true;
+    }
+
+    var permissionKeys = principal.FindAll("permission_key")
+      .Select(claim => claim.Value)
+      .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    return permissionKeys.Contains("sms.dispatch.schedule") ||
+      permissionKeys.Contains("sms.customers.view") ||
+      permissionKeys.Contains("sms.reports.view") ||
+      permissionKeys.Contains("sms.sla-escalations.view") ||
+      permissionKeys.Contains("sms.feedback-crm.view") ||
+      permissionKeys.Contains("sms.cost-control.view") ||
+      permissionKeys.Contains("sms.users.manage") ||
+      permissionKeys.Contains("sms.roles-permissions.manage") ||
+      permissionKeys.Contains("sms.audits.view");
+  }
+
   internal static bool TryGetCurrentUserId(ClaimsPrincipal principal, out Guid userId) =>
     Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
 
@@ -271,7 +291,8 @@ internal static class ProgramEndpointSupport {
       return CreateJsonError(StatusCodes.Status403Forbidden, "The tenant context for this session could not be resolved.");
     }
 
-    if (!tenant.IsActive) {
+    var isRecoverableSubscriptionSuspension = IsTenantSubscriptionRecoverySuspended(tenant);
+    if (!tenant.IsActive && !(allowBillingRecoveryActions && isRecoverableSubscriptionSuspension)) {
       return CreateJsonError(StatusCodes.Status403Forbidden, "This tenant is inactive and cannot access tenant administration.");
     }
 
@@ -428,7 +449,7 @@ internal static class ProgramEndpointSupport {
     return null;
   }
 
-  private static TenantBillingRecoveryPolicy ResolveTenantBillingRecoveryPolicy(Tenant tenant) {
+  internal static TenantBillingRecoveryPolicy ResolveTenantBillingRecoveryPolicy(Tenant tenant) {
     var billingRecords = tenant.BillingRecords
         .OrderByDescending(entity => entity.CoverageStartUtc)
         .ThenByDescending(entity => entity.SubmittedAtUtc)
@@ -483,6 +504,13 @@ internal static class ProgramEndpointSupport {
       string.Equals(latestBillingRecord?.Status, "Payment failed", StringComparison.OrdinalIgnoreCase) ||
       (nextRenewalDateUtc.HasValue && nextRenewalDateUtc.Value.Date < utcToday);
   }
+
+  private static bool IsTenantSubscriptionRecoverySuspended(Tenant tenant) =>
+    string.Equals(tenant.SubscriptionStatus, "Suspended", StringComparison.OrdinalIgnoreCase) &&
+    (string.Equals(tenant.BillingProvider, "Stripe", StringComparison.OrdinalIgnoreCase) ||
+      tenant.BillingRecords.Any(entity =>
+        string.Equals(entity.Status, "Payment failed", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(entity.Status, "Pending Review", StringComparison.OrdinalIgnoreCase)));
 
   private static bool IsReadOnlyRequest(HttpRequest request) =>
     HttpMethods.IsGet(request.Method) ||
@@ -1014,5 +1042,5 @@ internal static class ProgramEndpointSupport {
             cancellationToken);
   }
 
-  private sealed record TenantBillingRecoveryPolicy(string Stage, int? OverdueDays);
+  internal sealed record TenantBillingRecoveryPolicy(string Stage, int? OverdueDays);
 }
