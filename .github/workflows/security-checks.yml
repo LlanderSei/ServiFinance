@@ -22,10 +22,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore .NET dependencies
-        run: dotnet restore ServiFinance.sln
+        run: dotnet restore src/backend/ServiFinance.Api/ServiFinance.Api.csproj
 
       - name: Audit .NET dependencies
-        run: dotnet list ServiFinance.sln package --vulnerable --include-transitive
+        run: dotnet list src/backend/ServiFinance.Api/ServiFinance.Api.csproj package --vulnerable --include-transitive
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -41,3 +41,7 @@ jobs:
       - name: Audit frontend dependencies
         working-directory: src/frontend/ServiFinance.Frontend
         run: npm run audit
+
+      - name: Lint frontend security/static rules
+        working-directory: src/frontend/ServiFinance.Frontend
+        run: npm run lint

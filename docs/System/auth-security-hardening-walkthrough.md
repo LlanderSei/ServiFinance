@@ -15,6 +15,8 @@ This note covers the first security-hardening slice added to ServiFinance after 
 - Security audit events are written for login success/failure, logout, MFA challenge/failure, password changes, password reset, and MFA enable/disable actions.
 - Login lockout state is persisted in the database through `AuthProtectionRecords`, so account and network cooldowns survive API restarts and can work consistently beyond a single in-memory process.
 - HTTP security headers are applied globally, including `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a Content Security Policy that allows ServiFinance assets plus the configured CAPTCHA, image upload, and address lookup services.
+- CI security checks now run backend package vulnerability scanning, frontend `npm audit`, and ESLint static/security rules for the React frontend.
+- Authenticated root, tenant SMS/MLS, and customer workspaces now show an idle warning after 5 minutes with no activity and automatically sign out after another 5 minutes without user input.
 
 ## Partially Implemented
 
@@ -29,7 +31,7 @@ This note covers the first security-hardening slice added to ServiFinance after 
 - Optional Google sign-in from the public login screens after a user has linked a Google account.
 - TOTP authenticator app enrollment or passkey/WebAuthn MFA.
 - Operational dashboards for active lockouts and manual unlock workflows.
-- Broader static-analysis tooling such as ESLint security rules, SonarCloud/SonarQube, or OWASP Dependency Check.
+- Broader backend static-analysis tooling such as CodeQL, SonarCloud/SonarQube, or OWASP Dependency Check.
 
 ## Cloudflare Turnstile Setup
 
@@ -106,8 +108,8 @@ Useful official references:
 | Secure Coding Practices | Improved through centralized auth-protection and password-policy services, with sensitive settings still externalized. |
 | Authentication System | Improved materially: CAPTCHA, lockout cooldown, strong password policy, Google-linked email MFA, Google-gated password reset, and Google linking now exist across staff and customer account surfaces. |
 | Input Validation, Sanitization & Error Handling | Improved for auth payloads through server-side CAPTCHA and password-policy validation. |
-| Code Auditing Tools & Audit Logging | Improved through security audit events and free dependency-audit workflow checks. |
-| Security Policies & Documentation | Improved by this walkthrough, but a formal policy set is still future work. |
+| Code Auditing Tools & Audit Logging | Improved through security audit events, free dependency-audit workflow checks, and frontend ESLint security/static checks. |
+| Security Policies & Documentation | Improved by this walkthrough and `docs/System/security-policies.md`; production ownership, retention, and key-rotation procedures remain future work. |
 
 ## Password Dictionary Setup
 

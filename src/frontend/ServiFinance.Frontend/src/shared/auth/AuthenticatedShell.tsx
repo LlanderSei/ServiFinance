@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CurrentSessionUser } from "@/shared/api/contracts";
 import { isDesktopShell } from "@/platform/runtime";
@@ -12,6 +12,8 @@ import {
 } from "@/shared/tenant/tenantBranding";
 import { AuthSidebar } from "./shell/AuthSidebar";
 import { buildAuthSections } from "./shell/navigation";
+import { IdleLogoutGuard } from "./IdleLogoutGuard";
+import { useLogout } from "./useLogout";
 
 type Props = {
   user: CurrentSessionUser;
@@ -25,6 +27,7 @@ const SIDEBAR_THEME_KEY = "sf:sidebar:theme";
 type ShellTheme = "light" | "dark";
 
 export function AuthenticatedShell({ user, children }: Props) {
+  const logout = useLogout();
   const [shellUser, setShellUser] = useState(user);
   const sections = useMemo(() => buildAuthSections(shellUser), [shellUser]);
   const desktopShell = isDesktopShell();
@@ -136,6 +139,14 @@ export function AuthenticatedShell({ user, children }: Props) {
   const shellStyle = tenantBranding?.pageBackgroundColor
     ? ({ background: tenantBranding.pageBackgroundColor } satisfies CSSProperties)
     : undefined;
+  const handleIdleLogout = useCallback(
+    () => logout(resolveIdleLogoutReturnPath(shellUser)),
+    [logout, shellUser]);
+  const idleWorkspaceLabel = shellUser.surface === "Root"
+    ? "the root workspace"
+    : shellUser.surface === "TenantDesktop"
+      ? "the MLS workspace"
+      : "the tenant workspace";
 
   return (
     <div
@@ -188,6 +199,23 @@ export function AuthenticatedShell({ user, children }: Props) {
           </main>
         )}
       </section>
+      <IdleLogoutGuard workspaceLabel={idleWorkspaceLabel} onLogout={handleIdleLogout} />
     </div>
   );
+}
+
+function resolveIdleLogoutReturnPath(user: CurrentSessionUser) {
+  if (isDesktopShell()) {
+    return "/t/mls/";
+  }
+
+  if (user.surface === "TenantWeb" && user.tenantDomainSlug) {
+    return `/t/${user.tenantDomainSlug}/sms/?showLogin=true`;
+  }
+
+  if (user.surface === "TenantDesktop") {
+    return "/t/mls/";
+  }
+
+  return "/?showLogin=true";
 }

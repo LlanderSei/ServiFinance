@@ -135,3 +135,9 @@ C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifySecurityHeadersNoPdb\ServiFinan
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifySecurityHeadersNoPdb\ServiFinance.Domain.dll
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifySecuritySlicesNoPdb\ServiFinance.Domain.deps.json
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifySecuritySlicesNoPdb\ServiFinance.Domain.dll
+C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb\ServiFinance.Domain.deps.json
+C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb\ServiFinance.Domain.dll
+C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb2\ServiFinance.Domain.deps.json
+C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb2\ServiFinance.Domain.dll
+C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyIdleLogoutNoPdb\ServiFinance.Domain.deps.json
+C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyIdleLogoutNoPdb\ServiFinance.Domain.dll

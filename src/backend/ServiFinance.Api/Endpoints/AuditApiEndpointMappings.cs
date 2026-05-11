@@ -474,7 +474,8 @@ internal static class AuditApiEndpointMappings {
             events.Count(entity => entity.Category == CategorySystem),
             events.Count(entity => entity.Category == CategorySecurity),
             events.Count(entity => entity.Outcome.Contains("Fail", StringComparison.OrdinalIgnoreCase) ||
-                entity.Outcome.Contains("Denied", StringComparison.OrdinalIgnoreCase))),
+                entity.Outcome.Contains("Denied", StringComparison.OrdinalIgnoreCase) ||
+                entity.Outcome.Contains("Locked", StringComparison.OrdinalIgnoreCase))),
         events);
 
   private readonly record struct TenantAuditAccess(

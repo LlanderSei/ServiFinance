@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/shared/toast/ToastProvider";
+import { IdleLogoutGuard } from "@/shared/auth/IdleLogoutGuard";
 import type { CustomerSession } from "./customerAuth";
 import { logoutCustomerAccount } from "./customerAuth";
 import { fetchCustomerRequestNotifications } from "./useCustomerRequests";
@@ -320,6 +321,11 @@ export function CustomerShell({ session, children }: Props) {
     navigate(`/t/${tenantDomainSlug}/c/login`, { replace: true });
   }
 
+  async function handleIdleLogout() {
+    await logoutCustomerAccount();
+    navigate(`/t/${tenantDomainSlug}/c/login`, { replace: true });
+  }
+
   async function handleEnableNotifications() {
     if (typeof window === "undefined" || !("Notification" in window)) {
       setNotificationPermission("unsupported");
@@ -587,6 +593,9 @@ export function CustomerShell({ session, children }: Props) {
           </main>
         </div>
       </div>
+      {session ? (
+        <IdleLogoutGuard workspaceLabel="the customer portal" onLogout={handleIdleLogout} />
+      ) : null}
     </div>
   );
 }

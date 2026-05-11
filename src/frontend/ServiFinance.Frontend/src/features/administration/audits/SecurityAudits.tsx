@@ -24,6 +24,8 @@ export function SecurityAudits({ endpoint, scopeLabel }: SecurityAuditsProps) {
     enabled: !isWindowInvalid,
     retry: false
   });
+  const lockoutEvents = (auditsQuery.data?.events ?? []).filter((event) =>
+    event.actionType === "AccountLockoutCreated" || event.actionType === "NetworkLockoutCreated").length;
 
   const notices = (
     <>
@@ -44,8 +46,8 @@ export function SecurityAudits({ endpoint, scopeLabel }: SecurityAuditsProps) {
         <>
           <MetricCard label="Security events" value={String(auditsQuery.data?.summary.securityEvents ?? 0)} description={`Login, logout, denial, and failed access events for ${scopeLabel}.`} />
           <MetricCard label="Failed attempts" value={String(auditsQuery.data?.summary.failedEvents ?? 0)} description="Failed or denied authentication events in the current filter." />
+          <MetricCard label="Lockouts" value={String(lockoutEvents)} description="Account and network cooldowns created by repeated failed sign-ins." />
           <MetricCard label="Total retained" value={String(auditsQuery.data?.summary.totalEvents ?? 0)} description="Events returned by the current audit filter." />
-          <MetricCard label="Scope" value={scopeLabel} description="Security stream currently being reviewed." />
         </>
       )}
     >

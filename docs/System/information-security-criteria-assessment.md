@@ -12,14 +12,14 @@ Build verification completed during this review:
 
 | Criterion | Status | Closest Rubric Band | Current Reading |
 | --- | --- | --- | --- |
-| 1. Secure Coding Practices | Partially Implemented | Satisfactory | Good foundation through EF Core, externalized secrets, tenant guards, schema constraints, and centralized auth hardening services, but no formal secure coding standard or automated security checks. |
+| 1. Secure Coding Practices | Partially Implemented | Satisfactory | Good foundation through EF Core, externalized secrets, tenant guards, schema constraints, centralized auth hardening services, and CI security checks, but no formal secure coding checklist or backend static-analysis gate. |
 | 2. Authentication System | Partially Implemented | Satisfactory | Password hashing, JWT, cookie auth, refresh token rotation, Cloudflare Turnstile CAPTCHA, lockout cooldown, strong password policy, Google-linked email MFA, Google-gated password reset, and Google account linking now exist across staff and customer surfaces, but Google login, SMTP production setup, and stronger MFA factors remain future work. |
 | 3. Authorization & Role Management | Partially Implemented | Satisfactory | RBAC and tenant-aware access checks are present, but authorization is still mostly role-name based and not yet fine-grained. |
 | 4. Data Encryption | Partially Implemented | Satisfactory | Passwords are hashed, refresh tokens are hashed, and HTTPS/HSTS are enabled outside development, but no at-rest encryption or managed key strategy is evident. |
 | 5. Input Validation, Sanitization & Error Handling | Partially Implemented | Satisfactory | There are several manual validations, safe redirects, CAPTCHA checks, and stronger password validation, but validation is still inconsistent and there is no centralized sanitization or anti-forgery layer. |
-| 6. Code Auditing Tools & Audit Logging | Partially Implemented | Satisfactory | Security audit events and free dependency-audit workflow checks now exist, but broader static security analysis is still future work. |
+| 6. Code Auditing Tools & Audit Logging | Mostly Implemented | Satisfactory | Security audit events, lockout audit visibility, dependency-audit workflow checks, `npm audit`, and frontend ESLint security/static checks now exist. Broader backend static analysis is future work. |
 | 7. System Functionality & Feature Completion | Partially Implemented | Satisfactory | The backend and frontend both build, and several major flows are implemented, but some areas are still documented as future work and there is no automated end-to-end verification. |
-| 8. Security Policies & Documentation | Partially Implemented | Needs Improvement | General implementation docs exist, but formal security policy documentation is still missing. |
+| 8. Security Policies & Documentation | Mostly Implemented | Satisfactory | Formal policies now document password, MFA/recovery, access control, audit logging, vulnerability management, secrets, and incident response expectations. Production retention/key-rotation procedures remain future work. |
 
 ## 1. Secure Coding Practices (10 pts)
 
@@ -37,7 +37,7 @@ Gaps / future work:
 - There is no formal secure coding checklist or secure code review document in the repo.
 - Development seeding still creates predictable sample customer passwords from the customer first name, which is acceptable only for local demo data.
 - The CORS allowlist helper is geared toward local and hybrid-shell development, not a locked production origin list.
-- There is no automated static security scanning in the repo.
+- Backend static security scanning, such as SonarCloud/SonarQube or CodeQL, is still future work.
 
 Evidence:
 - `src/backend/ServiFinance.Api/Program.cs` lines 10-17, 28-47
@@ -69,7 +69,7 @@ Gaps / future work:
 - SMTP settings must be configured with a real transactional provider before production; local development falls back to a development reset code for Google-linked staff password reset when SMTP is missing.
 - TOTP or WebAuthn would still be stronger MFA factors than email codes.
 - Public "Sign in with Google" remains a future implementation after account linking.
-- Lockout state is stored in memory, so distributed deployments need shared storage.
+- Operational dashboards for active lockouts and manual unlock workflows remain future work.
 
 Evidence:
 - `src/backend/ServiFinance.Infrastructure/Auth/UserAuthenticationService.cs` lines 13-80
@@ -157,31 +157,32 @@ Evidence:
 
 ## 6. Code Auditing Tools & Audit Logging (10 pts)
 
-Status: Partially Implemented  
-Closest rubric band: Needs Improvement
+Status: Mostly Implemented  
+Closest rubric band: Satisfactory
 
 Implemented now:
 - The application records operational history through `StatusLogs`, `AssignmentEvents`, and `AssignmentEvidence`.
 - The MLS area exposes an audit-style activity feed derived from loan and payment events.
-- The repo already identifies `AuditLogs` as a target capability in schema docs and development module seeding.
-- Security audit logging now records login success/failure, logout, MFA, password change, password reset, and MFA enable/disable events.
-- `.github/workflows/security-checks.yml` adds free CI checks for vulnerable .NET packages and frontend `npm audit`.
-- `src/frontend/ServiFinance.Frontend/package.json` includes an `audit` script for local dependency checks.
+- Security audit logging records login success/failure, logout, MFA challenge/failure, password change, password reset, MFA enable/disable, Google linking, and lockout creation events.
+- Root audit pages now surface lockout-related events in the security audit summary.
+- `.github/workflows/security-checks.yml` adds free CI checks for vulnerable .NET packages, frontend `npm audit`, and frontend ESLint security/static rules.
+- `src/frontend/ServiFinance.Frontend/package.json` includes `audit` and `lint` scripts for local dependency and static checks.
+- `eslint.config.js` enables TypeScript-aware linting, React hook checks, React refresh checks, browser globals, and `eslint-plugin-security`.
 
 Gaps / future work:
-- There is no evidence of SonarLint, ESLint security rules, Bandit, OWASP Dependency Check, or similar static security-analysis tooling in the repo.
-- The frontend `package.json` still has no lint script.
+- Backend static analysis such as CodeQL, SonarCloud/SonarQube, or OWASP Dependency Check is still future work.
 - User-administration audit coverage still needs to be reviewed feature-by-feature.
-- Existing repo docs also describe audit logging as incomplete.
+- Audit retention, export, SIEM forwarding, and manual unlock audit events remain future operational improvements.
 
 Evidence:
+- `.github/workflows/security-checks.yml`
+- `src/frontend/ServiFinance.Frontend/package.json` lines 6-11
+- `src/frontend/ServiFinance.Frontend/eslint.config.js`
+- `src/backend/ServiFinance.Api/Endpoints/AuditApiEndpointMappings.cs`
+- `src/frontend/ServiFinance.Frontend/src/pages/root/SecurityAudits.tsx`
 - `src/backend/ServiFinance.Api/Endpoints/TenantSms/TenantSmsServiceRequestsEndpointMappings.cs` lines 148-182, 344-381
 - `src/backend/ServiFinance.Api/Endpoints/TenantMls/TenantMlsAuditEndpointMappings.cs`
 - `src/backend/ServiFinance.Infrastructure/Data/ServiFinanceDbContext/ServiFinanceDbContext.ServiceManagement.cs` lines 44-109
-- `src/backend/ServiFinance.Infrastructure/Data/DevelopmentDataSeeder.cs` lines 557-621
-- `src/frontend/ServiFinance.Frontend/package.json` lines 6-10
-- `docs/System/implementation-status.md` lines 89-106
-- `docs/Data Dict & ERD/data-dictionary.md`
 
 ## 7. System Functionality & Feature Completion (10 pts)
 
@@ -207,22 +208,25 @@ Evidence:
 
 ## 8. Security Policies & Documentation (15 pts)
 
-Status: Partially Implemented  
-Closest rubric band: Needs Improvement
+Status: Mostly Implemented  
+Closest rubric band: Satisfactory
 
 Implemented now:
 - The repo has general implementation and planning documents under `docs/System`.
 - A sample environment file documents how secrets should be supplied locally.
-- Schema documentation exists and already calls out some security-relevant entities and future additions.
-- `docs/System/auth-security-hardening-walkthrough.md` documents the implemented CAPTCHA, lockout, password policy, Google-linked email MFA, SMTP password reset, and Google OAuth setup path.
+- Schema documentation exists and calls out security-relevant entities.
+- `docs/System/auth-security-hardening-walkthrough.md` documents the implemented CAPTCHA, lockout, password policy, Google-linked email MFA, SMTP password reset, Google OAuth setup path, CI security checks, and idle logout.
+- `docs/System/security-policies.md` now defines formal password, authentication/MFA/recovery, authorization/access control, audit logging, vulnerability/code-audit, secrets/configuration, and incident-response policies.
 
 Gaps / future work:
-- There is no dedicated security policy document for password rules, access control standards, audit logging policy, incident response, backup/retention, key rotation, or vulnerability management.
-- The existing implementation status document is dated `2026-04-08`, so it is no longer a complete current-state security reference.
-- Documentation is mostly implementation-oriented, not policy-oriented.
+- Production procedures still need assigned owners, review cadence, and environment-specific retention/key-rotation schedules.
+- Backup, audit retention, SIEM/export, manual unlock, and incident notification templates are documented as future operational improvements.
+- The older implementation status document is dated `2026-04-08`, so it is no longer a complete current-state security reference.
 
 Evidence:
 - `.env.example` lines 1-15
+- `docs/System/security-policies.md`
+- `docs/System/auth-security-hardening-walkthrough.md`
 - `docs/System/implementation-status.md` lines 1-135
 - `docs/System/tenant-sms-phased-implementation.md`
 - `docs/Data Dict & ERD/data-dictionary.md`
@@ -231,4 +235,4 @@ Evidence:
 
 ServiFinance already has a solid security foundation for a student or early-stage multi-tenant system: hashed passwords, JWT and cookie authentication, hashed refresh tokens, tenant-aware route protection, tenant query filters, and server-side schema constraints are all present in the current codebase.
 
-The biggest remaining weaknesses are now production-grade delivery and security operations rather than the basic auth foundation. The current repo still needs production SMTP configuration, public Google sign-in, stronger MFA options such as TOTP/WebAuthn, distributed lockout storage, formal permission policies, automated code-audit tooling, and dedicated security policy documents before it can reasonably claim an excellent rating across the rubric.
+The biggest remaining weaknesses are now production-grade delivery and security operations rather than the basic auth foundation. The current repo still needs production SMTP configuration, public Google sign-in, stronger MFA options such as TOTP/WebAuthn, formal permission policies, backend static-analysis tooling, audit retention/export, key-rotation procedures, and assigned incident-response ownership before it can reasonably claim an excellent rating across the rubric.
