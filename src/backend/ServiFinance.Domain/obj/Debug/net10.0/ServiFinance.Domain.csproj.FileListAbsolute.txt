@@ -141,3 +141,5 @@ C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb2\ServiFinance
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb2\ServiFinance.Domain.dll
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyIdleLogoutNoPdb\ServiFinance.Domain.deps.json
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyIdleLogoutNoPdb\ServiFinance.Domain.dll
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.sourcelink.json
+E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.pdb

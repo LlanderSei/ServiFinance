@@ -6,4 +6,6 @@ public sealed class DevelopmentSeedOptions {
   public string AdminPassword { get; init; } = string.Empty;
   public string SuperAdminEmail { get; init; } = string.Empty;
   public string SuperAdminPassword { get; init; } = string.Empty;
+  public bool ProductionPlaythroughEnabled { get; init; }
+  public bool ResetDatabaseBeforeProductionPlaythrough { get; init; }
 }

@@ -26,6 +26,7 @@ import {
 } from "@/shared/records/WorkspacePanel";
 import {
   applyTenantBrandingToDocument,
+  resolveReadableTextColors,
   tenantBrandingQueryKey,
   toTenantBranding
 } from "@/shared/tenant/tenantBranding";
@@ -136,6 +137,10 @@ export function TenantBrandingPage() {
 
   const tenantName = draft.displayName?.trim() || brandingQuery.data?.tenantName || brandingTenantSlug || "Tenant";
   const avatarText = tenantName.slice(0, 2).toUpperCase();
+  const previewHeaderBackground = draft.headerBackgroundColor ?? "#ffffff";
+  const previewHeaderTextColors = resolveReadableTextColors(previewHeaderBackground);
+  const previewAccentBackground = draft.secondaryColor ?? "#14b8a6";
+  const previewAccentTextColors = resolveReadableTextColors(previewAccentBackground);
 
   return (
     <RecordWorkspace
@@ -240,7 +245,7 @@ export function TenantBrandingPage() {
               >
                 <div
                   className="flex items-center justify-between gap-4 border-b border-base-300/70 px-4 py-4"
-                  style={{ backgroundColor: draft.headerBackgroundColor ?? "#ffffff" }}
+                  style={{ backgroundColor: previewHeaderBackground }}
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     {draft.logoUrl ? (
@@ -256,15 +261,26 @@ export function TenantBrandingPage() {
                       </span>
                     )}
                     <div className="min-w-0">
-                      <p className="truncate text-[0.72rem] font-extrabold uppercase tracking-[0.14em] text-base-content/55">
+                      <p
+                        className="truncate text-[0.72rem] font-extrabold uppercase tracking-[0.14em] text-base-content/55"
+                        style={{ color: previewHeaderTextColors.muted ?? undefined }}
+                      >
                         {workspaceLabel} workspace
                       </p>
-                      <strong className="block truncate text-base-content">{tenantName}</strong>
+                      <strong
+                        className="block truncate text-base-content"
+                        style={{ color: previewHeaderTextColors.foreground ?? undefined }}
+                      >
+                        {tenantName}
+                      </strong>
                     </div>
                   </div>
                   <span
                     className="rounded-full px-3 py-1 text-xs font-extrabold text-white"
-                    style={{ backgroundColor: draft.secondaryColor ?? "#14b8a6" }}
+                    style={{
+                      backgroundColor: previewAccentBackground,
+                      color: previewAccentTextColors.foreground ?? "#ffffff"
+                    }}
                   >
                     Live preview
                   </span>

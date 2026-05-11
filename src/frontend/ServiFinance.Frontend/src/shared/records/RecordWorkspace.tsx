@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { formatRecordCount } from "./recordCount";
 
 type RecordWorkspaceProps = {
@@ -27,6 +28,25 @@ function joinClasses(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
+const brandedHeaderStyle = {
+  background: "var(--tenant-header-bg, var(--color-base-100))",
+  color: "var(--tenant-header-fg, var(--color-base-content))"
+} satisfies CSSProperties;
+
+const brandedHeaderTextStyle = {
+  color: "var(--tenant-header-fg, var(--color-base-content))"
+} satisfies CSSProperties;
+
+const brandedHeaderMutedStyle = {
+  color: "var(--tenant-header-muted, color-mix(in srgb, var(--color-base-content) 68%, transparent))"
+} satisfies CSSProperties;
+
+const brandedHeaderBadgeStyle = {
+  borderColor: "color-mix(in srgb, var(--tenant-header-fg, var(--color-info)) 26%, transparent)",
+  background: "color-mix(in srgb, var(--tenant-header-fg, var(--color-info)) 12%, transparent)",
+  color: "var(--tenant-header-fg, var(--color-info))"
+} satisfies CSSProperties;
+
 export function RecordWorkspace({
   breadcrumbs,
   title,
@@ -48,23 +68,23 @@ export function RecordWorkspace({
       <section className="grid h-full min-h-0 grid-rows-[auto_1fr] gap-0 bg-transparent">
         <header
           className="flex flex-col border-b border-base-300/70 bg-base-100 px-6 pt-5"
-          style={{ background: "var(--tenant-header-bg)" }}
+          style={brandedHeaderStyle}
         >
           {/* Upper row: breadcrumbs + title row + count badge + description */}
           <div className="grid gap-0.5">
-            <p className="m-0 text-[0.74rem] font-extrabold uppercase tracking-[0.14em] text-base-content/60">{breadcrumbs}</p>
+            <p className="m-0 text-[0.74rem] font-extrabold uppercase tracking-[0.14em] text-base-content/60" style={brandedHeaderMutedStyle}>{breadcrumbs}</p>
 
             <div className="flex flex-col items-start justify-between gap-3 md:flex-row md:items-start">
-              <h1 className="m-0 text-[clamp(1.7rem,2.6vw,2.3rem)] font-bold tracking-[-0.04em] text-base-content">{title}</h1>
+              <h1 className="m-0 text-[clamp(1.7rem,2.6vw,2.3rem)] font-bold tracking-[-0.04em] text-base-content" style={brandedHeaderTextStyle}>{title}</h1>
 
               {hasCountBadge ? (
-                <span className="inline-flex items-center rounded-full border border-info/26 bg-info/12 px-3 py-1.5 text-[0.82rem] font-extrabold whitespace-nowrap text-info">
+                <span className="inline-flex items-center rounded-full border border-info/26 bg-info/12 px-3 py-1.5 text-[0.82rem] font-extrabold whitespace-nowrap text-info" style={brandedHeaderBadgeStyle}>
                   {formatRecordCount(recordCount, singularLabel, pluralLabel)}
                 </span>
               ) : null}
             </div>
 
-            <p className="m-0 text-[0.94rem] text-base-content/70 pb-2">{description}</p>
+            <p className="m-0 pb-2 text-[0.94rem] text-base-content/70" style={brandedHeaderMutedStyle}>{description}</p>
           </div>
 
           {/* Lower row: tabs + extra controls */}

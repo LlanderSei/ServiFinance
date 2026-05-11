@@ -111,6 +111,7 @@ public static class ServiceCollectionExtensions {
     services.Configure<StripeBillingOptions>(configuration?.GetSection(StripeBillingOptions.SectionName) ?? new ConfigurationBuilder().Build().GetSection(StripeBillingOptions.SectionName));
     services.AddScoped<ISessionTokenService, JwtSessionTokenService>();
     services.AddScoped<DevelopmentDataSeeder>();
+    services.AddScoped<ProductionPlaythroughDataSeeder>();
     services.AddSingleton(new DevelopmentSeedOptions {
         TenantId = ServiFinanceDatabaseDefaults.ResolveDevelopmentTenantId(
             configuration?[ServiFinanceDatabaseDefaults.DevelopmentTenantIdConfigurationKey]),
@@ -121,7 +122,19 @@ public static class ServiceCollectionExtensions {
         SuperAdminPassword = ServiFinanceDatabaseDefaults.ResolveSuperAdminPassword(
             configuration?[ServiFinanceDatabaseDefaults.SuperAdminPasswordConfigurationKey]),
         AdminPassword = ServiFinanceDatabaseDefaults.ResolveDevelopmentAdminPassword(
-            configuration?[ServiFinanceDatabaseDefaults.DevelopmentAdminPasswordConfigurationKey])
+            configuration?[ServiFinanceDatabaseDefaults.DevelopmentAdminPasswordConfigurationKey]),
+        ProductionPlaythroughEnabled = ResolveBoolConfigurationValue(
+            configuration,
+            false,
+            "ServiFinance:Seed:ProductionPlaythroughEnabled",
+            "SERVIFINANCE__SEED__PRODUCTIONPLAYTHROUGHENABLED",
+            "SERVIFINANCE_PRODUCTION_PLAYTHROUGH_SEED"),
+        ResetDatabaseBeforeProductionPlaythrough = ResolveBoolConfigurationValue(
+            configuration,
+            false,
+            "ServiFinance:Seed:ResetDatabaseBeforeProductionPlaythrough",
+            "SERVIFINANCE__SEED__RESETDATABASEBEFOREPRODUCTIONPLAYTHROUGH",
+            "SERVIFINANCE_RESET_DATABASE_FOR_PRODUCTION_PLAYTHROUGH")
     });
     services.AddDbContext<ServiFinanceDbContext>((serviceProvider, options) =>
         options.UseSqlServer(resolvedConnectionString));

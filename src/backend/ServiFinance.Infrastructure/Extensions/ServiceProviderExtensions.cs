@@ -16,11 +16,24 @@ public static class ServiceProviderExtensions {
         .CreateLogger("ServiFinance.Database");
     var dbContext = scope.ServiceProvider.GetRequiredService<ServiFinanceDbContext>();
     var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentDataSeeder>();
+    var productionSeeder = scope.ServiceProvider.GetRequiredService<ProductionPlaythroughDataSeeder>();
     var seedOptions = scope.ServiceProvider.GetRequiredService<DevelopmentSeedOptions>();
+
+    if (seedOptions.ResetDatabaseBeforeProductionPlaythrough) {
+      if (!seedOptions.ProductionPlaythroughEnabled) {
+        logger.LogWarning("Database reset was requested, but production playthrough seeding is disabled. Reset skipped.");
+      } else {
+        logger.LogWarning("Resetting SQL Server database '{Database}' before production playthrough seeding.", dbContext.Database.GetDbConnection().Database);
+        await dbContext.Database.EnsureDeletedAsync(cancellationToken);
+      }
+    }
 
     logger.LogInformation("Applying SQL Server migrations to database '{Database}'.", dbContext.Database.GetDbConnection().Database);
     await dbContext.Database.MigrateAsync(cancellationToken);
     await seeder.SeedAsync(seedOptions, cancellationToken);
+    if (seedOptions.ProductionPlaythroughEnabled) {
+      await productionSeeder.SeedAsync(seedOptions, cancellationToken);
+    }
     logger.LogInformation("SQL Server database is ready.");
   }
 }

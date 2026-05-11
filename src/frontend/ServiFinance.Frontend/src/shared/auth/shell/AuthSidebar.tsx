@@ -1,7 +1,8 @@
 import { Link, NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import type { CurrentSessionUser } from "@/shared/api/contracts";
-import type { TenantBranding } from "@/shared/tenant/tenantBranding";
+import { resolveReadableTextColors, type TenantBranding } from "@/shared/tenant/tenantBranding";
 import { useLogout } from "../useLogout";
 import { AccountProfileModal } from "../AccountProfileModal";
 import { SidebarIcon } from "./SidebarIcon";
@@ -45,6 +46,23 @@ export function AuthSidebar({
   const displayTitle = isRootShell ? "ServiFinance" : tenantBranding?.displayName || user.tenantDomainSlug;
   const displaySubtitle = isRootShell ? "Platform control plane" : user.email;
   const mark = resolveSidebarMark(isRootShell ? "ServiFinance" : displayTitle || user.tenantDomainSlug);
+  const tenantHeaderBackground = !isRootShell ? tenantBranding?.headerBackgroundColor ?? null : null;
+  const tenantHeaderTextColors = resolveReadableTextColors(tenantHeaderBackground);
+  const tenantHeaderStyle = tenantHeaderBackground
+    ? ({
+        background: tenantHeaderBackground,
+        borderColor: tenantHeaderTextColors.foreground === "#ffffff"
+          ? "rgba(255, 255, 255, 0.22)"
+          : "rgba(20, 24, 39, 0.12)",
+        color: tenantHeaderTextColors.foreground ?? undefined
+      } satisfies CSSProperties)
+    : undefined;
+  const tenantHeaderLinkStyle = tenantHeaderTextColors.foreground
+    ? ({ color: tenantHeaderTextColors.foreground } satisfies CSSProperties)
+    : undefined;
+  const tenantHeaderSubtitleStyle = tenantHeaderTextColors.muted
+    ? ({ color: tenantHeaderTextColors.muted } satisfies CSSProperties)
+    : undefined;
   const railSpacingClass = isExpanded
     ? "items-stretch md:px-4 md:pr-[1.65rem]"
     : "items-center md:px-[0.7rem] md:pr-[0.7rem]";
@@ -181,12 +199,13 @@ export function AuthSidebar({
       </button>
 
       <div
-        className={`authed-shell__header border-b border-base-300/50 pb-2 ${cardTransitionClass} ${isExpanded ? "" : "flex justify-center"}`}
-        style={!isRootShell && tenantBranding?.headerBackgroundColor ? { background: tenantBranding.headerBackgroundColor } : undefined}
+        className={`authed-shell__header rounded-[1.2rem] border border-base-300/50 p-2 ${cardTransitionClass} ${isExpanded ? "" : "flex justify-center"}`}
+        style={tenantHeaderStyle}
       >
         <Link
           to={sections[0]?.items[0]?.to ?? "/"}
           className={`inline-flex items-center gap-3 text-base-content no-underline ${isExpanded ? "" : "justify-center"}`}
+          style={tenantHeaderLinkStyle}
         >
           {tenantBranding?.logoUrl && !isRootShell ? (
             <span className="grid h-[2.85rem] w-[2.85rem] place-items-center overflow-hidden rounded-2xl border border-base-300/60 bg-base-100 shadow-[0_16px_34px_rgba(107,145,255,0.18)]">
@@ -203,7 +222,7 @@ export function AuthSidebar({
           {isExpanded ? (
             <span className={`min-w-0 ${contentRevealMotionClass} ${contentRevealClass}`}>
               <strong className="block truncate text-sm font-semibold">{displayTitle}</strong>
-              <small className="block truncate text-xs text-base-content/60">{displaySubtitle}</small>
+              <small className="block truncate text-xs text-base-content/60" style={tenantHeaderSubtitleStyle}>{displaySubtitle}</small>
             </span>
           ) : null}
         </Link>
