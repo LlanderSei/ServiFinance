@@ -1,6 +1,6 @@
 # Root SaaS, Tenant Auth, And Surface Split Status
 
-Last updated: 2026-05-10
+Last updated: 2026-05-11
 
 ## Current Split
 
@@ -111,6 +111,7 @@ The split is implemented in both auth behavior and route ownership.
 - Visiting `/t/{tenant}/c/*` stays inside the customer-only shell.
 - Visiting MLS routes in the browser redirects to the desktop-required surface where applicable.
 - Visiting `/t/mls/*` in the desktop shell uses the tenant desktop route set.
+- Switching the MLS desktop login to Superadmin mode creates a root-scoped session and opens root control-plane routes inside the desktop shell.
 
 ## Guard Status
 
@@ -122,7 +123,8 @@ The split is implemented in both auth behavior and route ownership.
 
 - Google auth, MFA, and password recovery
 - broader Stripe lifecycle tooling and provider-event hardening
-- deeper MLS reporting and persisted loan approval decisions
+- deeper MLS reporting and approval-decision reporting on top of the persisted loan approval workflow
+- root mutable-role hardening where any remaining root backend or UI checks still assume locked `SuperAdmin` role-name authority instead of permission-key access
 - final cleanup of redundant page-level versus route-level MLS guard duplication once the route hardening settles
 
 ## Notes
@@ -130,3 +132,4 @@ The split is implemented in both auth behavior and route ownership.
 - `/superadmin/*` is no longer the primary root route contract; root workspaces now live directly on the root surface.
 - `/t/{tenant}/mls/*` is not the active desktop route contract; MLS uses `/t/mls/*`.
 - Tenant subscription renewal proof submission has been discontinued at the API boundary.
+- `/t/mls/branding` is a compatibility redirect to tenant web branding when permitted; branding is not a distinct MLS sidebar workspace.

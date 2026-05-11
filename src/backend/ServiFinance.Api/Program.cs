@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using ServiFinance.Api.Endpoints;
@@ -18,6 +19,14 @@ var nominatimUserAgent = builder.Configuration["ServiFinance:ExternalServices:No
     ?? builder.Configuration["ExternalServices:Nominatim:UserAgent"]?.Trim();
 var nominatimContactEmail = builder.Configuration["ServiFinance:ExternalServices:Nominatim:ContactEmail"]?.Trim()
     ?? builder.Configuration["ExternalServices:Nominatim:ContactEmail"]?.Trim();
+var googleClientId = builder.Configuration["ServiFinance:ExternalServices:Google:ClientId"]?.Trim()
+    ?? builder.Configuration["ExternalServices:Google:ClientId"]?.Trim()
+    ?? builder.Configuration["Authentication:Google:ClientId"]?.Trim()
+    ?? builder.Configuration["GOOGLE_CLIENT_ID"]?.Trim();
+var googleClientSecret = builder.Configuration["ServiFinance:ExternalServices:Google:ClientSecret"]?.Trim()
+    ?? builder.Configuration["ExternalServices:Google:ClientSecret"]?.Trim()
+    ?? builder.Configuration["Authentication:Google:ClientSecret"]?.Trim()
+    ?? builder.Configuration["GOOGLE_CLIENT_SECRET"]?.Trim();
 var sessionTokenOptions = builder.Configuration.GetSection(SessionTokenOptions.SectionName).Get<SessionTokenOptions>() ?? new SessionTokenOptions();
 if (string.IsNullOrWhiteSpace(sessionTokenOptions.SigningKey)) {
   throw new InvalidOperationException(
@@ -58,7 +67,7 @@ builder.Services.AddCors(options => {
         .AllowAnyMethod();
   });
 });
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+var authenticationBuilder = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options => {
       options.LoginPath = "/";
       options.AccessDeniedPath = "/forbidden";
@@ -76,6 +85,21 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         ClockSkew = TimeSpan.FromMinutes(1)
       };
     });
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret)) {
+  authenticationBuilder
+      .AddCookie("GoogleExternal", options => {
+        options.Cookie.Name = "ServiFinance.GoogleExternal";
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+        options.SlidingExpiration = false;
+      })
+      .AddGoogle(GoogleDefaults.AuthenticationScheme, options => {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+        options.SignInScheme = "GoogleExternal";
+        options.CallbackPath = "/signin-google";
+        options.SaveTokens = false;
+      });
+}
 builder.Services.AddAuthorization();
 builder.Services.AddServiFinanceSqlServer(builder.Configuration);
 builder.Services.AddHostedService<SubscriptionRecoveryReconciliationHostedService>();
@@ -92,6 +116,7 @@ if (!app.Environment.IsDevelopment()) {
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.MapOpenApi();
 
+app.UseServiFinanceSecurityHeaders();
 app.UseCors("ServiFinanceFrontendClients");
 app.UseAuthentication();
 app.UseAuthorization();

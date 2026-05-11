@@ -13,7 +13,6 @@ using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 internal static class SuperadminApiEndpointMappings {
   public static RouteGroupBuilder MapSuperadminApiEndpoints(this RouteGroupBuilder api) {
     var superadminApi = api.MapGroup("/superadmin").RequireAuthorization(new AuthorizeAttribute {
-      Roles = "SuperAdmin",
       AuthenticationSchemes = ApiAuthenticationSchemes
     });
     superadminApi.MapSuperadminRootUsersEndpoints();

@@ -1,5 +1,6 @@
-import { httpPostJson, httpDelete } from "@/shared/api/http";
-import { AuthSessionResponse } from "@/shared/api/contracts";
+import { httpPostJson, readApiErrorMessage } from "@/shared/api/http";
+import { isDesktopShell, resolveApiUrl } from "@/platform/runtime";
+import { AuthSessionResponse, CaptchaProof, MfaChallengeResponse } from "@/shared/api/contracts";
 import { applySession, clearSession } from "@/shared/auth/session";
 
 export { getCurrentSession as getCurrentCustomerSession } from "@/shared/auth/session";
@@ -25,13 +26,23 @@ export type RegisterCustomerAccountRequest = {
   address: string;
   addressDetails: string;
   password: string;
+  captcha?: CaptchaProof | null;
 };
 
 export type LoginCustomerAccountRequest = {
   tenantDomainSlug: string;
   email: string;
   password: string;
+  captcha?: CaptchaProof | null;
+  mfaChallengeId?: string | null;
+  mfaCode?: string | null;
 };
+
+export class MfaRequiredError extends Error {
+  constructor(public readonly challenge: MfaChallengeResponse) {
+    super(challenge.message);
+  }
+}
 
 export async function registerCustomerAccount(request: RegisterCustomerAccountRequest) {
   const tenantDomainSlug = request.tenantDomainSlug.trim().toLowerCase();
@@ -54,6 +65,7 @@ export async function registerCustomerAccount(request: RegisterCustomerAccountRe
     address,
     addressDetails,
     password,
+    captcha: request.captcha,
     useCookieSession: true
   });
 
@@ -70,15 +82,34 @@ export async function loginCustomerAccount(request: LoginCustomerAccountRequest)
     throw new Error("Provide your email and password.");
   }
 
-  const response = await httpPostJson<AuthSessionResponse, any>("/api/auth/customer/login", {
-    tenantDomainSlug,
-    email,
-    password,
-    useCookieSession: true
+  const response = await fetch(await resolveApiUrl("/api/auth/customer/login"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    credentials: isDesktopShell() ? "omit" : "include",
+    body: JSON.stringify({
+      tenantDomainSlug,
+      email,
+      password,
+      captcha: request.mfaChallengeId ? null : request.captcha,
+      mfaChallengeId: request.mfaChallengeId,
+      mfaCode: request.mfaCode,
+      useCookieSession: true
+    })
   });
 
-  await applySession(response, { rememberOnWeb: true });
-  return response.user;
+  if (response.status === 202) {
+    throw new MfaRequiredError(await response.json() as MfaChallengeResponse);
+  }
+
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response) ?? "Unable to sign in.");
+  }
+
+  const payload = await response.json() as AuthSessionResponse;
+  await applySession(payload, { rememberOnWeb: true });
+  return payload.user;
 }
 
 export async function logoutCustomerAccount() {

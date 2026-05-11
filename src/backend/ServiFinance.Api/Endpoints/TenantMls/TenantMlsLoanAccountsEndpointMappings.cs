@@ -33,6 +33,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
 
           var loans = await dbContext.MicroLoans
               .AsNoTracking()
+              .Where(entity => entity.LoanStatus != "Pending Approval" && entity.LoanStatus != "Rejected")
               .Include(entity => entity.Customer)
               .Include(entity => entity.Invoice)
               .Include(entity => entity.AmortizationSchedules)
@@ -68,7 +69,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               .Include(entity => entity.Invoice)
               .Include(entity => entity.AmortizationSchedules)
               .Include(entity => entity.Transactions)
-              .FirstOrDefaultAsync(entity => entity.Id == loanId, cancellationToken);
+              .FirstOrDefaultAsync(entity => entity.Id == loanId && entity.LoanStatus != "Pending Approval" && entity.LoanStatus != "Rejected", cancellationToken);
           if (loan is null) {
             return Results.NotFound(new { error = "The selected loan account was not found." });
           }
@@ -144,7 +145,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               .Include(entity => entity.Customer)
               .Include(entity => entity.Invoice)
               .Include(entity => entity.AmortizationSchedules)
-              .FirstOrDefaultAsync(entity => entity.Id == loanId, cancellationToken);
+              .FirstOrDefaultAsync(entity => entity.Id == loanId && entity.LoanStatus != "Pending Approval" && entity.LoanStatus != "Rejected", cancellationToken);
           if (loan is null) {
             return Results.NotFound(new { error = "The selected loan account was not found." });
           }
@@ -314,7 +315,7 @@ internal static class TenantMlsLoanAccountsEndpointMappings {
               .Include(entity => entity.Invoice)
               .Include(entity => entity.AmortizationSchedules)
               .Include(entity => entity.Transactions)
-              .FirstOrDefaultAsync(entity => entity.Id == loanId, cancellationToken);
+              .FirstOrDefaultAsync(entity => entity.Id == loanId && entity.LoanStatus != "Pending Approval" && entity.LoanStatus != "Rejected", cancellationToken);
           if (loan is null) {
             return Results.NotFound(new { error = "The selected loan account was not found." });
           }

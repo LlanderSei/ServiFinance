@@ -10,6 +10,10 @@ public sealed partial class ServiFinanceDbContext {
     ConfigureTenantOwned(invoice);
     invoice.Property(entity => entity.InvoiceNumber).HasMaxLength(50);
     invoice.Property(entity => entity.InvoiceStatus).HasMaxLength(50);
+    invoice.Property(entity => entity.LoanApprovalStatus)
+        .HasMaxLength(50)
+        .HasDefaultValue("Not Requested");
+    invoice.Property(entity => entity.LoanApprovalRemarks).HasMaxLength(1000);
     ConfigureMoney(invoice.Property(entity => entity.SubtotalAmount));
     ConfigureMoney(invoice.Property(entity => entity.TaxAmount));
     ConfigureMoney(invoice.Property(entity => entity.InterestableAmount));
@@ -24,6 +28,14 @@ public sealed partial class ServiFinanceDbContext {
     invoice.HasOne(entity => entity.ServiceRequest)
         .WithMany(entity => entity.Invoices)
         .HasForeignKey(entity => entity.ServiceRequestId)
+        .OnDelete(DeleteBehavior.Restrict);
+    invoice.HasOne(entity => entity.LoanApprovalRequestedByUser)
+        .WithMany()
+        .HasForeignKey(entity => entity.LoanApprovalRequestedByUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+    invoice.HasOne(entity => entity.LoanApprovalReviewedByUser)
+        .WithMany()
+        .HasForeignKey(entity => entity.LoanApprovalReviewedByUserId)
         .OnDelete(DeleteBehavior.Restrict);
   }
 
@@ -83,6 +95,12 @@ public sealed partial class ServiFinanceDbContext {
     microLoan.ToTable("MicroLoans");
     ConfigureTenantOwned(microLoan);
     microLoan.Property(entity => entity.LoanStatus).HasMaxLength(50);
+    microLoan.Property(entity => entity.ReferenceNumber).HasMaxLength(100);
+    microLoan.Property(entity => entity.Remarks).HasMaxLength(1000);
+    microLoan.Property(entity => entity.ApprovalStatus)
+        .HasMaxLength(50)
+        .HasDefaultValue("Approved");
+    microLoan.Property(entity => entity.ApprovalRemarks).HasMaxLength(1000);
     ConfigureMoney(microLoan.Property(entity => entity.PrincipalAmount));
     ConfigureMoney(microLoan.Property(entity => entity.AnnualInterestRate), 6, 2);
     ConfigureMoney(microLoan.Property(entity => entity.MonthlyInstallment));
@@ -103,6 +121,14 @@ public sealed partial class ServiFinanceDbContext {
     microLoan.HasOne(entity => entity.CreatedByUser)
         .WithMany(entity => entity.CreatedMicroLoans)
         .HasForeignKey(entity => entity.CreatedByUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+    microLoan.HasOne(entity => entity.ApprovalRequestedByUser)
+        .WithMany()
+        .HasForeignKey(entity => entity.ApprovalRequestedByUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+    microLoan.HasOne(entity => entity.ApprovalReviewedByUser)
+        .WithMany()
+        .HasForeignKey(entity => entity.ApprovalReviewedByUserId)
         .OnDelete(DeleteBehavior.Restrict);
   }
 

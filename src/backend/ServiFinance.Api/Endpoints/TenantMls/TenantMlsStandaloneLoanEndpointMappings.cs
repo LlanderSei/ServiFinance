@@ -126,11 +126,10 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
 
           var computation = TenantMlsLoanMath.Build(request.PrincipalAmount, request.AnnualInterestRate, request.TermMonths, request.LoanStartDate);
           if (referenceNumber is not null &&
-              await dbContext.Transactions
+              await dbContext.MicroLoans
                   .AsNoTracking()
                   .AnyAsync(entity =>
                       entity.CustomerId == customer.Id &&
-                      entity.TransactionType == "StandaloneLoanCreation" &&
                       entity.ReferenceNumber == referenceNumber,
                       cancellationToken)) {
             return Results.Conflict(new { error = "A standalone loan already uses this reference number for the selected customer." });
@@ -149,13 +148,6 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
             return Results.Conflict(new { error = "A matching standalone loan was just created for this customer. Add a unique reference number if this is a separate loan." });
           }
 
-          var runningBalance = await dbContext.Transactions
-              .Where(entity => entity.CustomerId == customer.Id)
-              .OrderByDescending(entity => entity.TransactionDateUtc)
-              .ThenByDescending(entity => entity.Id)
-              .Select(entity => entity.RunningBalance)
-              .FirstOrDefaultAsync(cancellationToken);
-
           var microLoanId = Guid.NewGuid();
           dbContext.MicroLoans.Add(new MicroLoan {
             Id = microLoanId,
@@ -169,59 +161,28 @@ internal static class TenantMlsStandaloneLoanEndpointMappings {
             TotalRepayableAmount = computation.Summary.TotalRepayableAmount,
             LoanStartDate = computation.Summary.LoanStartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
             MaturityDate = computation.Summary.MaturityDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
-            LoanStatus = "Active",
+            ReferenceNumber = referenceNumber,
+            Remarks = remarks,
+            LoanStatus = "Pending Approval",
+            ApprovalStatus = TenantMlsLoanApprovalPolicy.PendingReviewStatus,
+            ApprovalRequestedByUserId = currentUserId,
+            ApprovalRequestedAtUtc = DateTime.UtcNow,
+            ApprovalRemarks = remarks,
             CreatedByUserId = currentUserId,
             CreatedAtUtc = DateTime.UtcNow
           });
-
-          foreach (var row in computation.Schedule) {
-            dbContext.AmortizationSchedules.Add(new AmortizationSchedule {
-              Id = Guid.NewGuid(),
-              MicroLoanId = microLoanId,
-              InstallmentNumber = row.InstallmentNumber,
-              DueDate = row.DueDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
-              BeginningBalance = row.BeginningBalance,
-              PrincipalPortion = row.PrincipalPortion,
-              InterestPortion = row.InterestPortion,
-              InstallmentAmount = row.InstallmentAmount,
-              EndingBalance = row.EndingBalance,
-              PaidAmount = 0m,
-              InstallmentStatus = "Pending"
-            });
-          }
-
-          var loanTransaction = new LedgerTransaction {
-            Id = Guid.NewGuid(),
-            CustomerId = customer.Id,
-            InvoiceId = null,
-            MicroLoanId = microLoanId,
-            TransactionDateUtc = DateTime.UtcNow,
-            TransactionType = "StandaloneLoanCreation",
-            ReferenceNumber = referenceNumber is null
-              ? GenerateReferenceCode("MLS-STDLN")
-              : referenceNumber,
-            DebitAmount = computation.Summary.PrincipalAmount,
-            CreditAmount = 0m,
-            RunningBalance = TenantMlsLoanMath.RoundCurrency(runningBalance + computation.Summary.PrincipalAmount),
-            Remarks = remarks is null
-              ? $"Standalone loan created for {customer.FullName}"
-              : remarks,
-            CreatedByUserId = currentUserId
-          };
-
-          dbContext.Transactions.Add(loanTransaction);
 
           await dbContext.SaveChangesAsync(cancellationToken);
           await TenantMlsAuditLogging.WriteSystemAuditAsync(
               auditLogService,
               httpContext,
               customer.TenantId,
-              "StandaloneLoanCreation",
-              "Created",
+              "StandaloneLoanApprovalRequest",
+              "Requested",
               "MicroLoan",
               microLoanId,
               customer.FullName,
-              $"Created a standalone loan for {customer.FullName}.");
+              $"Submitted a standalone loan request for {customer.FullName}.");
 
           return Results.Ok(new TenantMlsStandaloneLoanCreatedResponse(
               microLoanId,

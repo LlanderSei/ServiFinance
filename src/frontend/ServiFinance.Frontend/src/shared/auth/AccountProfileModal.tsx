@@ -4,12 +4,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AccountPasswordChangeResponse,
   AccountProfileResponse,
+  AccountSecurityResponse,
   AuditWorkspaceResponse,
   ChangeAccountPasswordRequest,
   CurrentSessionUser,
   UpdateAccountProfileRequest
 } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
+import { resolveApiUrl } from "@/platform/runtime";
+import { PasswordPolicyChecklist } from "@/shared/auth/PasswordPolicyChecklist";
 import { updateCurrentSessionUser } from "@/shared/auth/session";
 import {
   WorkspaceActionButton,
@@ -36,6 +39,7 @@ type AccountProfileModalProps = {
   open: boolean;
   onClose: () => void;
   onUserUpdated?: (patch: Partial<CurrentSessionUser>) => void;
+  initialTab?: string;
 };
 
 const accountTabs = [
@@ -51,7 +55,7 @@ const emptyPasswordDraft: ChangeAccountPasswordRequest = {
   confirmPassword: ""
 };
 
-export function AccountProfileModal({ user, open, onClose, onUserUpdated }: AccountProfileModalProps) {
+export function AccountProfileModal({ user, open, onClose, onUserUpdated, initialTab }: AccountProfileModalProps) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("profile");
@@ -67,6 +71,11 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
     queryKey: ["account", "audits"],
     queryFn: () => httpGet<AuditWorkspaceResponse>("/api/account/audits"),
     enabled: open && activeTab === "audit"
+  });
+  const securityQuery = useQuery({
+    queryKey: ["account", "security"],
+    queryFn: () => httpGet<AccountSecurityResponse>("/api/account/security"),
+    enabled: open && activeTab === "security"
   });
   const profileMutation = useMutation({
     mutationFn: (payload: UpdateAccountProfileRequest) =>
@@ -107,11 +116,67 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
       });
     }
   });
+  const enableMfaMutation = useMutation({
+    mutationFn: () => httpPostJson<AccountSecurityResponse, Record<string, never>>("/api/account/mfa/enable", {}),
+    onSuccess: (response) => {
+      queryClient.setQueryData(["account", "security"], response);
+      queryClient.invalidateQueries({ queryKey: ["account", "audits"] });
+      toast.success({
+        title: "MFA enabled",
+        message: "Future sign-ins will require the one-time MFA code after the password is accepted."
+      });
+    },
+    onError: (error) => {
+      toast.error({
+        title: "Unable to enable MFA",
+        message: getApiErrorMessage(error, "MFA could not be enabled.")
+      });
+    }
+  });
+  const disableMfaMutation = useMutation({
+    mutationFn: () => httpPostJson<AccountSecurityResponse, Record<string, never>>("/api/account/mfa/disable", {}),
+    onSuccess: (response) => {
+      queryClient.setQueryData(["account", "security"], response);
+      queryClient.invalidateQueries({ queryKey: ["account", "audits"] });
+      toast.success({
+        title: "MFA disabled",
+        message: "This account will use password-only sign-in until MFA is enabled again."
+      });
+    },
+    onError: (error) => {
+      toast.error({
+        title: "Unable to disable MFA",
+        message: getApiErrorMessage(error, "MFA could not be disabled.")
+      });
+    }
+  });
+  const unlinkGoogleMutation = useMutation({
+    mutationFn: () => httpPostJson<AccountSecurityResponse, Record<string, never>>("/api/account/google/unlink", {}),
+    onSuccess: (response) => {
+      queryClient.setQueryData(["account", "security"], response);
+      queryClient.invalidateQueries({ queryKey: ["account", "audits"] });
+      toast.success({
+        title: "Google unlinked",
+        message: "The Google account link was removed."
+      });
+    },
+    onError: (error) => {
+      toast.error({
+        title: "Unable to unlink Google",
+        message: getApiErrorMessage(error, "Google account link could not be removed.")
+      });
+    }
+  });
 
   const profile = profileQuery.data;
   const profileName = profile?.fullName ?? user.fullName;
   const profileRoles = profile?.roles ?? user.roles;
   const profileScopes = profile?.platformScopes ?? user.platformScopes;
+  const trimmedProfileName = profileName.trim();
+  const trimmedProfileDraftName = profileDraft.fullName.trim();
+  const canSaveProfile = trimmedProfileDraftName.length > 0 && trimmedProfileDraftName !== trimmedProfileName;
+  const passwordDraftIssue = getPasswordDraftIssue(passwordDraft);
+  const canSubmitPassword = !passwordMutation.isPending && !passwordDraftIssue;
 
   useEffect(() => {
     if (!open) {
@@ -121,8 +186,18 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
       return;
     }
 
-    setProfileDraft({ fullName: profileName });
-  }, [open, profileName]);
+    if (!isEditingProfile) {
+      setProfileDraft({ fullName: profileName });
+    }
+  }, [isEditingProfile, open, profileName]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setActiveTab(initialTab ?? "profile");
+  }, [initialTab, open]);
 
   if (!open) {
     return null;
@@ -130,14 +205,35 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
 
   function submitProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canSaveProfile) {
+      return;
+    }
+
     profileMutation.mutate({
-      fullName: profileDraft.fullName.trim()
+      fullName: trimmedProfileDraftName
     });
   }
 
   function submitPassword(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    if (passwordMutation.isPending) {
+      return;
+    }
+
+    if (passwordDraftIssue) {
+      toast.warning({
+        title: "Check password details",
+        message: passwordDraftIssue
+      });
+      return;
+    }
+
     passwordMutation.mutate(passwordDraft);
+  }
+
+  async function startGoogleLink() {
+    const returnUrl = `${window.location.pathname}${window.location.search}`;
+    window.location.assign(await resolveApiUrl(`/api/account/google/link?returnUrl=${encodeURIComponent(returnUrl)}`));
   }
 
   function renderFooter() {
@@ -158,7 +254,7 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
               type="submit"
               form="account-profile-form"
               tone="primary"
-              disabled={profileMutation.isPending}
+              disabled={profileMutation.isPending || !canSaveProfile}
             >
               {profileMutation.isPending ? "Saving..." : "Save"}
             </WorkspaceModalButton>
@@ -169,7 +265,13 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
       return (
         <>
           <WorkspaceModalButton onClick={onClose}>Close</WorkspaceModalButton>
-          <WorkspaceModalButton tone="primary" onClick={() => setIsEditingProfile(true)}>
+          <WorkspaceModalButton
+            tone="primary"
+            onClick={(event) => {
+              event.currentTarget.blur();
+              setIsEditingProfile(true);
+            }}
+          >
             Edit
           </WorkspaceModalButton>
         </>
@@ -184,7 +286,7 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
             type="submit"
             form="account-password-form"
             tone="primary"
-            disabled={passwordMutation.isPending}
+            disabled={!canSubmitPassword}
           >
             {passwordMutation.isPending ? "Updating..." : "Change password"}
           </WorkspaceModalButton>
@@ -245,6 +347,7 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
                       <WorkspaceField label="Full name" wide>
                         <WorkspaceInput
                           value={profileDraft.fullName}
+                          autoFocus
                           maxLength={200}
                           onChange={(event) => setProfileDraft({ fullName: event.target.value })}
                         />
@@ -299,6 +402,7 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
                       <WorkspaceInput
                         type="password"
                         autoComplete="current-password"
+                        required
                         value={passwordDraft.currentPassword}
                         onChange={(event) => setPasswordDraft((current) => ({ ...current, currentPassword: event.target.value }))}
                       />
@@ -307,7 +411,8 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
                       <WorkspaceInput
                         type="password"
                         autoComplete="new-password"
-                        minLength={8}
+                        required
+                        minLength={12}
                         value={passwordDraft.newPassword}
                         onChange={(event) => setPasswordDraft((current) => ({ ...current, newPassword: event.target.value }))}
                       />
@@ -316,19 +421,109 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated }: Acco
                       <WorkspaceInput
                         type="password"
                         autoComplete="new-password"
-                        minLength={8}
+                        required
+                        minLength={12}
                         value={passwordDraft.confirmPassword}
                         onChange={(event) => setPasswordDraft((current) => ({ ...current, confirmPassword: event.target.value }))}
                       />
                     </WorkspaceField>
                   </WorkspaceFieldGrid>
+                  <PasswordPolicyChecklist
+                    password={passwordDraft.newPassword}
+                    confirmPassword={passwordDraft.confirmPassword}
+                    email={profile?.email ?? user.email}
+                    fullName={profileName}
+                    tenantDomainSlug={profile?.tenantDomainSlug ?? user.tenantDomainSlug}
+                  />
+                  <p className={`text-sm leading-6 ${passwordDraftIssue ? "text-base-content/55" : "text-success"}`}>
+                    {passwordDraftIssue ?? "Password details are ready to save."}
+                  </p>
                 </WorkspacePanel>
 
                 <WorkspacePanel>
-                  <WorkspacePanelHeader eyebrow="Future hardening" title="Linked sign-in methods" />
+                  <WorkspacePanelHeader eyebrow="MFA" title="Extra sign-in check" />
                   <div className="grid gap-3">
-                    <FutureSecurityItem title="Google account linking" detail="Reserved for account recovery and optional Google sign-in." />
-                    <FutureSecurityItem title="Multi-factor authentication" detail="Reserved for owner/admin enforcement and sensitive action prompts." />
+                    <div className="rounded-box border border-base-300/80 bg-base-200/35 px-4 py-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <strong className="text-base-content">Multi-factor authentication</strong>
+                          <p className="mt-1 text-sm leading-6 text-base-content/65">
+                            Status: {securityQuery.data?.mfaEnabled ? "Enabled" : "Disabled"} for {securityQuery.data?.surface ?? "this surface"}. Codes are emailed to the linked Google account.
+                          </p>
+                          {securityQuery.data && !securityQuery.data.googleLinked ? (
+                            <p className="mt-3 rounded-box border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-semibold leading-5 text-warning-content">
+                              Link a Google account first to enable MFA.
+                            </p>
+                          ) : null}
+                        </div>
+                        <WorkspaceStatusPill tone={securityQuery.data?.mfaEnabled ? "active" : "inactive"}>
+                          {securityQuery.data?.mfaEnabled ? "Enabled" : "Disabled"}
+                        </WorkspaceStatusPill>
+                      </div>
+                      {securityQuery.data?.googleLinked ? (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {securityQuery.data.mfaEnabled ? (
+                            <WorkspaceActionButton
+                              onClick={() => disableMfaMutation.mutate()}
+                              disabled={enableMfaMutation.isPending || disableMfaMutation.isPending}
+                            >
+                              {disableMfaMutation.isPending ? "Disabling MFA..." : "Disable MFA"}
+                            </WorkspaceActionButton>
+                          ) : (
+                            <WorkspaceActionButton
+                              onClick={() => enableMfaMutation.mutate()}
+                              disabled={enableMfaMutation.isPending || disableMfaMutation.isPending}
+                            >
+                              {enableMfaMutation.isPending ? "Enabling MFA..." : "Enable MFA"}
+                            </WorkspaceActionButton>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="rounded-box border border-base-300/80 bg-base-200/35 px-4 py-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <strong className="text-base-content">Google account linking</strong>
+                          <p className="mt-1 text-sm leading-6 text-base-content/65">
+                            {securityQuery.data?.googleLinked
+                              ? `Linked to ${securityQuery.data.googleEmail ?? "a Google account"}.`
+                              : securityQuery.data?.googleConfigured
+                                ? "Link a Google account to enable MFA and password recovery."
+                                : "Google OAuth is not configured on the API host."}
+                          </p>
+                          {securityQuery.data?.googleName ? (
+                            <p className="mt-1 text-xs text-base-content/55">Google profile: {securityQuery.data.googleName}</p>
+                          ) : null}
+                          {securityQuery.data?.mfaEnabled && securityQuery.data?.googleLinked ? (
+                            <p className="mt-3 rounded-box border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-semibold leading-5 text-warning-content">
+                              Unlinking account is disabled because MFA is enabled. Disable MFA first if you need to unlink Google.
+                            </p>
+                          ) : null}
+                        </div>
+                        <WorkspaceStatusPill tone={securityQuery.data?.googleLinked ? "active" : "inactive"}>
+                          {securityQuery.data?.googleLinked ? "Linked" : "Not linked"}
+                        </WorkspaceStatusPill>
+                      </div>
+                      {securityQuery.data && !securityQuery.data.mfaEnabled ? (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {securityQuery.data.googleLinked ? (
+                            <WorkspaceActionButton
+                              onClick={() => unlinkGoogleMutation.mutate()}
+                              disabled={unlinkGoogleMutation.isPending}
+                            >
+                              {unlinkGoogleMutation.isPending ? "Unlinking Google..." : "Unlink Google"}
+                            </WorkspaceActionButton>
+                          ) : (
+                            <WorkspaceActionButton
+                              onClick={() => void startGoogleLink()}
+                              disabled={!securityQuery.data.googleConfigured}
+                            >
+                              Link Google
+                            </WorkspaceActionButton>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                     <FutureSecurityItem title="Trusted devices" detail="Reserved for reviewing active browsers and desktop terminals." />
                   </div>
                 </WorkspacePanel>
@@ -455,6 +650,26 @@ function AuditKpi({ label, value }: { label: string; value: number }) {
       <strong className="mt-1 block text-2xl text-base-content">{value}</strong>
     </div>
   );
+}
+
+function getPasswordDraftIssue(draft: ChangeAccountPasswordRequest) {
+  if (!draft.currentPassword || !draft.newPassword || !draft.confirmPassword) {
+    return "Fill in all password fields before changing password.";
+  }
+
+  if (draft.newPassword.length < 12) {
+    return "New password must be at least 12 characters.";
+  }
+
+  if (draft.newPassword !== draft.confirmPassword) {
+    return "New password and confirmation do not match.";
+  }
+
+  if (draft.currentPassword === draft.newPassword) {
+    return "New password must be different from the current password.";
+  }
+
+  return null;
 }
 
 function formatSurface(surface: CurrentSessionUser["surface"]) {

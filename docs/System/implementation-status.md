@@ -1,6 +1,6 @@
 # ServiFinance Implementation Status
 
-Last updated: 2026-05-10
+Last updated: 2026-05-11
 
 ## Current Delivery State
 
@@ -23,6 +23,7 @@ The remaining work is mostly:
 - Superadmin dashboard, system health, tenants, subscription tiers, modules, audits, root users, and roles-permissions workspaces
 - Subscription recovery queue for failed renewals, pending plan switches, cooldown state, and intervention actions
 - Root-scoped roles and permissions with mutable non-authority roles
+- Root control-plane routes can also be opened from the desktop application through the isolated Superadmin mode on the MLS desktop login page
 
 ### Tenant SMS Web
 
@@ -46,6 +47,7 @@ The remaining work is mostly:
 ### Tenant MLS Desktop
 
 - Desktop login and desktop workspace under `/t/mls/*`
+- The desktop login separates tenant MLS sign-in from Superadmin root sign-in so root sessions do not inherit tenant MLS state
 - Dashboard, customer finance, loan conversion, standalone loans, loan accounts, collections, reports, ledger, audits, roles-permissions, users, billing, branding, portfolio risk, finance policy, and loan-approvals workspaces
 - Invoice-to-loan conversion preview and creation
 - Standalone loan preview and creation
@@ -75,7 +77,7 @@ The remaining work is mostly:
 ### MLS Depth
 
 - MLS reporting exists, but it is still shallower than SMS operational reporting and can be expanded with stronger period comparison, delinquency mix, and collection trend depth.
-- Loan approval workflow is present as a readiness and review workspace, but full persisted maker-checker approval decisions remain future hardening.
+- Loan approval workflow now persists maker-checker states for service-linked invoice approval and standalone-loan release, including maker/checker users, timestamps, and review remarks.
 
 ### Security
 
@@ -89,13 +91,15 @@ The remaining work is mostly:
 
 ### Documentation
 
-- Phase and status docs must stay in sync with the current route contract, billing model, and customer/payment behavior.
+- Data Dictionary and ERD files were refreshed against the current EF model on 2026-05-11.
+- Older narrative deliverables still need a final evidence pass when the code freezes, especially around MLS report depth, root permission semantics, and Stripe/account-security future work.
+- Phase and status docs must stay in sync with the current route contract, billing model, customer/payment behavior, and desktop/root split.
 
 ## Recommended Near-Term Slices
 
-1. Expand MLS reporting depth and loan approval persistence.
-2. Continue Stripe recovery and provider-event hardening.
-3. Tighten remaining root permission enforcement assumptions.
+1. Expand MLS reporting depth and approval reporting depth around the persisted maker-checker workflow.
+2. Tighten remaining root permission enforcement assumptions so root access depends on permission keys instead of locked `SuperAdmin` role-name checks where possible.
+3. Continue Stripe recovery and provider-event hardening.
 4. Add account-security slices: Google auth, MFA, password recovery, and lockout policy.
 
 ## Developer Notes
@@ -104,4 +108,5 @@ The remaining work is mostly:
 - SMS tenant routes live under `/t/{tenant}/sms/*`.
 - Customer portal routes live under `/t/{tenant}/c/*`.
 - MLS desktop routes live under `/t/mls/*`; browser web sessions are redirected to the desktop-required screen instead of loading the MLS workspace directly.
+- The desktop login can create either a `TenantDesktop` session for MLS work or a `Root` session for Superadmin control-plane work.
 - Billing behavior now assumes provider-managed renewal for tenant subscriptions and mixed direct-settlement options for customer invoices.

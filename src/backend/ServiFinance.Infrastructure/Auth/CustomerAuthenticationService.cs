@@ -8,7 +8,8 @@ using ServiFinance.Infrastructure.Data;
 
 public sealed class CustomerAuthenticationService(
     ServiFinanceDbContext dbContext,
-    IPasswordHasher<Customer> passwordHasher) : ICustomerAuthenticationService {
+    IPasswordHasher<Customer> passwordHasher,
+    IPasswordPolicyService passwordPolicyService) : ICustomerAuthenticationService {
   private const int EmailMaxLength = 50;
   private const int AddressMaxLength = 500;
   private const int AddressDetailsMaxLength = 500;
@@ -58,6 +59,16 @@ public sealed class CustomerAuthenticationService(
     }
     if ((addressDetails?.Length ?? 0) > AddressDetailsMaxLength) {
       throw new InvalidOperationException($"Address details must be {AddressDetailsMaxLength} characters or fewer.");
+    }
+
+    var passwordPolicy = passwordPolicyService.Validate(
+        request.Password,
+        new PasswordPolicyContext(
+            normalizedEmail,
+            request.FullName,
+            tenantSlug));
+    if (!passwordPolicy.IsValid) {
+      throw new InvalidOperationException(string.Join(" ", passwordPolicy.Errors));
     }
 
     var tenant = await dbContext.Tenants

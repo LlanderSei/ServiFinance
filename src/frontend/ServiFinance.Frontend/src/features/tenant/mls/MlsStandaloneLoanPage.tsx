@@ -103,8 +103,8 @@ export function MlsStandaloneLoanPage() {
     }),
     onSuccess: (payload) => {
       toast.success({
-        title: "Standalone loan created",
-        message: `${payload.customerName} now has a standalone MLS loan record.`
+        title: "Standalone loan requested",
+        message: `${payload.customerName}'s standalone loan is waiting for checker approval before ledger release.`
       });
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-standalone-loans"] });
       void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-loans"] });

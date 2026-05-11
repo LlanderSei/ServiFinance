@@ -16,6 +16,7 @@ namespace ServiFinance.Infrastructure.Onboarding;
 public sealed class StripePlatformTenantOnboardingService(
     ServiFinanceDbContext dbContext,
     IPasswordHasher<AppUser> passwordHasher,
+    IPasswordPolicyService passwordPolicyService,
     IOptions<StripeBillingOptions> stripeOptionsAccessor,
     TimeProvider timeProvider) : IPlatformTenantOnboardingService {
   private const string CheckoutCreatedStatus = "CheckoutCreated";
@@ -60,6 +61,17 @@ public sealed class StripePlatformTenantOnboardingService(
 
     if (string.IsNullOrWhiteSpace(request.OwnerPassword) || request.OwnerPassword.Length < 8) {
       throw new InvalidOperationException("Owner password must be at least 8 characters.");
+    }
+
+    var passwordPolicy = passwordPolicyService.Validate(
+        request.OwnerPassword,
+        new PasswordPolicyContext(
+            normalizedOwnerEmail,
+            normalizedOwnerName,
+            normalizedDomainSlug,
+            normalizedBusinessName));
+    if (!passwordPolicy.IsValid) {
+      throw new InvalidOperationException(string.Join(" ", passwordPolicy.Errors));
     }
 
     if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri)) {

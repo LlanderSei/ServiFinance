@@ -43,6 +43,7 @@ The ServiFinance Desktop MLS provides a dedicated desktop terminal for finance s
 The Desktop MLS scope includes:
 
 - MLS desktop login
+- isolated Superadmin root login mode inside the desktop app
 - MLS dashboard
 - customer financial records
 - invoice-to-loan conversion
@@ -55,7 +56,7 @@ The Desktop MLS scope includes:
 - platform users
 - roles and permissions
 
-The current desktop MLS is focused on tenant finance operations. Superadmin desktop mode, multi-tenant employee switching, deeper export formats, and more advanced correction workflows can be treated as future enhancements unless required for final submission.
+The current desktop MLS is focused on tenant finance operations, while the same desktop app also provides a separate Superadmin root login mode for platform control-plane access. A dedicated Superadmin-only desktop shell, multi-tenant employee switching, deeper export formats, and more advanced correction workflows can be treated as future enhancements unless required for final submission.
 
 ### 2.6 Stakeholders
 

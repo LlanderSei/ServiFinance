@@ -21,8 +21,17 @@ internal static class PlatformApiEndpointMappings {
         HttpContext httpContext,
         ServiFinance.Api.Contracts.CreatePlatformTenantCheckoutRequest request,
         IPlatformTenantOnboardingService onboardingService,
+        ServiFinance.Application.Auth.IAuthProtectionService authProtectionService,
         CancellationToken cancellationToken) => {
           try {
+            var captchaResult = await authProtectionService.ValidateCaptchaAsync(
+                request.Captcha,
+                httpContext.Connection.RemoteIpAddress?.ToString(),
+                cancellationToken);
+            if (!captchaResult.IsAllowed) {
+              return Results.BadRequest(new { error = captchaResult.ErrorMessage });
+            }
+
             var baseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}{httpContext.Request.PathBase}";
             var session = await onboardingService.CreateCheckoutSessionAsync(
                 new AppCreatePlatformTenantCheckoutRequest(
@@ -31,7 +40,8 @@ internal static class PlatformApiEndpointMappings {
                     request.OwnerFullName,
                     request.OwnerEmail,
                     request.OwnerPassword,
-                    request.SubscriptionTierId),
+                    request.SubscriptionTierId,
+                    request.Captcha),
                 baseUrl,
                 cancellationToken);
 

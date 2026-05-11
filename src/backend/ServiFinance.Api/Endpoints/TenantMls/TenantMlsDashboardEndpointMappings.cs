@@ -74,6 +74,7 @@ internal static class TenantMlsDashboardEndpointMappings {
 
           var recentLoans = await dbContext.MicroLoans
               .AsNoTracking()
+              .Where(entity => entity.LoanStatus != "Pending Approval" && entity.LoanStatus != "Rejected")
               .Include(entity => entity.Customer)
               .Include(entity => entity.Invoice)
               .OrderByDescending(entity => entity.CreatedAtUtc)
@@ -98,7 +99,9 @@ internal static class TenantMlsDashboardEndpointMappings {
               financeQueue
                   .Where(entity => CanConvertToLoan(true, entity.HasMicroLoan, entity.OutstandingAmount, entity.InterestableAmount, ServiceInvoiceFinancePolicy.FinalizedStatus))
                   .Sum(entity => entity.OutstandingAmount),
-              await dbContext.MicroLoans.SumAsync(entity => entity.PrincipalAmount, cancellationToken));
+              await dbContext.MicroLoans
+                  .Where(entity => entity.LoanStatus != "Pending Approval" && entity.LoanStatus != "Rejected")
+                  .SumAsync(entity => entity.PrincipalAmount, cancellationToken));
 
           var handoffDistribution = financeQueue
               .GroupBy(entity => entity.FinanceHandoffStatus)

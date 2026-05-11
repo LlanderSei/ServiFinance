@@ -131,6 +131,20 @@ public sealed class ExternalServiceState : Entity {
   public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 }
 
+public sealed class AuthProtectionRecord : Entity {
+  public string RecordKey { get; set; } = string.Empty;
+  public string Kind { get; set; } = string.Empty;
+  public string Scope { get; set; } = string.Empty;
+  public string TenantDomainSlug { get; set; } = string.Empty;
+  public string IdentityHash { get; set; } = string.Empty;
+  public int FailureCount { get; set; }
+  public DateTime WindowStartedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime WindowExpiresAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime? LockedUntilUtc { get; set; }
+  public DateTime LastFailedAtUtc { get; set; } = DateTime.UtcNow;
+  public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
 public sealed class AuditEvent : TenantEntity {
   public string Scope { get; set; } = string.Empty;
   public string Category { get; set; } = string.Empty;
@@ -461,9 +475,17 @@ public sealed class Invoice : TenantEntity {
   public decimal TotalAmount { get; set; }
   public decimal OutstandingAmount { get; set; }
   public string InvoiceStatus { get; set; } = string.Empty;
+  public string LoanApprovalStatus { get; set; } = "Not Requested";
+  public Guid? LoanApprovalRequestedByUserId { get; set; }
+  public DateTime? LoanApprovalRequestedAtUtc { get; set; }
+  public Guid? LoanApprovalReviewedByUserId { get; set; }
+  public DateTime? LoanApprovalReviewedAtUtc { get; set; }
+  public string? LoanApprovalRemarks { get; set; }
 
   public Customer? Customer { get; set; }
   public ServiceRequest? ServiceRequest { get; set; }
+  public AppUser? LoanApprovalRequestedByUser { get; set; }
+  public AppUser? LoanApprovalReviewedByUser { get; set; }
   public ICollection<InvoiceLine> InvoiceLines { get; set; } = [];
   public ICollection<InvoicePaymentSubmission> PaymentSubmissions { get; set; } = [];
   public MicroLoan? MicroLoan { get; set; }
@@ -520,13 +542,23 @@ public sealed class MicroLoan : TenantEntity {
   public decimal TotalRepayableAmount { get; set; }
   public DateTime LoanStartDate { get; set; }
   public DateTime MaturityDate { get; set; }
+  public string? ReferenceNumber { get; set; }
+  public string? Remarks { get; set; }
   public string LoanStatus { get; set; } = string.Empty;
+  public string ApprovalStatus { get; set; } = "Approved";
+  public Guid? ApprovalRequestedByUserId { get; set; }
+  public DateTime? ApprovalRequestedAtUtc { get; set; }
+  public Guid? ApprovalReviewedByUserId { get; set; }
+  public DateTime? ApprovalReviewedAtUtc { get; set; }
+  public string? ApprovalRemarks { get; set; }
   public Guid CreatedByUserId { get; set; }
   public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
   public Invoice? Invoice { get; set; }
   public Customer? Customer { get; set; }
   public AppUser? CreatedByUser { get; set; }
+  public AppUser? ApprovalRequestedByUser { get; set; }
+  public AppUser? ApprovalReviewedByUser { get; set; }
   public ICollection<AmortizationSchedule> AmortizationSchedules { get; set; } = [];
   public ICollection<LedgerTransaction> Transactions { get; set; } = [];
 }

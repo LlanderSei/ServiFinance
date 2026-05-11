@@ -1,6 +1,9 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { getCurrentCustomerSession, loginCustomerAccount } from "./customerAuth";
+import { CaptchaField } from "@/shared/auth/CaptchaField";
+import { PasswordResetPanel } from "@/shared/auth/PasswordResetPanel";
+import { useCaptchaChallenge } from "@/shared/auth/useCaptchaChallenge";
+import { getCurrentCustomerSession, loginCustomerAccount, MfaRequiredError } from "./customerAuth";
 import { getCustomerHomeRoute } from "./customerNav";
 
 export function CustomerLoginPage() {
@@ -10,6 +13,11 @@ export function CustomerLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const captcha = useCaptchaChallenge(!mfaChallengeId && !showPasswordReset);
 
   if (currentSession && currentSession.user.tenantDomainSlug.toLowerCase() === tenantDomainSlug.toLowerCase()) {
     return <Navigate to={getCustomerHomeRoute(currentSession.user)} replace />;
@@ -19,14 +27,29 @@ export function CustomerLoginPage() {
     event.preventDefault();
 
     try {
+      setNotice(null);
       const session = await loginCustomerAccount({
         tenantDomainSlug,
         email,
-        password
+        password,
+        captcha: mfaChallengeId ? null : captcha.proof,
+        mfaChallengeId,
+        mfaCode: mfaChallengeId ? mfaCode : null
       });
       navigate(getCustomerHomeRoute(session), { replace: true });
     } catch (submitError) {
+      if (submitError instanceof MfaRequiredError) {
+        setMfaChallengeId(submitError.challenge.challengeId);
+        setMfaCode("");
+        setError(submitError.challenge.developmentCode
+          ? `${submitError.challenge.message} Development code: ${submitError.challenge.developmentCode}`
+          : submitError.challenge.message);
+        return;
+      }
+
+      setNotice(null);
       setError(submitError instanceof Error ? submitError.message : "Unable to sign in.");
+      await captcha.refresh();
     }
   }
 
@@ -64,6 +87,21 @@ export function CustomerLoginPage() {
           Use the same tenant domain where your customer account was registered.
         </p>
 
+        {showPasswordReset ? (
+          <div className="mt-6">
+            <PasswordResetPanel
+              surface="customer"
+              tenantDomainSlug={tenantDomainSlug}
+              defaultEmail={email}
+              onCancel={() => setShowPasswordReset(false)}
+              onCompleted={() => {
+                setShowPasswordReset(false);
+                setNotice("Password reset successfully. Sign in with the new password.");
+                setError(null);
+              }}
+            />
+          </div>
+        ) : (
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
           <label className="grid gap-2">
             <span className="text-sm font-medium text-slate-700">Email</span>
@@ -89,16 +127,60 @@ export function CustomerLoginPage() {
             />
           </label>
 
+          {mfaChallengeId ? (
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700">MFA code</span>
+              <input
+                type="text"
+                className="input input-bordered w-full rounded-2xl border-slate-200 bg-slate-50/70"
+                value={mfaCode}
+                onChange={(event) => setMfaCode(event.target.value)}
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                required
+              />
+            </label>
+          ) : (
+            <CaptchaField
+              answer={captcha.answer}
+              challenge={captcha.challenge}
+              error={captcha.error}
+              isLoading={captcha.isLoading}
+              onAnswerChange={captcha.setAnswer}
+              onRefresh={captcha.refresh}
+            />
+          )}
+
           {error ? (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {error}
             </div>
           ) : null}
 
+          {notice ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {notice}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            className="w-fit text-sm font-semibold text-slate-700 underline-offset-4 hover:text-slate-950 hover:underline"
+            onClick={() => {
+              setError(null);
+              setNotice(null);
+              setMfaChallengeId(null);
+              setShowPasswordReset(true);
+            }}
+          >
+            Forgot password?
+          </button>
+
           <button type="submit" className="btn rounded-full border-0 bg-slate-950 text-white shadow-none hover:bg-slate-800">
             Login to customer portal
           </button>
         </form>
+        )}
 
         <div className="mt-6 rounded-[1.5rem] bg-slate-100 px-4 py-4 text-sm leading-6 text-slate-600">
           No account for this tenant yet?{" "}

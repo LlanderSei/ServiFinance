@@ -157,6 +157,7 @@ export type CreatePlatformTenantCheckoutRequest = {
   ownerEmail: string;
   ownerPassword: string;
   subscriptionTierId: string;
+  captcha?: CaptchaProof | null;
 };
 
 export type CreatePlatformTenantCheckoutResponse = {
@@ -1023,6 +1024,12 @@ export type TenantMlsLoanConversionCandidate = {
   invoiceDateUtc: string;
   outstandingAmount: number;
   interestableAmount: number;
+  loanApprovalStatus: string;
+  loanApprovalRemarks: string | null;
+  loanApprovalRequestedAtUtc: string | null;
+  loanApprovalRequestedByUserName: string | null;
+  loanApprovalReviewedAtUtc: string | null;
+  loanApprovalReviewedByUserName: string | null;
 };
 
 export type TenantMlsLoanConversionSummary = {
@@ -1301,6 +1308,16 @@ export type AccountPasswordChangeResponse = {
   message: string;
 };
 
+export type AccountSecurityResponse = {
+  mfaEnabled: boolean;
+  surface: string;
+  googleConfigured: boolean;
+  googleLinked: boolean;
+  googleEmail: string | null;
+  googleName: string | null;
+  googleLinkedAtUtc: string | null;
+};
+
 export type TenantBrandingSettingsResponse = {
   tenantId: string;
   tenantDomainSlug: string;
@@ -1520,6 +1537,7 @@ export type TenantMlsLoanApprovalSummary = {
 
 export type TenantMlsLoanApprovalRow = {
   candidateId: string;
+  candidateKind: string;
   serviceRequestNumber: string;
   customerName: string;
   invoiceNumber: string;
@@ -1529,6 +1547,13 @@ export type TenantMlsLoanApprovalRow = {
   riskFlag: string;
   createdAtUtc: string;
   reason: string;
+  canApprove: boolean;
+  canReject: boolean;
+  requestedByUserName: string | null;
+  requestedAtUtc: string | null;
+  reviewedByUserName: string | null;
+  reviewedAtUtc: string | null;
+  reviewRemarks: string | null;
 };
 
 export type TenantMlsLoanApprovalWorkspaceResponse = {
@@ -1607,4 +1632,44 @@ export type AuthSessionTokens = {
 export type AuthSessionResponse = {
   tokens: AuthSessionTokens;
   user: CurrentSessionUser;
+};
+
+export type CaptchaProof = {
+  challengeId?: string | null;
+  answer?: string | null;
+  token?: string | null;
+  provider?: string | null;
+};
+
+export type PasswordResetStartRequest = {
+  surface: "root" | "tenant" | "mls" | "customer" | string;
+  tenantDomainSlug?: string | null;
+  email: string;
+  captcha?: CaptchaProof | null;
+};
+
+export type PasswordResetStartResponse = {
+  resetId: string;
+  message: string;
+  expiresAtUtc: string;
+  emailDeliveryConfigured: boolean;
+  developmentCode: string | null;
+};
+
+export type PasswordResetCompleteRequest = {
+  resetId: string;
+  code: string;
+  newPassword: string;
+};
+
+export type PasswordResetCompleteResponse = {
+  message: string;
+};
+
+export type MfaChallengeResponse = {
+  isRequired: boolean;
+  challengeId: string;
+  message: string;
+  expiresAtUtc: string;
+  developmentCode: string | null;
 };

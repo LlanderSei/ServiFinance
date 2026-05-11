@@ -197,7 +197,7 @@ Implemented full-only examples:
 - `W10 Parts And Cost Control`: Medium Standard can review costing exposure and invoice gaps; Medium Premium should own full cost-control governance.
 - `D5 Financial And Ledger Reports`: limited access supports standard MLS report summaries, while long-range/custom windows, exports, and ledger drilldown require full access.
 - `D8 Portfolio Risk Dashboard`: Medium Premium can review overdue exposure, aging buckets, due-this-week balances, and portfolio-at-risk summaries from existing loans and amortization schedules.
-- `D9 Loan Approval Workflow`: Medium Premium can review approval readiness and blockers from current invoices, payment submissions, and released loans; persisted maker-checker approval decisions remain a future hardening slice.
+- `D9 Loan Approval Workflow`: Medium Premium can review approval readiness and blockers, request service-linked loan approval, and approve or reject service-linked and standalone loan release through persisted maker-checker decisions.
 - `D10 Finance Policy Control`: Medium Premium can review interest, term, principal, and policy-exception signals across the MLS portfolio.
 
 Default balance:

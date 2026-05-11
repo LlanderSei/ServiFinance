@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
+import { PasswordPolicyChecklist } from "@/shared/auth/PasswordPolicyChecklist";
 import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { httpGet, httpPostJson, httpPutJson } from "@/shared/api/http";
@@ -210,7 +211,7 @@ export function RootUsersPage() {
 
   const modalTitle = modalMode === "edit" ? "Update root user" : "Create root user";
   const modalDescription = modalMode === "edit"
-    ? "Update the root user profile. Root access remains tied to the SuperAdmin role."
+    ? "Update the root user profile. Root access is checked through root-scoped permissions."
     : "Create a Superadmin account for root-domain platform administration.";
   const primaryActionLabel = modalMode === "edit"
     ? updateMutation.isPending ? "Updating..." : "Update root user"
@@ -262,7 +263,7 @@ export function RootUsersPage() {
                       <td>{user.email}</td>
                       <td>
                         <WorkspaceStatusPill tone="warning">
-                          {user.roles.includes("SuperAdmin") ? "SuperAdmin" : "Unscoped"}
+                          {user.roles.length > 0 ? user.roles.join(" / ") : "Unscoped"}
                         </WorkspaceStatusPill>
                       </td>
                       <td>
@@ -352,7 +353,7 @@ export function RootUsersPage() {
       >
         <WorkspaceForm id="root-user-form" onSubmit={handleSubmit}>
           <WorkspaceNotice>
-            Root users receive the SuperAdmin role only. Tenant SMS/MLS platform roles stay managed from each tenant workspace.
+            Root users stay on the root surface. Tenant SMS/MLS platform roles stay managed from each tenant workspace.
           </WorkspaceNotice>
 
           <WorkspaceFieldGrid>
@@ -385,6 +386,13 @@ export function RootUsersPage() {
               </WorkspaceField>
             ) : null}
           </WorkspaceFieldGrid>
+          {modalMode === "create" ? (
+            <PasswordPolicyChecklist
+              password={form.password}
+              email={form.email}
+              fullName={form.fullName}
+            />
+          ) : null}
         </WorkspaceForm>
       </RecordFormModal>
     </>

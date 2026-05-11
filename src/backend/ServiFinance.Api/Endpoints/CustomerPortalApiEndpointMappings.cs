@@ -1,13 +1,21 @@
 namespace ServiFinance.Api.Endpoints;
 
+using System.Security.Claims;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ServiFinance.Api.Contracts;
 using ServiFinance.Api.Services;
+using ServiFinance.Application.Auditing;
+using ServiFinance.Application.Auth;
+using ServiFinance.Application.Notifications;
 using ServiFinance.Application.Payments;
 using ServiFinance.Domain;
 using ServiFinance.Infrastructure.Data;
-using System.Security.Claims;
 using static ServiFinance.Api.Infrastructure.ProgramEndpointSupport;
 
 internal static class CustomerPortalApiEndpointMappings {
@@ -25,6 +33,10 @@ internal static class CustomerPortalApiEndpointMappings {
   private const int PaymentNoteMaxLength = 1000;
   private const int PaymentReviewRemarksMaxLength = 1000;
   private const long PaymentProofMaxBytes = 8 * 1024 * 1024;
+  private const string ScopeCustomer = "Customer";
+  private const string CategorySecurity = "Security";
+  private const string GoogleExternalScheme = "GoogleExternal";
+  private const string GoogleLinkProvider = "google-auth";
 
   public static RouteGroupBuilder MapCustomerPortalApiEndpoints(this RouteGroupBuilder api) {
     var customerApi = api.MapGroup("/customer-portal")
@@ -40,6 +52,13 @@ internal static class CustomerPortalApiEndpointMappings {
           var profile = await LoadCustomerProfileAsync(dbContext, customerId, cancellationToken);
           return profile is null ? Results.NotFound() : Results.Ok(profile);
         });
+    customerApi.MapGet("/security", GetSecurityAsync);
+    customerApi.MapPost("/password", ChangePasswordAsync);
+    customerApi.MapPost("/mfa/enable", EnableMfaAsync);
+    customerApi.MapPost("/mfa/disable", DisableMfaAsync);
+    customerApi.MapGet("/google/link", StartGoogleLinkAsync);
+    customerApi.MapGet("/google/callback", CompleteGoogleLinkAsync).AllowAnonymous();
+    customerApi.MapPost("/google/unlink", UnlinkGoogleAsync);
 
     customerApi.MapPut("/profile", async Task<IResult> (
         ClaimsPrincipal user,
@@ -1110,6 +1129,333 @@ internal static class CustomerPortalApiEndpointMappings {
     return customerApi;
   }
 
+  private static async Task<IResult> GetSecurityAsync(
+      ClaimsPrincipal user,
+      ServiFinanceDbContext dbContext,
+      IAuthenticationSchemeProvider schemeProvider,
+      CancellationToken cancellationToken) {
+    var customer = await LoadCurrentCustomerAsync(user, dbContext, cancellationToken);
+    if (customer is null) {
+      return Results.Unauthorized();
+    }
+
+    return Results.Ok(await CreateSecurityResponseAsync(dbContext, schemeProvider, customer, cancellationToken));
+  }
+
+  private static async Task<IResult> ChangePasswordAsync(
+      ClaimsPrincipal user,
+      HttpContext httpContext,
+      [FromBody] ChangeAccountPasswordRequest request,
+      ServiFinanceDbContext dbContext,
+      IPasswordHasher<Customer> passwordHasher,
+      IPasswordPolicyService passwordPolicyService,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) {
+    var customer = await LoadCurrentCustomerAsync(user, dbContext, cancellationToken);
+    if (customer is null) {
+      return Results.Unauthorized();
+    }
+
+    if (string.IsNullOrWhiteSpace(request.CurrentPassword)) {
+      return Results.BadRequest(new { error = "Current password is required." });
+    }
+
+    if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal)) {
+      return Results.BadRequest(new { error = "New password confirmation does not match." });
+    }
+
+    if (string.Equals(request.CurrentPassword, request.NewPassword, StringComparison.Ordinal)) {
+      return Results.BadRequest(new { error = "New password must be different from the current password." });
+    }
+
+    var passwordPolicy = passwordPolicyService.Validate(
+        request.NewPassword,
+        new PasswordPolicyContext(customer.Email, customer.FullName, customer.Tenant?.DomainSlug));
+    if (!passwordPolicy.IsValid) {
+      return Results.BadRequest(new { error = string.Join(" ", passwordPolicy.Errors) });
+    }
+
+    var verificationResult = passwordHasher.VerifyHashedPassword(customer, customer.PasswordHash, request.CurrentPassword);
+    if (verificationResult == PasswordVerificationResult.Failed) {
+      await WriteCustomerSecurityAuditAsync(
+          auditLogService,
+          httpContext,
+          customer,
+          "PasswordChanged",
+          "Failed",
+          "Password change failed because the current password was incorrect.",
+          cancellationToken);
+
+      return Results.BadRequest(new { error = "Current password is incorrect." });
+    }
+
+    customer.PasswordHash = passwordHasher.HashPassword(customer, request.NewPassword);
+    await dbContext.SaveChangesAsync(cancellationToken);
+    await WriteCustomerSecurityAuditAsync(
+        auditLogService,
+        httpContext,
+        customer,
+        "PasswordChanged",
+        "Success",
+        "Password changed from the customer profile page.",
+        cancellationToken);
+
+    return Results.Ok(new AccountPasswordChangeResponse("Password updated successfully."));
+  }
+
+  private static async Task<IResult> EnableMfaAsync(
+      ClaimsPrincipal user,
+      HttpContext httpContext,
+      ServiFinanceDbContext dbContext,
+      IAuthenticationSchemeProvider schemeProvider,
+      IEmailSender emailSender,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) {
+    var customer = await LoadCurrentCustomerAsync(user, dbContext, cancellationToken);
+    if (customer is null) {
+      return Results.Unauthorized();
+    }
+
+    var googleLink = await LoadCustomerGoogleLinkAsync(dbContext, customer.Id, cancellationToken);
+    if (googleLink is null || string.IsNullOrWhiteSpace(googleLink.Email)) {
+      return Results.BadRequest(new { error = "Link a Google account before enabling MFA. Sign-in codes are sent to the linked Google email." });
+    }
+
+    if (!emailSender.IsConfigured) {
+      return Results.BadRequest(new { error = "SMTP email delivery must be configured before enabling MFA." });
+    }
+
+    var stateKey = AuthApiEndpointMappings.BuildMfaStateKey(AuthenticationSurface.CustomerWeb, customer.Id);
+    var state = await dbContext.ExternalServiceStates
+        .SingleOrDefaultAsync(
+            entity => entity.Provider == AuthApiEndpointMappings.AuthSecurityProvider &&
+                entity.StateKey == stateKey,
+            cancellationToken);
+
+    if (state is null) {
+      state = new ExternalServiceState {
+        Provider = AuthApiEndpointMappings.AuthSecurityProvider,
+        StateKey = stateKey
+      };
+      dbContext.ExternalServiceStates.Add(state);
+    }
+
+    state.PayloadJson = JsonSerializer.Serialize(new CustomerMfaRegistrationPayload(true, DateTime.UtcNow));
+    state.ExpiresAtUtc = null;
+    state.UpdatedAtUtc = DateTime.UtcNow;
+    await dbContext.SaveChangesAsync(cancellationToken);
+
+    await WriteCustomerSecurityAuditAsync(
+        auditLogService,
+        httpContext,
+        customer,
+        "MfaEnabled",
+        "Success",
+        "MFA was enabled for the customer account.",
+        cancellationToken);
+
+    return Results.Ok(await CreateSecurityResponseAsync(dbContext, schemeProvider, customer, cancellationToken));
+  }
+
+  private static async Task<IResult> DisableMfaAsync(
+      ClaimsPrincipal user,
+      HttpContext httpContext,
+      ServiFinanceDbContext dbContext,
+      IAuthenticationSchemeProvider schemeProvider,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) {
+    var customer = await LoadCurrentCustomerAsync(user, dbContext, cancellationToken);
+    if (customer is null) {
+      return Results.Unauthorized();
+    }
+
+    var state = await dbContext.ExternalServiceStates
+        .SingleOrDefaultAsync(
+            entity => entity.Provider == AuthApiEndpointMappings.AuthSecurityProvider &&
+                entity.StateKey == AuthApiEndpointMappings.BuildMfaStateKey(AuthenticationSurface.CustomerWeb, customer.Id),
+            cancellationToken);
+
+    if (state is not null) {
+      dbContext.ExternalServiceStates.Remove(state);
+      await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    await WriteCustomerSecurityAuditAsync(
+        auditLogService,
+        httpContext,
+        customer,
+        "MfaDisabled",
+        "Success",
+        "MFA was disabled for the customer account.",
+        cancellationToken);
+
+    return Results.Ok(await CreateSecurityResponseAsync(dbContext, schemeProvider, customer, cancellationToken));
+  }
+
+  private static async Task<IResult> StartGoogleLinkAsync(
+      ClaimsPrincipal user,
+      HttpContext httpContext,
+      ServiFinanceDbContext dbContext,
+      IAuthenticationSchemeProvider schemeProvider,
+      CancellationToken cancellationToken) {
+    if (!await IsGoogleConfiguredAsync(schemeProvider)) {
+      return Results.BadRequest(new { error = "Google authentication is not configured on the API host." });
+    }
+
+    var customer = await LoadCurrentCustomerAsync(user, dbContext, cancellationToken);
+    if (customer is null) {
+      return Results.Unauthorized();
+    }
+
+    var returnUrl = SanitizeReturnUrl(httpContext.Request.Query["returnUrl"].ToString(), $"/t/{customer.Tenant?.DomainSlug ?? string.Empty}/c/profile");
+    var properties = new AuthenticationProperties {
+      RedirectUri = "/api/customer-portal/google/callback"
+    };
+    properties.Items["customerId"] = customer.Id.ToString("N");
+    properties.Items["returnUrl"] = returnUrl;
+
+    return Results.Challenge(properties, [GoogleDefaults.AuthenticationScheme]);
+  }
+
+  private static async Task<IResult> CompleteGoogleLinkAsync(
+      HttpContext httpContext,
+      ServiFinanceDbContext dbContext,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) {
+    var result = await httpContext.AuthenticateAsync(GoogleExternalScheme);
+    var returnUrl = SanitizeReturnUrl(GetAuthenticationProperty(result.Properties, "returnUrl"), "/");
+    if (!result.Succeeded || result.Principal is null || result.Properties is null) {
+      return Results.LocalRedirect(AppendQuery(returnUrl, "googleLink", "failed"));
+    }
+
+    if (!Guid.TryParse(GetAuthenticationProperty(result.Properties, "customerId"), out var customerId)) {
+      await httpContext.SignOutAsync(GoogleExternalScheme);
+      return Results.LocalRedirect(AppendQuery(returnUrl, "googleLink", "failed"));
+    }
+
+    var googleSubject = result.Principal.FindFirstValue(ClaimTypes.NameIdentifier)?.Trim();
+    var googleEmail = result.Principal.FindFirstValue(ClaimTypes.Email)?.Trim();
+    var googleName = result.Principal.FindFirstValue(ClaimTypes.Name)?.Trim();
+    if (string.IsNullOrWhiteSpace(googleSubject) || string.IsNullOrWhiteSpace(googleEmail)) {
+      await httpContext.SignOutAsync(GoogleExternalScheme);
+      return Results.LocalRedirect(AppendQuery(returnUrl, "googleLink", "missing-profile"));
+    }
+
+    var customer = await dbContext.Customers
+        .Include(entity => entity.Tenant)
+        .SingleOrDefaultAsync(entity => entity.Id == customerId, cancellationToken);
+    if (customer is null) {
+      await httpContext.SignOutAsync(GoogleExternalScheme);
+      return Results.LocalRedirect(AppendQuery(returnUrl, "googleLink", "missing-customer"));
+    }
+
+    var staffSubjectStateExists = await dbContext.ExternalServiceStates
+        .AnyAsync(
+            entity => entity.Provider == GoogleLinkProvider &&
+                entity.StateKey == BuildStaffGoogleSubjectStateKey(googleSubject),
+            cancellationToken);
+    if (staffSubjectStateExists) {
+      await httpContext.SignOutAsync(GoogleExternalScheme);
+      return Results.LocalRedirect(AppendQuery(returnUrl, "googleLink", "already-linked"));
+    }
+
+    var existingSubjectState = await dbContext.ExternalServiceStates
+        .SingleOrDefaultAsync(
+            entity => entity.Provider == GoogleLinkProvider &&
+                entity.StateKey == BuildCustomerGoogleSubjectStateKey(googleSubject),
+            cancellationToken);
+    var existingSubjectPayload = DeserializeCustomerGoogleLink(existingSubjectState?.PayloadJson);
+    if (existingSubjectPayload is not null && existingSubjectPayload.CustomerId != customer.Id) {
+      await httpContext.SignOutAsync(GoogleExternalScheme);
+      return Results.LocalRedirect(AppendQuery(returnUrl, "googleLink", "already-linked"));
+    }
+
+    var customerState = await GetOrCreateCustomerGoogleStateAsync(dbContext, BuildCustomerGoogleStateKey(customer.Id), cancellationToken);
+    var oldCustomerPayload = DeserializeCustomerGoogleLink(customerState.PayloadJson);
+    if (oldCustomerPayload is not null && !string.Equals(oldCustomerPayload.Subject, googleSubject, StringComparison.Ordinal)) {
+      var oldSubjectState = await dbContext.ExternalServiceStates
+          .SingleOrDefaultAsync(
+              entity => entity.Provider == GoogleLinkProvider &&
+                  entity.StateKey == BuildCustomerGoogleSubjectStateKey(oldCustomerPayload.Subject),
+              cancellationToken);
+      if (oldSubjectState is not null) {
+        dbContext.ExternalServiceStates.Remove(oldSubjectState);
+      }
+    }
+
+    var subjectState = existingSubjectState ?? await GetOrCreateCustomerGoogleStateAsync(dbContext, BuildCustomerGoogleSubjectStateKey(googleSubject), cancellationToken);
+    var payload = new CustomerGoogleAccountLinkPayload(customer.Id, googleSubject, googleEmail, googleName, DateTime.UtcNow);
+    customerState.PayloadJson = JsonSerializer.Serialize(payload);
+    customerState.ExpiresAtUtc = null;
+    customerState.UpdatedAtUtc = DateTime.UtcNow;
+    subjectState.PayloadJson = JsonSerializer.Serialize(payload);
+    subjectState.ExpiresAtUtc = null;
+    subjectState.UpdatedAtUtc = DateTime.UtcNow;
+
+    await dbContext.SaveChangesAsync(cancellationToken);
+    await httpContext.SignOutAsync(GoogleExternalScheme);
+    await WriteCustomerSecurityAuditAsync(
+        auditLogService,
+        httpContext,
+        customer,
+        "GoogleLinked",
+        "Success",
+        $"Google account {googleEmail} was linked.",
+        cancellationToken);
+
+    return Results.LocalRedirect(AppendQuery(returnUrl, "googleLink", "linked"));
+  }
+
+  private static async Task<IResult> UnlinkGoogleAsync(
+      ClaimsPrincipal user,
+      HttpContext httpContext,
+      ServiFinanceDbContext dbContext,
+      IAuthenticationSchemeProvider schemeProvider,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) {
+    var customer = await LoadCurrentCustomerAsync(user, dbContext, cancellationToken);
+    if (customer is null) {
+      return Results.Unauthorized();
+    }
+
+    if (await AuthApiEndpointMappings.IsMfaEnabledAsync(dbContext, AuthenticationSurface.CustomerWeb, customer.Id, cancellationToken)) {
+      return Results.BadRequest(new { error = "Disable MFA before unlinking Google. MFA codes are sent to the linked Google email." });
+    }
+
+    var customerState = await dbContext.ExternalServiceStates
+        .SingleOrDefaultAsync(
+            entity => entity.Provider == GoogleLinkProvider &&
+                entity.StateKey == BuildCustomerGoogleStateKey(customer.Id),
+            cancellationToken);
+    var payload = DeserializeCustomerGoogleLink(customerState?.PayloadJson);
+    if (customerState is not null) {
+      dbContext.ExternalServiceStates.Remove(customerState);
+    }
+
+    if (payload is not null) {
+      var subjectState = await dbContext.ExternalServiceStates
+          .SingleOrDefaultAsync(
+              entity => entity.Provider == GoogleLinkProvider &&
+                  entity.StateKey == BuildCustomerGoogleSubjectStateKey(payload.Subject),
+              cancellationToken);
+      if (subjectState is not null) {
+        dbContext.ExternalServiceStates.Remove(subjectState);
+      }
+    }
+
+    await dbContext.SaveChangesAsync(cancellationToken);
+    await WriteCustomerSecurityAuditAsync(
+        auditLogService,
+        httpContext,
+        customer,
+        "GoogleUnlinked",
+        "Success",
+        "Google account link was removed.",
+        cancellationToken);
+
+    return Results.Ok(await CreateSecurityResponseAsync(dbContext, schemeProvider, customer, cancellationToken));
+  }
+
   private static async Task<CustomerPortalProfileResponse?> LoadCustomerProfileAsync(
       ServiFinanceDbContext dbContext,
       Guid customerId,
@@ -1139,6 +1485,149 @@ internal static class CustomerPortalApiEndpointMappings {
                     option.CreatedAtUtc))
                 .ToList()))
         .SingleOrDefaultAsync(cancellationToken);
+
+  internal static async Task<CustomerGoogleAccountLinkPayload?> LoadCustomerGoogleLinkAsync(
+      ServiFinanceDbContext dbContext,
+      Guid customerId,
+      CancellationToken cancellationToken) {
+    var state = await dbContext.ExternalServiceStates
+        .AsNoTracking()
+        .SingleOrDefaultAsync(
+            entity => entity.Provider == GoogleLinkProvider &&
+                entity.StateKey == BuildCustomerGoogleStateKey(customerId),
+            cancellationToken);
+
+    return DeserializeCustomerGoogleLink(state?.PayloadJson);
+  }
+
+  private static async Task<Customer?> LoadCurrentCustomerAsync(
+      ClaimsPrincipal user,
+      ServiFinanceDbContext dbContext,
+      CancellationToken cancellationToken) {
+    if (!Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var customerId)) {
+      return null;
+    }
+
+    return await dbContext.Customers
+        .Include(entity => entity.Tenant)
+        .SingleOrDefaultAsync(entity => entity.Id == customerId, cancellationToken);
+  }
+
+  private static async Task<object> CreateSecurityResponseAsync(
+      ServiFinanceDbContext dbContext,
+      IAuthenticationSchemeProvider schemeProvider,
+      Customer customer,
+      CancellationToken cancellationToken) {
+    var mfaEnabled = await AuthApiEndpointMappings.IsMfaEnabledAsync(
+        dbContext,
+        AuthenticationSurface.CustomerWeb,
+        customer.Id,
+        cancellationToken);
+    var googleLink = await LoadCustomerGoogleLinkAsync(dbContext, customer.Id, cancellationToken);
+
+    return new {
+      mfaEnabled,
+      surface = AuthenticationSurface.CustomerWeb.ToString(),
+      googleConfigured = await IsGoogleConfiguredAsync(schemeProvider),
+      googleLinked = googleLink is not null,
+      googleEmail = googleLink?.Email,
+      googleName = googleLink?.Name,
+      googleLinkedAtUtc = googleLink?.LinkedAtUtc
+    };
+  }
+
+  private static async Task<bool> IsGoogleConfiguredAsync(IAuthenticationSchemeProvider schemeProvider) =>
+    await schemeProvider.GetSchemeAsync(GoogleDefaults.AuthenticationScheme) is not null;
+
+  private static async Task<ExternalServiceState> GetOrCreateCustomerGoogleStateAsync(
+      ServiFinanceDbContext dbContext,
+      string stateKey,
+      CancellationToken cancellationToken) {
+    var state = await dbContext.ExternalServiceStates
+        .SingleOrDefaultAsync(
+            entity => entity.Provider == GoogleLinkProvider &&
+                entity.StateKey == stateKey,
+            cancellationToken);
+
+    if (state is not null) {
+      return state;
+    }
+
+    state = new ExternalServiceState {
+      Provider = GoogleLinkProvider,
+      StateKey = stateKey
+    };
+    dbContext.ExternalServiceStates.Add(state);
+    return state;
+  }
+
+  private static CustomerGoogleAccountLinkPayload? DeserializeCustomerGoogleLink(string? payloadJson) {
+    if (string.IsNullOrWhiteSpace(payloadJson)) {
+      return null;
+    }
+
+    try {
+      return JsonSerializer.Deserialize<CustomerGoogleAccountLinkPayload>(payloadJson);
+    } catch (JsonException) {
+      return null;
+    }
+  }
+
+  private static string? GetAuthenticationProperty(AuthenticationProperties? properties, string key) {
+    if (properties?.Items is null) {
+      return null;
+    }
+
+    return properties.Items.TryGetValue(key, out var value) ? value : null;
+  }
+
+  internal static string BuildCustomerGoogleStateKey(Guid customerId) =>
+    $"google-link:customer:{customerId:N}";
+
+  private static string BuildCustomerGoogleSubjectStateKey(string subject) =>
+    $"google-link:customer-subject:{subject.Trim()}";
+
+  private static string BuildStaffGoogleSubjectStateKey(string subject) =>
+    $"google-link:subject:{subject.Trim()}";
+
+  private static string AppendQuery(string returnUrl, string key, string value) {
+    var separator = returnUrl.Contains('?') ? "&" : "?";
+    return $"{returnUrl}{separator}{Uri.EscapeDataString(key)}={Uri.EscapeDataString(value)}";
+  }
+
+  private static Task WriteCustomerSecurityAuditAsync(
+      IAuditLogService auditLogService,
+      HttpContext httpContext,
+      Customer customer,
+      string actionType,
+      string outcome,
+      string detail,
+      CancellationToken cancellationToken) =>
+    auditLogService.WriteAsync(
+      new AuditLogEntry(
+        customer.TenantId,
+        ScopeCustomer,
+        CategorySecurity,
+        actionType,
+        outcome,
+        null,
+        customer.FullName,
+        customer.Email,
+        "Customer",
+        customer.Id,
+        customer.Email,
+        detail,
+        ResolveIpAddress(httpContext),
+        ResolveUserAgent(httpContext)),
+      cancellationToken);
+
+  private static string? ResolveIpAddress(HttpContext httpContext) =>
+    httpContext.Connection.RemoteIpAddress?.ToString();
+
+  private static string? ResolveUserAgent(HttpContext httpContext) {
+    var userAgent = httpContext.Request.Headers.UserAgent.ToString();
+    return string.IsNullOrWhiteSpace(userAgent) ? null : userAgent;
+  }
 
   private static string? ValidateContactOptionPayload(UpsertCustomerContactOptionPayload payload) {
     var label = (payload.Label ?? string.Empty).Trim();
@@ -1254,6 +1743,13 @@ public sealed record CustomerPortalProfileResponse(
     string Address,
     string? AddressDetails,
     IReadOnlyList<CustomerPortalContactOptionRecord> ContactOptions);
+public sealed record CustomerGoogleAccountLinkPayload(
+    Guid CustomerId,
+    string Subject,
+    string Email,
+    string? Name,
+    DateTime LinkedAtUtc);
+public sealed record CustomerMfaRegistrationPayload(bool Enabled, DateTime EnabledAtUtc);
 public sealed record CustomerPortalContactOptionRecord(
     Guid Id,
     string Label,

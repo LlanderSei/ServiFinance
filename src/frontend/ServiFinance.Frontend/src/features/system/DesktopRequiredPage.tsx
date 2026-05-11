@@ -9,7 +9,7 @@ export function DesktopRequiredPage() {
     retry: false
   });
 
-  const tenantSmsRoute = session?.user.roles.includes("SuperAdmin")
+  const tenantSmsRoute = session?.user.surface === "Root" || session?.user.roles.includes("SuperAdmin")
     ? "/dashboard"
     : session?.user.tenantDomainSlug
       ? `/t/${session.user.tenantDomainSlug}/sms/dashboard`

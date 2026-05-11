@@ -6,6 +6,7 @@ import { webSessionStorage } from "@/platform/web/sessionStorage";
 let accessToken: string | null = null;
 let currentSession: AuthSessionResponse | null = null;
 let refreshRequest: Promise<AuthSessionResponse | null> | null = null;
+let sessionEpoch = 0;
 
 type ApplySessionOptions = {
   rememberOnWeb?: boolean;
@@ -79,6 +80,7 @@ export function updateCurrentSessionUser(patch: Partial<AuthSessionResponse["use
 
 export async function applySession(response: AuthSessionResponse, options: ApplySessionOptions = {}) {
   const normalizedResponse = normalizeSessionResponse(response);
+  sessionEpoch += 1;
   accessToken = normalizedResponse.tokens.accessToken;
   currentSession = normalizedResponse;
 
@@ -95,8 +97,10 @@ export async function applySession(response: AuthSessionResponse, options: Apply
 }
 
 export async function clearSession() {
+  sessionEpoch += 1;
   accessToken = null;
   currentSession = null;
+  refreshRequest = null;
 
   if (isDesktopShell()) {
     await desktopBridge.clearRefreshToken();
@@ -119,11 +123,16 @@ export async function refreshSession() {
     return refreshRequest;
   }
 
-  refreshRequest = (async () => {
+  const requestEpoch = sessionEpoch;
+  const request = (async () => {
     const requestUrl = await resolveApiUrl("/api/auth/refresh");
     const storedRefreshToken = isDesktopShell()
       ? await desktopBridge.getRefreshToken()
       : webSessionStorage.getRefreshToken();
+
+    if (requestEpoch !== sessionEpoch) {
+      return null;
+    }
 
     const useTokenBody = Boolean(storedRefreshToken);
 
@@ -144,23 +153,43 @@ export async function refreshSession() {
         : undefined
     });
 
+    if (requestEpoch !== sessionEpoch) {
+      return null;
+    }
+
     if (!response.ok) {
-      if (isDesktopShell()) {
-        await desktopBridge.clearRefreshToken();
-      } else {
-        webSessionStorage.clear();
+      if (requestEpoch === sessionEpoch) {
+        if (isDesktopShell()) {
+          await desktopBridge.clearRefreshToken();
+        } else {
+          webSessionStorage.clear();
+        }
+
+        accessToken = null;
+        currentSession = null;
       }
 
-      accessToken = null;
-      currentSession = null;
       return null;
     }
 
     const payload = normalizeSessionResponse(await response.json() as AuthSessionResponse);
+    if (requestEpoch !== sessionEpoch) {
+      return null;
+    }
+
     await applySession(payload, { rememberOnWeb: !isDesktopShell() && useTokenBody });
     return payload;
-  })().finally(() => {
-    refreshRequest = null;
+  })();
+
+  refreshRequest = request;
+  void request.then(() => {
+    if (refreshRequest === request) {
+      refreshRequest = null;
+    }
+  }, () => {
+    if (refreshRequest === request) {
+      refreshRequest = null;
+    }
   });
 
   return refreshRequest;

@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CurrentSessionUser } from "@/shared/api/contracts";
 import type { TenantBranding } from "@/shared/tenant/tenantBranding";
 import { useLogout } from "../useLogout";
@@ -39,10 +39,12 @@ export function AuthSidebar({
   const toast = useToast();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const isSuperAdmin = user.roles.includes("SuperAdmin");
-  const displayTitle = isSuperAdmin ? "ServiFinance" : tenantBranding?.displayName || user.tenantDomainSlug;
-  const displaySubtitle = isSuperAdmin ? "Platform control plane" : user.email;
-  const mark = resolveSidebarMark(isSuperAdmin ? "ServiFinance" : displayTitle || user.tenantDomainSlug);
+  const [accountInitialTab, setAccountInitialTab] = useState<string | undefined>();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const isRootShell = user.surface === "Root" || user.roles.includes("SuperAdmin");
+  const displayTitle = isRootShell ? "ServiFinance" : tenantBranding?.displayName || user.tenantDomainSlug;
+  const displaySubtitle = isRootShell ? "Platform control plane" : user.email;
+  const mark = resolveSidebarMark(isRootShell ? "ServiFinance" : displayTitle || user.tenantDomainSlug);
   const railSpacingClass = isExpanded
     ? "items-stretch md:px-4 md:pr-[1.65rem]"
     : "items-center md:px-[0.7rem] md:pr-[0.7rem]";
@@ -65,6 +67,44 @@ export function AuthSidebar({
     .filter((section) => !section.title.trim())
     .flatMap((section) => section.items);
   const hasVisibleNavigation = mainSections.some(section => section.items.length > 0) || footerItems.length > 0;
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const googleLinkStatus = searchParams.get("googleLink");
+    if (!googleLinkStatus) {
+      return;
+    }
+
+    setAccountInitialTab("security");
+    setShowAccountModal(true);
+    showGoogleLinkToast(googleLinkStatus, toast);
+    searchParams.delete("googleLink");
+
+    const nextSearch = searchParams.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", nextUrl);
+  }, [toast]);
+
+  async function handleConfirmLogout() {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
+    try {
+      await logout(resolveLogoutReturnPath(user));
+    } catch {
+      setIsLoggingOut(false);
+      toast.error({
+        title: "Logout failed",
+        message: "The session could not be cleared. Try again."
+      });
+    }
+  }
 
   function renderNavItem(item: NavSection["items"][number], key: string, className: string) {
     if (item.to) {
@@ -142,20 +182,20 @@ export function AuthSidebar({
 
       <div
         className={`authed-shell__header border-b border-base-300/50 pb-2 ${cardTransitionClass} ${isExpanded ? "" : "flex justify-center"}`}
-        style={!isSuperAdmin && tenantBranding?.headerBackgroundColor ? { background: tenantBranding.headerBackgroundColor } : undefined}
+        style={!isRootShell && tenantBranding?.headerBackgroundColor ? { background: tenantBranding.headerBackgroundColor } : undefined}
       >
         <Link
           to={sections[0]?.items[0]?.to ?? "/"}
           className={`inline-flex items-center gap-3 text-base-content no-underline ${isExpanded ? "" : "justify-center"}`}
         >
-          {tenantBranding?.logoUrl && !isSuperAdmin ? (
+          {tenantBranding?.logoUrl && !isRootShell ? (
             <span className="grid h-[2.85rem] w-[2.85rem] place-items-center overflow-hidden rounded-2xl border border-base-300/60 bg-base-100 shadow-[0_16px_34px_rgba(107,145,255,0.18)]">
               <img src={tenantBranding.logoUrl} alt="" className="h-full w-full object-cover" />
             </span>
           ) : (
             <span
               className="grid h-[2.85rem] w-[2.85rem] place-items-center rounded-2xl bg-gradient-to-br from-[#53d5cb] via-[#7c9cff] to-[#8f7dff] font-bold text-white shadow-[0_16px_34px_rgba(107,145,255,0.22)]"
-              style={!isSuperAdmin && tenantBranding?.primaryColor ? { background: tenantBranding.primaryColor } : undefined}
+              style={!isRootShell && tenantBranding?.primaryColor ? { background: tenantBranding.primaryColor } : undefined}
             >
               {mark}
             </span>
@@ -174,7 +214,10 @@ export function AuthSidebar({
         className={`authed-user-card flex w-full items-center gap-3 rounded-box border border-base-300/55 bg-base-100 p-2 text-left shadow-sm hover:border-primary/35 hover:bg-primary/5 ${cardTransitionClass} ${isExpanded ? "" : "justify-center"}`}
         title={user.fullName}
         aria-label="Open account profile"
-        onClick={() => setShowAccountModal(true)}
+        onClick={() => {
+          setAccountInitialTab(undefined);
+          setShowAccountModal(true);
+        }}
       >
         <span className="authed-user-card__avatar inline-flex h-[2.7rem] w-[2.7rem] items-center justify-center rounded-full bg-primary/15 text-[0.86rem] font-bold tracking-[0.04em] text-primary">
           {user.fullName.slice(0, 2).toUpperCase()}
@@ -182,7 +225,7 @@ export function AuthSidebar({
         {isExpanded ? (
           <span className={`authed-user-card__meta grid min-w-0 gap-[0.15rem] ${contentRevealMotionClass} ${contentRevealClass}`}>
             <strong className="truncate">{user.fullName}</strong>
-            <small className="truncate text-base-content/60">{isSuperAdmin ? "SuperAdmin" : user.roles.join(" / ")}</small>
+            <small className="truncate text-base-content/60">{isRootShell ? user.roles.join(" / ") || "Root" : user.roles.join(" / ")}</small>
           </span>
         ) : null}
       </button>
@@ -264,12 +307,16 @@ export function AuthSidebar({
       <AccountProfileModal
         user={user}
         open={showAccountModal}
-        onClose={() => setShowAccountModal(false)}
+        initialTab={accountInitialTab}
+        onClose={() => {
+          setShowAccountModal(false);
+          setAccountInitialTab(undefined);
+        }}
         onUserUpdated={onUserUpdated}
       />
 
       {showLogoutConfirm ? (
-        <div className="fixed inset-0 z-[120] grid place-items-center bg-black/45 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[160] grid place-items-center bg-black/45 p-4 backdrop-blur-sm">
           <section className="w-full max-w-md rounded-[1.75rem] border border-base-300/70 bg-base-100 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24)]">
             <p className="text-[0.72rem] font-extrabold uppercase tracking-[0.14em] text-base-content/55">
               Confirm logout
@@ -285,15 +332,17 @@ export function AuthSidebar({
                 type="button"
                 className="btn rounded-full border-base-300 bg-base-100 text-base-content hover:bg-base-200"
                 onClick={() => setShowLogoutConfirm(false)}
+                disabled={isLoggingOut}
               >
                 Stay signed in
               </button>
               <button
                 type="button"
                 className="btn rounded-full border-none bg-error text-error-content hover:bg-error/90"
-                onClick={() => void logout(resolveLogoutReturnPath(user))}
+                onClick={() => void handleConfirmLogout()}
+                disabled={isLoggingOut}
               >
-                Logout
+                {isLoggingOut ? "Logging out..." : "Logout"}
               </button>
             </div>
           </section>
@@ -304,6 +353,10 @@ export function AuthSidebar({
 }
 
 function resolveLogoutReturnPath(user: CurrentSessionUser) {
+  if (isDesktopShell()) {
+    return "/t/mls/";
+  }
+
   if (user.surface === "TenantWeb" && user.tenantDomainSlug) {
     return `/t/${user.tenantDomainSlug}/sms/?showLogin=true`;
   }
@@ -335,4 +388,35 @@ function resolveSidebarMark(value: string) {
     .toUpperCase();
 
   return normalized || "SF";
+}
+
+function showGoogleLinkToast(
+  status: string,
+  toast: ReturnType<typeof useToast>) {
+  switch (status) {
+    case "linked":
+      toast.success({
+        title: "Google linked",
+        message: "Your Google account is now linked. You can enable MFA from Security."
+      });
+      break;
+    case "already-linked":
+      toast.error({
+        title: "Google already linked",
+        message: "That Google account is already linked to another ServiFinance account."
+      });
+      break;
+    case "missing-profile":
+      toast.error({
+        title: "Google profile unavailable",
+        message: "Google did not return the email profile needed for linking."
+      });
+      break;
+    default:
+      toast.error({
+        title: "Google link failed",
+        message: "The Google account could not be linked. Try again."
+      });
+      break;
+  }
 }

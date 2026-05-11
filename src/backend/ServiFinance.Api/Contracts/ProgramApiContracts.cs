@@ -1,16 +1,18 @@
 namespace ServiFinance.Api.Contracts;
 
 using Microsoft.AspNetCore.Http;
+using ServiFinance.Application.Auth;
 
-internal sealed record RootLoginRequest(string Email, string Password, bool RememberMe, string? ReturnUrl);
-internal sealed record TenantLoginRequest(string Email, string Password, string? TenantDomainSlug, string TargetSystem, string? ReturnUrl);
+internal sealed record RootLoginRequest(string Email, string Password, bool RememberMe, string? ReturnUrl, string? CaptchaChallengeId, string? CaptchaAnswer);
+internal sealed record TenantLoginRequest(string Email, string Password, string? TenantDomainSlug, string TargetSystem, string? ReturnUrl, string? CaptchaChallengeId, string? CaptchaAnswer);
 internal sealed record CreatePlatformTenantCheckoutRequest(
     string BusinessName,
     string DomainSlug,
     string OwnerFullName,
     string OwnerEmail,
     string OwnerPassword,
-    Guid SubscriptionTierId);
+    Guid SubscriptionTierId,
+    CaptchaProof? Captcha = null);
 internal sealed record CreatePlatformTenantCheckoutResponse(
     Guid RegistrationId,
     string CheckoutSessionId,
@@ -540,6 +542,8 @@ internal sealed record CreateTenantMlsLoanConversionRequest(
     decimal AnnualInterestRate,
     int TermMonths,
     DateOnly LoanStartDate);
+internal sealed record RequestTenantMlsLoanApprovalRequest(string? Remarks);
+internal sealed record ReviewTenantMlsLoanApprovalRequest(string? Remarks);
 internal sealed record TenantMlsLoanConversionCandidateResponse(
     Guid InvoiceId,
     Guid? ServiceRequestId,
@@ -549,7 +553,13 @@ internal sealed record TenantMlsLoanConversionCandidateResponse(
     string InvoiceNumber,
     DateTime InvoiceDateUtc,
     decimal OutstandingAmount,
-    decimal InterestableAmount);
+    decimal InterestableAmount,
+    string LoanApprovalStatus,
+    string? LoanApprovalRemarks,
+    DateTime? LoanApprovalRequestedAtUtc,
+    string? LoanApprovalRequestedByUserName,
+    DateTime? LoanApprovalReviewedAtUtc,
+    string? LoanApprovalReviewedByUserName);
 internal sealed record TenantMlsLoanConversionSummaryResponse(
     decimal PrincipalAmount,
     decimal AnnualInterestRate,

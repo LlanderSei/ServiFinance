@@ -369,6 +369,67 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.ToTable("AuditEvents", (string)null);
                 });
 
+            modelBuilder.Entity("ServiFinance.Domain.AuthProtectionRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("FailureCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdentityHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("LastFailedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LockedUntilUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RecordKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TenantDomainSlug")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("WindowExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("WindowStartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecordKey")
+                        .IsUnique();
+
+                    b.HasIndex("WindowExpiresAtUtc");
+
+                    b.HasIndex("Kind", "Scope", "TenantDomainSlug", "LockedUntilUtc");
+
+                    b.ToTable("AuthProtectionRecords", (string)null);
+                });
+
             modelBuilder.Entity("ServiFinance.Domain.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -544,6 +605,29 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("LoanApprovalRemarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("LoanApprovalRequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LoanApprovalRequestedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LoanApprovalReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LoanApprovalReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LoanApprovalStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("Not Requested");
+
                     b.Property<decimal>("OutstandingAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
@@ -569,6 +653,10 @@ namespace ServiFinance.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("LoanApprovalRequestedByUserId");
+
+                    b.HasIndex("LoanApprovalReviewedByUserId");
 
                     b.HasIndex("ServiceRequestId");
 
@@ -810,6 +898,29 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasPrecision(6, 2)
                         .HasColumnType("decimal(6,2)");
 
+                    b.Property<string>("ApprovalRemarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ApprovalRequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ApprovalRequestedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovalReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ApprovalReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("Approved");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -841,6 +952,14 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
+                    b.Property<string>("ReferenceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -856,6 +975,10 @@ namespace ServiFinance.Infrastructure.Migrations
                         .HasColumnType("decimal(12,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ApprovalRequestedByUserId");
+
+                    b.HasIndex("ApprovalReviewedByUserId");
 
                     b.HasIndex("CreatedByUserId");
 
@@ -2093,12 +2216,26 @@ namespace ServiFinance.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("ServiFinance.Domain.AppUser", "LoanApprovalRequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("LoanApprovalRequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiFinance.Domain.AppUser", "LoanApprovalReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("LoanApprovalReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ServiFinance.Domain.ServiceRequest", "ServiceRequest")
                         .WithMany("Invoices")
                         .HasForeignKey("ServiceRequestId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Customer");
+
+                    b.Navigation("LoanApprovalRequestedByUser");
+
+                    b.Navigation("LoanApprovalReviewedByUser");
 
                     b.Navigation("ServiceRequest");
                 });
@@ -2189,6 +2326,16 @@ namespace ServiFinance.Infrastructure.Migrations
 
             modelBuilder.Entity("ServiFinance.Domain.MicroLoan", b =>
                 {
+                    b.HasOne("ServiFinance.Domain.AppUser", "ApprovalRequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovalRequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiFinance.Domain.AppUser", "ApprovalReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovalReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ServiFinance.Domain.AppUser", "CreatedByUser")
                         .WithMany("CreatedMicroLoans")
                         .HasForeignKey("CreatedByUserId")
@@ -2205,6 +2352,10 @@ namespace ServiFinance.Infrastructure.Migrations
                         .WithOne("MicroLoan")
                         .HasForeignKey("ServiFinance.Domain.MicroLoan", "InvoiceId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApprovalRequestedByUser");
+
+                    b.Navigation("ApprovalReviewedByUser");
 
                     b.Navigation("CreatedByUser");
 

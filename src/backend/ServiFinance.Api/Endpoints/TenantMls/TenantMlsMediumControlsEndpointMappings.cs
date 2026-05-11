@@ -1,7 +1,10 @@
 namespace ServiFinance.Api.Endpoints.TenantMls;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
+using ServiFinance.Application.Auditing;
 using ServiFinance.Application.Payments;
+using ServiFinance.Api.Contracts;
 using ServiFinance.Api.Infrastructure;
 using ServiFinance.Domain;
 using ServiFinance.Infrastructure.Data;
@@ -14,6 +17,18 @@ internal static class TenantMlsMediumControlsEndpointMappings {
 
     tenantApi.MapGet("/mls/loan-approvals", GetLoanApprovalsAsync)
         .RequireTenantMlsPermission("mls.loan-approvals.view", MlsModuleCodeLoanApprovalWorkflow);
+
+    tenantApi.MapPost("/mls/loan-approvals/service-invoices/{invoiceId:guid}/approve", ApproveServiceInvoiceLoanApprovalAsync)
+        .RequireTenantMlsPermission("mls.loan-approvals.manage", MlsModuleCodeLoanApprovalWorkflow);
+
+    tenantApi.MapPost("/mls/loan-approvals/service-invoices/{invoiceId:guid}/reject", RejectServiceInvoiceLoanApprovalAsync)
+        .RequireTenantMlsPermission("mls.loan-approvals.manage", MlsModuleCodeLoanApprovalWorkflow);
+
+    tenantApi.MapPost("/mls/loan-approvals/standalone-loans/{microLoanId:guid}/approve", ApproveStandaloneLoanApprovalAsync)
+        .RequireTenantMlsPermission("mls.loan-approvals.manage", MlsModuleCodeLoanApprovalWorkflow);
+
+    tenantApi.MapPost("/mls/loan-approvals/standalone-loans/{microLoanId:guid}/reject", RejectStandaloneLoanApprovalAsync)
+        .RequireTenantMlsPermission("mls.loan-approvals.manage", MlsModuleCodeLoanApprovalWorkflow);
 
     tenantApi.MapGet("/mls/finance-policy", GetFinancePolicyAsync)
         .RequireTenantMlsPermission("mls.finance-policy.view", MlsModuleCodeFinancePolicyControl);
@@ -32,7 +47,7 @@ internal static class TenantMlsMediumControlsEndpointMappings {
         .Include(entity => entity.Customer)
         .Include(entity => entity.Invoice)
         .Include(entity => entity.AmortizationSchedules)
-        .Where(entity => entity.LoanStatus != "Paid")
+        .Where(entity => entity.LoanStatus != "Paid" && entity.LoanStatus != "Pending Approval" && entity.LoanStatus != "Rejected")
         .ToListAsync(cancellationToken);
 
     var rows = activeLoans
@@ -75,6 +90,8 @@ internal static class TenantMlsMediumControlsEndpointMappings {
         .Include(entity => entity.ServiceRequest)
         .Include(entity => entity.MicroLoan)
         .Include(entity => entity.PaymentSubmissions)
+        .Include(entity => entity.LoanApprovalRequestedByUser)
+        .Include(entity => entity.LoanApprovalReviewedByUser)
         .Where(entity => entity.InvoiceStatus == ServiceInvoiceFinancePolicy.FinalizedStatus ||
             entity.InvoiceStatus == ServiceInvoiceFinancePolicy.CheckoutPendingStatus ||
             entity.InvoiceStatus == ServiceInvoiceFinancePolicy.PaymentSubmittedStatus ||
@@ -88,6 +105,8 @@ internal static class TenantMlsMediumControlsEndpointMappings {
     var standaloneLoans = await dbContext.MicroLoans
         .AsNoTracking()
         .Include(entity => entity.Customer)
+        .Include(entity => entity.ApprovalRequestedByUser)
+        .Include(entity => entity.ApprovalReviewedByUser)
         .Where(entity => entity.InvoiceId == null)
         .OrderByDescending(entity => entity.CreatedAtUtc)
         .Take(20)
@@ -107,7 +126,7 @@ internal static class TenantMlsMediumControlsEndpointMappings {
       Summary = new {
         ServiceLinkedCandidates = readyRows.Count(row => row.SourceType == "Service invoice"),
         StandaloneLoansCreated = standaloneLoans.Count,
-        NeedsReview = rows.Count(row => row.ReadinessState is "Ready for approval" or "Payment review required"),
+        NeedsReview = rows.Count(row => row.CanApprove || row.ReadinessState == "Payment review required"),
         BlockedCandidates = rows.Count(row => row.ReadinessState == "Blocked"),
         AverageCandidateAmount = readyRows.Length == 0
             ? 0m
@@ -115,6 +134,296 @@ internal static class TenantMlsMediumControlsEndpointMappings {
       },
       Rows = rows
     });
+  }
+
+  private static Task<IResult> ApproveServiceInvoiceLoanApprovalAsync(
+      HttpContext httpContext,
+      string tenantDomainSlug,
+      Guid invoiceId,
+      [FromBody] ReviewTenantMlsLoanApprovalRequest request,
+      ServiFinanceDbContext dbContext,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) =>
+    ReviewServiceInvoiceLoanApprovalAsync(
+        httpContext,
+        tenantDomainSlug,
+        invoiceId,
+        request,
+        approved: true,
+        dbContext,
+        auditLogService,
+        cancellationToken);
+
+  private static Task<IResult> RejectServiceInvoiceLoanApprovalAsync(
+      HttpContext httpContext,
+      string tenantDomainSlug,
+      Guid invoiceId,
+      [FromBody] ReviewTenantMlsLoanApprovalRequest request,
+      ServiFinanceDbContext dbContext,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) =>
+    ReviewServiceInvoiceLoanApprovalAsync(
+        httpContext,
+        tenantDomainSlug,
+        invoiceId,
+        request,
+        approved: false,
+        dbContext,
+        auditLogService,
+        cancellationToken);
+
+  private static Task<IResult> ApproveStandaloneLoanApprovalAsync(
+      HttpContext httpContext,
+      string tenantDomainSlug,
+      Guid microLoanId,
+      [FromBody] ReviewTenantMlsLoanApprovalRequest request,
+      ServiFinanceDbContext dbContext,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) =>
+    ReviewStandaloneLoanApprovalAsync(
+        httpContext,
+        tenantDomainSlug,
+        microLoanId,
+        request,
+        approved: true,
+        dbContext,
+        auditLogService,
+        cancellationToken);
+
+  private static Task<IResult> RejectStandaloneLoanApprovalAsync(
+      HttpContext httpContext,
+      string tenantDomainSlug,
+      Guid microLoanId,
+      [FromBody] ReviewTenantMlsLoanApprovalRequest request,
+      ServiFinanceDbContext dbContext,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) =>
+    ReviewStandaloneLoanApprovalAsync(
+        httpContext,
+        tenantDomainSlug,
+        microLoanId,
+        request,
+        approved: false,
+        dbContext,
+        auditLogService,
+        cancellationToken);
+
+  private static async Task<IResult> ReviewServiceInvoiceLoanApprovalAsync(
+      HttpContext httpContext,
+      string tenantDomainSlug,
+      Guid invoiceId,
+      ReviewTenantMlsLoanApprovalRequest request,
+      bool approved,
+      ServiFinanceDbContext dbContext,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) {
+    var accessResult = await RequireTenantMlsAccessAsync(
+        httpContext,
+        tenantDomainSlug,
+        dbContext,
+        cancellationToken,
+        MlsModuleCodeLoanApprovalWorkflow);
+    if (accessResult is not null) {
+      return accessResult;
+    }
+
+    if (!TryGetCurrentUserId(httpContext.User, out var currentUserId)) {
+      return Results.Unauthorized();
+    }
+
+    var remarks = TenantMlsLoanApprovalPolicy.NormalizeRemarks(request.Remarks);
+    if (!approved && remarks is null) {
+      return Results.BadRequest(new { error = "Review remarks are required when rejecting a loan approval request." });
+    }
+
+    if ((remarks?.Length ?? 0) > TenantMlsLoanApprovalPolicy.RemarksMaxLength) {
+      return Results.BadRequest(new { error = $"Review remarks must be {TenantMlsLoanApprovalPolicy.RemarksMaxLength} characters or fewer." });
+    }
+
+    var invoice = await dbContext.Invoices
+        .Include(entity => entity.Customer)
+        .Include(entity => entity.ServiceRequest)
+        .Include(entity => entity.MicroLoan)
+        .Include(entity => entity.PaymentSubmissions)
+        .FirstOrDefaultAsync(entity => entity.Id == invoiceId, cancellationToken);
+    var blockReason = TenantMlsLoanApprovalPolicy.GetServiceLinkedApprovalBlockReason(invoice);
+    if (blockReason is not null) {
+      return Results.BadRequest(new { error = blockReason });
+    }
+
+    if (!TenantMlsLoanApprovalPolicy.IsPending(invoice!)) {
+      return Results.BadRequest(new { error = "Only pending loan approval requests can be reviewed." });
+    }
+
+    if (invoice!.LoanApprovalRequestedByUserId == currentUserId) {
+      return Results.BadRequest(new { error = "Maker-checker review requires another MLS operator to approve or reject this request." });
+    }
+
+    var now = DateTime.UtcNow;
+    invoice.LoanApprovalStatus = approved
+      ? TenantMlsLoanApprovalPolicy.ApprovedStatus
+      : TenantMlsLoanApprovalPolicy.RejectedStatus;
+    invoice.LoanApprovalReviewedByUserId = currentUserId;
+    invoice.LoanApprovalReviewedAtUtc = now;
+    invoice.LoanApprovalRemarks = remarks ?? invoice.LoanApprovalRemarks;
+
+    await dbContext.SaveChangesAsync(cancellationToken);
+
+    var outcome = approved ? "Approved" : "Rejected";
+    await TenantMlsAuditLogging.WriteSystemAuditAsync(
+        auditLogService,
+        httpContext,
+        invoice.TenantId,
+        "LoanApprovalReview",
+        outcome,
+        "Invoice",
+        invoice.Id,
+        invoice.InvoiceNumber,
+        $"{outcome} loan approval request for service invoice {invoice.InvoiceNumber}.");
+
+    return Results.Ok(new { message = $"Loan approval request {outcome.ToLowerInvariant()}." });
+  }
+
+  private static async Task<IResult> ReviewStandaloneLoanApprovalAsync(
+      HttpContext httpContext,
+      string tenantDomainSlug,
+      Guid microLoanId,
+      ReviewTenantMlsLoanApprovalRequest request,
+      bool approved,
+      ServiFinanceDbContext dbContext,
+      IAuditLogService auditLogService,
+      CancellationToken cancellationToken) {
+    var accessResult = await RequireTenantMlsAccessAsync(
+        httpContext,
+        tenantDomainSlug,
+        dbContext,
+        cancellationToken,
+        MlsModuleCodeLoanApprovalWorkflow);
+    if (accessResult is not null) {
+      return accessResult;
+    }
+
+    if (!TryGetCurrentUserId(httpContext.User, out var currentUserId)) {
+      return Results.Unauthorized();
+    }
+
+    var remarks = TenantMlsLoanApprovalPolicy.NormalizeRemarks(request.Remarks);
+    if (!approved && remarks is null) {
+      return Results.BadRequest(new { error = "Review remarks are required when rejecting a standalone loan request." });
+    }
+
+    if ((remarks?.Length ?? 0) > TenantMlsLoanApprovalPolicy.RemarksMaxLength) {
+      return Results.BadRequest(new { error = $"Review remarks must be {TenantMlsLoanApprovalPolicy.RemarksMaxLength} characters or fewer." });
+    }
+
+    var loan = await dbContext.MicroLoans
+        .Include(entity => entity.Customer)
+        .Include(entity => entity.AmortizationSchedules)
+        .Include(entity => entity.Transactions)
+        .FirstOrDefaultAsync(entity => entity.Id == microLoanId && entity.InvoiceId == null, cancellationToken);
+    if (loan is null) {
+      return Results.NotFound(new { error = "The selected standalone loan request was not found." });
+    }
+
+    if (!TenantMlsLoanApprovalPolicy.IsPending(loan) || loan.LoanStatus != "Pending Approval") {
+      return Results.BadRequest(new { error = "Only pending standalone loan requests can be reviewed." });
+    }
+
+    if (loan.ApprovalRequestedByUserId == currentUserId || loan.CreatedByUserId == currentUserId) {
+      return Results.BadRequest(new { error = "Maker-checker review requires another MLS operator to approve or reject this request." });
+    }
+
+    if (!approved) {
+      loan.ApprovalStatus = TenantMlsLoanApprovalPolicy.RejectedStatus;
+      loan.ApprovalReviewedByUserId = currentUserId;
+      loan.ApprovalReviewedAtUtc = DateTime.UtcNow;
+      loan.ApprovalRemarks = remarks;
+      loan.LoanStatus = "Rejected";
+
+      await dbContext.SaveChangesAsync(cancellationToken);
+      await TenantMlsAuditLogging.WriteSystemAuditAsync(
+          auditLogService,
+          httpContext,
+          loan.TenantId,
+          "StandaloneLoanApproval",
+          "Rejected",
+          "MicroLoan",
+          loan.Id,
+          loan.Customer?.FullName ?? "Standalone loan",
+          $"Rejected standalone loan request for {loan.Customer?.FullName ?? "borrower"}.");
+
+      return Results.Ok(new { message = "Standalone loan request rejected." });
+    }
+
+    if (loan.AmortizationSchedules.Count > 0 || loan.Transactions.Count > 0) {
+      return Results.Conflict(new { error = "This standalone loan request already has release records. Refresh the approvals workspace." });
+    }
+
+    var loanStartDate = DateOnly.FromDateTime(loan.LoanStartDate);
+    var computation = TenantMlsLoanMath.Build(loan.PrincipalAmount, loan.AnnualInterestRate, loan.TermMonths, loanStartDate);
+    foreach (var row in computation.Schedule) {
+      dbContext.AmortizationSchedules.Add(new AmortizationSchedule {
+        Id = Guid.NewGuid(),
+        MicroLoanId = loan.Id,
+        InstallmentNumber = row.InstallmentNumber,
+        DueDate = row.DueDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+        BeginningBalance = row.BeginningBalance,
+        PrincipalPortion = row.PrincipalPortion,
+        InterestPortion = row.InterestPortion,
+        InstallmentAmount = row.InstallmentAmount,
+        EndingBalance = row.EndingBalance,
+        PaidAmount = 0m,
+        InstallmentStatus = "Pending"
+      });
+    }
+
+    var runningBalance = await dbContext.Transactions
+        .Where(entity => entity.CustomerId == loan.CustomerId)
+        .OrderByDescending(entity => entity.TransactionDateUtc)
+        .ThenByDescending(entity => entity.Id)
+        .Select(entity => entity.RunningBalance)
+        .FirstOrDefaultAsync(cancellationToken);
+    var referenceNumber = string.IsNullOrWhiteSpace(loan.ReferenceNumber)
+      ? GenerateReferenceCode("MLS-STDLN")
+      : loan.ReferenceNumber;
+
+    loan.ReferenceNumber = referenceNumber;
+    loan.ApprovalStatus = TenantMlsLoanApprovalPolicy.ApprovedStatus;
+    loan.ApprovalReviewedByUserId = currentUserId;
+    loan.ApprovalReviewedAtUtc = DateTime.UtcNow;
+    loan.ApprovalRemarks = remarks ?? loan.ApprovalRemarks;
+    loan.LoanStatus = "Active";
+
+    dbContext.Transactions.Add(new LedgerTransaction {
+      Id = Guid.NewGuid(),
+      CustomerId = loan.CustomerId,
+      InvoiceId = null,
+      MicroLoanId = loan.Id,
+      TransactionDateUtc = DateTime.UtcNow,
+      TransactionType = "StandaloneLoanCreation",
+      ReferenceNumber = referenceNumber,
+      DebitAmount = computation.Summary.PrincipalAmount,
+      CreditAmount = 0m,
+      RunningBalance = TenantMlsLoanMath.RoundCurrency(runningBalance + computation.Summary.PrincipalAmount),
+      Remarks = string.IsNullOrWhiteSpace(loan.Remarks)
+        ? $"Standalone loan approved and released for {loan.Customer?.FullName ?? "borrower"}"
+        : loan.Remarks,
+      CreatedByUserId = currentUserId
+    });
+
+    await dbContext.SaveChangesAsync(cancellationToken);
+    await TenantMlsAuditLogging.WriteSystemAuditAsync(
+        auditLogService,
+        httpContext,
+        loan.TenantId,
+        "StandaloneLoanApproval",
+        "Approved",
+        "MicroLoan",
+        loan.Id,
+        loan.Customer?.FullName ?? "Standalone loan",
+        $"Approved and released standalone loan for {loan.Customer?.FullName ?? "borrower"}.");
+
+    return Results.Ok(new { message = "Standalone loan request approved and released." });
   }
 
   private static async Task<IResult> GetFinancePolicyAsync(
@@ -201,6 +510,7 @@ internal static class TenantMlsMediumControlsEndpointMappings {
 
     return new ApprovalWorkspaceRow(
         invoice.Id.ToString(),
+        "service-invoice",
         invoice.ServiceRequest?.RequestNumber ?? "Service invoice",
         invoice.Customer?.FullName ?? "Unknown customer",
         invoice.InvoiceNumber,
@@ -209,21 +519,44 @@ internal static class TenantMlsMediumControlsEndpointMappings {
         readinessState,
         ResolveApprovalRiskFlag(invoice, readinessState, derivedStatus),
         invoice.InvoiceDateUtc,
-        ResolveApprovalReason(invoice, readinessState, derivedStatus));
+        ResolveApprovalReason(invoice, readinessState, derivedStatus),
+        TenantMlsLoanApprovalPolicy.IsPending(invoice),
+        TenantMlsLoanApprovalPolicy.IsPending(invoice),
+        invoice.LoanApprovalRequestedByUser?.FullName,
+        invoice.LoanApprovalRequestedAtUtc,
+        invoice.LoanApprovalReviewedByUser?.FullName,
+        invoice.LoanApprovalReviewedAtUtc,
+        invoice.LoanApprovalRemarks);
   }
 
-  private static ApprovalWorkspaceRow BuildApprovalStandaloneLoanRow(MicroLoan loan) =>
-    new(
+  private static ApprovalWorkspaceRow BuildApprovalStandaloneLoanRow(MicroLoan loan) {
+    var approvalStatus = TenantMlsLoanApprovalPolicy.NormalizeMicroLoanApprovalStatus(loan);
+    var readinessState = approvalStatus switch {
+      TenantMlsLoanApprovalPolicy.PendingReviewStatus => "Ready for approval",
+      TenantMlsLoanApprovalPolicy.RejectedStatus => "Rejected",
+      _ => loan.LoanStatus == "Pending Approval" ? "Ready for approval" : "Released"
+    };
+
+    return new ApprovalWorkspaceRow(
         loan.Id.ToString(),
+        "standalone-loan",
         "Standalone loan",
         loan.Customer?.FullName ?? "Unknown borrower",
         GetLoanLabel(loan),
         RoundCurrency(loan.PrincipalAmount),
         "Standalone loan",
-        "Released",
+        readinessState,
         ResolvePolicyState(loan) == "Policy exception" ? "Policy exception" : "Normal",
         loan.CreatedAtUtc,
-        "Standalone loan is already released. Dedicated approval-state persistence is a future workflow hardening slice.");
+        ResolveStandaloneApprovalReason(loan, readinessState),
+        TenantMlsLoanApprovalPolicy.IsPending(loan),
+        TenantMlsLoanApprovalPolicy.IsPending(loan),
+        loan.ApprovalRequestedByUser?.FullName,
+        loan.ApprovalRequestedAtUtc,
+        loan.ApprovalReviewedByUser?.FullName,
+        loan.ApprovalReviewedAtUtc,
+        loan.ApprovalRemarks);
+  }
 
   private static FinancePolicyRow BuildFinancePolicyRow(MicroLoan loan) =>
     new(
@@ -312,14 +645,21 @@ internal static class TenantMlsMediumControlsEndpointMappings {
       return "Blocked";
     }
 
-    return ServiceInvoiceFinancePolicy.CanConvertToLoan(
+    if (!ServiceInvoiceFinancePolicy.CanConvertToLoan(
         hasInvoice: true,
         hasMicroLoan: false,
         outstandingAmount: invoice.OutstandingAmount,
         interestableAmount: invoice.InterestableAmount,
-        invoiceStatus: derivedStatus)
-      ? "Ready for approval"
-      : "Blocked";
+        invoiceStatus: derivedStatus)) {
+      return "Blocked";
+    }
+
+    return TenantMlsLoanApprovalPolicy.NormalizeInvoiceApprovalStatus(invoice) switch {
+      TenantMlsLoanApprovalPolicy.PendingReviewStatus => "Ready for approval",
+      TenantMlsLoanApprovalPolicy.ApprovedStatus => "Approved for release",
+      TenantMlsLoanApprovalPolicy.RejectedStatus => "Rejected",
+      _ => "Approval request needed"
+    };
   }
 
   private static string ResolveApprovalRiskFlag(Invoice invoice, string readinessState, string derivedStatus) {
@@ -329,6 +669,14 @@ internal static class TenantMlsMediumControlsEndpointMappings {
 
     if (readinessState == "Payment review required") {
       return "Settlement pending";
+    }
+
+    if (readinessState is "Approved for release" or "Ready for approval") {
+      return "Maker-checker";
+    }
+
+    if (readinessState == "Rejected") {
+      return "Rejected";
     }
 
     if (invoice.OutstandingAmount <= 0m) {
@@ -348,7 +696,19 @@ internal static class TenantMlsMediumControlsEndpointMappings {
 
   private static string ResolveApprovalReason(Invoice invoice, string readinessState, string derivedStatus) {
     if (readinessState == "Ready for approval") {
-      return "Finance-ready service invoice with an unpaid interestable balance.";
+      return "Maker submitted this finance-ready invoice for checker approval.";
+    }
+
+    if (readinessState == "Approved for release") {
+      return "Checker approved this invoice. A different operator can now release it as a loan.";
+    }
+
+    if (readinessState == "Approval request needed") {
+      return "Finance-ready service invoice still needs a maker to submit it for loan approval.";
+    }
+
+    if (readinessState == "Rejected") {
+      return "Checker rejected the latest loan approval request.";
     }
 
     if (readinessState == "Released") {
@@ -375,12 +735,24 @@ internal static class TenantMlsMediumControlsEndpointMappings {
     return $"Current derived invoice status is {derivedStatus}.";
   }
 
+  private static string ResolveStandaloneApprovalReason(MicroLoan loan, string readinessState) =>
+    readinessState switch {
+      "Ready for approval" => "Maker submitted this standalone loan for checker approval before ledger release.",
+      "Rejected" => "Checker rejected this standalone loan request before release.",
+      _ => loan.ApprovalReviewedAtUtc.HasValue
+        ? "Standalone loan has already passed approval and was released into the ledger."
+        : "Standalone loan existed before persisted maker-checker approval was introduced."
+    };
+
   private static int GetApprovalStatePriority(string readinessState) =>
     readinessState switch {
       "Ready for approval" => 0,
       "Payment review required" => 1,
-      "Blocked" => 2,
-      "Released" => 3,
+      "Approval request needed" => 2,
+      "Approved for release" => 3,
+      "Blocked" => 4,
+      "Rejected" => 5,
+      "Released" => 6,
       _ => 4
     };
 
@@ -410,6 +782,7 @@ internal static class TenantMlsMediumControlsEndpointMappings {
 
   private sealed record ApprovalWorkspaceRow(
       string CandidateId,
+      string CandidateKind,
       string ServiceRequestNumber,
       string CustomerName,
       string InvoiceNumber,
@@ -418,7 +791,14 @@ internal static class TenantMlsMediumControlsEndpointMappings {
       string ReadinessState,
       string RiskFlag,
       DateTime CreatedAtUtc,
-      string Reason);
+      string Reason,
+      bool CanApprove,
+      bool CanReject,
+      string? RequestedByUserName,
+      DateTime? RequestedAtUtc,
+      string? ReviewedByUserName,
+      DateTime? ReviewedAtUtc,
+      string? ReviewRemarks);
 
   private sealed record FinancePolicyRow(
       Guid MicroLoanId,

@@ -15,6 +15,11 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   private const int ExternalBillingReferenceMaxLength = 200;
   private const int ExternalServiceProviderMaxLength = 50;
   private const int ExternalServiceStateKeyMaxLength = 200;
+  private const int AuthProtectionRecordKeyMaxLength = 128;
+  private const int AuthProtectionKindMaxLength = 30;
+  private const int AuthProtectionScopeMaxLength = 50;
+  private const int AuthProtectionTenantSlugMaxLength = 100;
+  private const int AuthProtectionIdentityHashMaxLength = 128;
 
   private readonly Guid _currentTenantId;
   private readonly bool _hasRequestContext;
@@ -34,6 +39,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
   public DbSet<PlatformModule> PlatformModules => Set<PlatformModule>();
   public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
   public DbSet<ExternalServiceState> ExternalServiceStates => Set<ExternalServiceState>();
+  public DbSet<AuthProtectionRecord> AuthProtectionRecords => Set<AuthProtectionRecord>();
   public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
   public DbSet<SubscriptionTierModule> SubscriptionTierModules => Set<SubscriptionTierModule>();
   public DbSet<AppUser> Users => Set<AppUser>();
@@ -68,6 +74,7 @@ public sealed partial class ServiFinanceDbContext : DbContext {
     ConfigurePlatformModules(modelBuilder);
     ConfigureRefreshSessions(modelBuilder);
     ConfigureExternalServiceStates(modelBuilder);
+    ConfigureAuthProtectionRecords(modelBuilder);
     ConfigureAuditEvents(modelBuilder);
     ConfigureSubscriptionTierModules(modelBuilder);
     ConfigureUsers(modelBuilder);

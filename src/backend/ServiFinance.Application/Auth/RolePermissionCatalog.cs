@@ -63,6 +63,7 @@ public static class RolePermissionCatalog {
     Permission("mls.ledger.view", "View ledger", "Ledger", "Review tenant finance ledger entries and running balance.", PlatformRolePolicy.MlsScope),
     Permission("mls.portfolio-risk.view", "View portfolio risk", "Risk Control", "Review portfolio-at-risk exposure, overdue balances, aging buckets, and borrower risk rows.", PlatformRolePolicy.MlsScope),
     Permission("mls.loan-approvals.view", "View loan approvals", "Approval Workflow", "Review loan approval readiness, blocked finance candidates, and release-control queues.", PlatformRolePolicy.MlsScope),
+    Permission("mls.loan-approvals.manage", "Manage loan approvals", "Approval Workflow", "Approve or reject maker-checker loan approval requests before MLS release.", PlatformRolePolicy.MlsScope),
     Permission("mls.finance-policy.view", "View finance policy control", "Policy Control", "Review interest, term, principal, and loan-policy exception signals.", PlatformRolePolicy.MlsScope),
     Permission("mls.users.manage", "Manage platform users", "Administration", "Maintain tenant users and assign SMS or MLS platform roles.", PlatformRolePolicy.MlsScope),
     Permission("mls.roles-permissions.manage", "Manage MLS roles and permissions", "Administration", "Review and update mutable MLS role permission sets.", PlatformRolePolicy.MlsScope),
@@ -168,6 +169,7 @@ public static class RolePermissionCatalog {
         "mls.ledger.view",
         "mls.portfolio-risk.view",
         "mls.loan-approvals.view",
+        "mls.loan-approvals.manage",
         "mls.finance-policy.view"
       ]),
     Role(

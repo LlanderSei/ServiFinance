@@ -29,19 +29,79 @@ internal static class TenantMlsLoanConversionEndpointMappings {
           }
 
           var candidates = await QueryConvertibleInvoices(dbContext)
-              .Select(entity => new TenantMlsLoanConversionCandidateResponse(
-                  entity.Id,
-                  entity.ServiceRequestId,
-                  entity.CustomerId,
-                  entity.Customer!.FullName,
-                  entity.ServiceRequest != null ? entity.ServiceRequest.RequestNumber : "Standalone finance record",
-                  entity.InvoiceNumber,
-                  entity.InvoiceDateUtc,
-                  entity.OutstandingAmount,
-                  entity.InterestableAmount))
               .ToListAsync(cancellationToken);
 
-          return Results.Ok(new TenantMlsLoanConversionWorkspaceResponse(candidates));
+          return Results.Ok(new TenantMlsLoanConversionWorkspaceResponse(
+              candidates.Select(BuildLoanConversionCandidate).ToArray()));
+        })
+        .RequireTenantMlsPermission("mls.loan-conversion.manage", MlsModuleCodeServiceLinkedLoans);
+
+    tenantApi.MapPost("/mls/loan-conversion/{invoiceId:guid}/approval-request", [Authorize(AuthenticationSchemes = ApiAuthenticationSchemes)] async Task<IResult> (
+        HttpContext httpContext,
+        string tenantDomainSlug,
+        Guid invoiceId,
+        [FromBody] RequestTenantMlsLoanApprovalRequest request,
+        ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        IAuditLogService auditLogService,
+        CancellationToken cancellationToken) => {
+          var accessResult = await RequireTenantMlsAccessAsync(
+              httpContext,
+              tenantDomainSlug,
+              dbContext,
+              cancellationToken,
+              MlsModuleCodeServiceLinkedLoans);
+          if (accessResult is not null) {
+            return accessResult;
+          }
+
+          if (!TryGetCurrentUserId(httpContext.User, out var currentUserId)) {
+            return Results.Unauthorized();
+          }
+
+          var remarks = TenantMlsLoanApprovalPolicy.NormalizeRemarks(request.Remarks);
+          if ((remarks?.Length ?? 0) > TenantMlsLoanApprovalPolicy.RemarksMaxLength) {
+            return Results.BadRequest(new { error = $"Approval remarks must be {TenantMlsLoanApprovalPolicy.RemarksMaxLength} characters or fewer." });
+          }
+
+          var invoice = await dbContext.Invoices
+              .Include(entity => entity.Customer)
+              .Include(entity => entity.ServiceRequest)
+              .Include(entity => entity.MicroLoan)
+              .Include(entity => entity.PaymentSubmissions)
+              .FirstOrDefaultAsync(entity => entity.Id == invoiceId, cancellationToken);
+          var blockReason = TenantMlsLoanApprovalPolicy.GetServiceLinkedApprovalBlockReason(invoice);
+          if (blockReason is not null) {
+            return Results.BadRequest(new { error = blockReason });
+          }
+
+          if (TenantMlsLoanApprovalPolicy.IsApproved(invoice!)) {
+            return Results.BadRequest(new { error = "This invoice is already approved for loan release." });
+          }
+
+          if (TenantMlsLoanApprovalPolicy.IsPending(invoice!) && invoice!.LoanApprovalRequestedByUserId == currentUserId) {
+            return Results.Conflict(new { error = "This invoice is already waiting for another MLS operator to approve it." });
+          }
+
+          invoice!.LoanApprovalStatus = TenantMlsLoanApprovalPolicy.PendingReviewStatus;
+          invoice.LoanApprovalRequestedByUserId = currentUserId;
+          invoice.LoanApprovalRequestedAtUtc = DateTime.UtcNow;
+          invoice.LoanApprovalReviewedByUserId = null;
+          invoice.LoanApprovalReviewedAtUtc = null;
+          invoice.LoanApprovalRemarks = remarks;
+
+          await dbContext.SaveChangesAsync(cancellationToken);
+          await TenantMlsAuditLogging.WriteSystemAuditAsync(
+              auditLogService,
+              httpContext,
+              invoice.TenantId,
+              "LoanApprovalRequest",
+              "Requested",
+              "Invoice",
+              invoice.Id,
+              invoice.InvoiceNumber,
+              $"Requested maker-checker approval for service invoice {invoice.InvoiceNumber}.");
+
+          return Results.Ok(new { message = "Loan approval request submitted." });
         })
         .RequireTenantMlsPermission("mls.loan-conversion.manage", MlsModuleCodeServiceLinkedLoans);
 
@@ -110,7 +170,7 @@ internal static class TenantMlsLoanConversionEndpointMappings {
               .Include(entity => entity.MicroLoan)
               .Include(entity => entity.PaymentSubmissions)
               .FirstOrDefaultAsync(entity => entity.Id == request.InvoiceId, cancellationToken);
-          var conversionBlockReason = GetConversionBlockReason(invoice);
+          var conversionBlockReason = GetConversionBlockReason(invoice, currentUserId);
           if (conversionBlockReason is not null) {
             return Results.BadRequest(new { error = conversionBlockReason });
           }
@@ -145,6 +205,12 @@ internal static class TenantMlsLoanConversionEndpointMappings {
             LoanStartDate = preview.Summary.LoanStartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
             MaturityDate = preview.Summary.MaturityDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
             LoanStatus = "Active",
+            ApprovalStatus = TenantMlsLoanApprovalPolicy.ApprovedStatus,
+            ApprovalRequestedByUserId = invoice!.LoanApprovalRequestedByUserId,
+            ApprovalRequestedAtUtc = invoice.LoanApprovalRequestedAtUtc,
+            ApprovalReviewedByUserId = invoice.LoanApprovalReviewedByUserId,
+            ApprovalReviewedAtUtc = invoice.LoanApprovalReviewedAtUtc,
+            ApprovalRemarks = invoice.LoanApprovalRemarks,
             CreatedByUserId = currentUserId,
             CreatedAtUtc = DateTime.UtcNow
           };
@@ -227,6 +293,8 @@ internal static class TenantMlsLoanConversionEndpointMappings {
         .Include(entity => entity.ServiceRequest)
         .Include(entity => entity.MicroLoan)
         .Include(entity => entity.PaymentSubmissions)
+        .Include(entity => entity.LoanApprovalRequestedByUser)
+        .Include(entity => entity.LoanApprovalReviewedByUser)
         .Where(entity => entity.InvoiceStatus == ServiceInvoiceFinancePolicy.FinalizedStatus)
         .Where(entity => entity.MicroLoan == null)
         .Where(entity => entity.OutstandingAmount > 0m)
@@ -237,7 +305,7 @@ internal static class TenantMlsLoanConversionEndpointMappings {
             submission.Status == ServiceInvoiceFinancePolicy.CheckoutPendingStatus))
         .OrderByDescending(entity => entity.InvoiceDateUtc);
 
-  private static string? GetConversionBlockReason(Invoice? invoice) {
+  private static string? GetConversionBlockReason(Invoice? invoice, Guid currentUserId) {
     if (invoice is null) {
       return "The selected invoice can no longer be converted into a loan.";
     }
@@ -257,6 +325,19 @@ internal static class TenantMlsLoanConversionEndpointMappings {
     var derivedInvoiceStatus = ServiceInvoiceFinancePolicy.DeriveInvoiceStatus(invoice);
     if (!CanConvertToLoan(true, false, invoice.OutstandingAmount, invoice.InterestableAmount, derivedInvoiceStatus)) {
       return $"Only finalized invoices with unpaid interestable balances can be converted. Current invoice status: {derivedInvoiceStatus}.";
+    }
+
+    var approvalStatus = TenantMlsLoanApprovalPolicy.NormalizeInvoiceApprovalStatus(invoice);
+    if (!string.Equals(approvalStatus, TenantMlsLoanApprovalPolicy.ApprovedStatus, StringComparison.OrdinalIgnoreCase)) {
+      return approvalStatus switch {
+        TenantMlsLoanApprovalPolicy.PendingReviewStatus => "This invoice is still waiting for maker-checker approval before release.",
+        TenantMlsLoanApprovalPolicy.RejectedStatus => "This invoice was rejected for loan release. Submit a new approval request if it should be reconsidered.",
+        _ => "Submit this invoice for maker-checker approval before converting it into a loan."
+      };
+    }
+
+    if (invoice.LoanApprovalReviewedByUserId == currentUserId) {
+      return "The checker who approved this invoice cannot also release it as a loan.";
     }
 
     return null;
@@ -282,17 +363,26 @@ internal static class TenantMlsLoanConversionEndpointMappings {
     var computation = TenantMlsLoanMath.Build(invoice.OutstandingAmount, annualInterestRate, termMonths, loanStartDate);
 
     return new TenantMlsLoanConversionPreviewResponse(
-        new TenantMlsLoanConversionCandidateResponse(
-            invoice.Id,
-            invoice.ServiceRequestId,
-            invoice.CustomerId,
-            invoice.Customer!.FullName,
-            invoice.ServiceRequest != null ? invoice.ServiceRequest.RequestNumber : "Standalone finance record",
-            invoice.InvoiceNumber,
-            invoice.InvoiceDateUtc,
-            invoice.OutstandingAmount,
-            invoice.InterestableAmount),
+        BuildLoanConversionCandidate(invoice),
         computation.Summary,
         computation.Schedule);
   }
+
+  private static TenantMlsLoanConversionCandidateResponse BuildLoanConversionCandidate(Invoice invoice) =>
+    new(
+        invoice.Id,
+        invoice.ServiceRequestId,
+        invoice.CustomerId,
+        invoice.Customer!.FullName,
+        invoice.ServiceRequest != null ? invoice.ServiceRequest.RequestNumber : "Standalone finance record",
+        invoice.InvoiceNumber,
+        invoice.InvoiceDateUtc,
+        invoice.OutstandingAmount,
+        invoice.InterestableAmount,
+        TenantMlsLoanApprovalPolicy.NormalizeInvoiceApprovalStatus(invoice),
+        invoice.LoanApprovalRemarks,
+        invoice.LoanApprovalRequestedAtUtc,
+        invoice.LoanApprovalRequestedByUser?.FullName,
+        invoice.LoanApprovalReviewedAtUtc,
+        invoice.LoanApprovalReviewedByUser?.FullName);
 }

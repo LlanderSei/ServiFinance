@@ -903,6 +903,9 @@ internal static class ProgramEndpointSupport {
   internal static IResult CreateJsonError(int statusCode, string message) =>
     Results.Json(new { error = message }, statusCode: statusCode);
 
+  internal static IResult CreateJsonError(int statusCode, string message, DateTime? retryAfterUtc) =>
+    Results.Json(new { error = message, retryAfterUtc }, statusCode: statusCode);
+
   internal static void WriteRefreshTokenCookie(HttpContext httpContext, string refreshToken, TimeSpan? lifetime = null) {
     var cookieOptions = new CookieOptions {
       HttpOnly = true,

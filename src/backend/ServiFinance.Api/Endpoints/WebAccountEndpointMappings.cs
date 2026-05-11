@@ -13,19 +13,35 @@ internal static class WebAccountEndpointMappings {
     app.MapPost("/account/root-login", [AllowAnonymous] async Task<IResult> (
         HttpContext httpContext,
         [FromForm] RootLoginRequest request,
-        IUserAuthenticationService authenticationService) => {
+        IUserAuthenticationService authenticationService,
+        IAuthProtectionService authProtectionService) => {
+          var captchaResult = await authProtectionService.ValidateCaptchaAsync(
+              new CaptchaProof(request.CaptchaChallengeId, request.CaptchaAnswer),
+              httpContext.Connection.RemoteIpAddress?.ToString(),
+              httpContext.RequestAborted);
+          var returnUrl = SanitizeReturnUrl(request.ReturnUrl);
+          if (!captchaResult.IsAllowed) {
+            return Results.LocalRedirect($"/?error={Uri.EscapeDataString(captchaResult.ErrorMessage ?? "Complete the CAPTCHA challenge.")}&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
+          }
+
+          var lockoutResult = authProtectionService.CheckLoginAllowed("root", null, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
+          if (!lockoutResult.IsAllowed) {
+            return Results.LocalRedirect($"/?error={Uri.EscapeDataString(lockoutResult.ErrorMessage ?? "Login is temporarily locked.")}&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
+          }
+
           var user = await authenticationService.AuthenticateAsync(
           new AuthenticationRequest(
               request.Email,
               request.Password,
               AuthenticationSurface.Root),
           httpContext.RequestAborted);
-          var returnUrl = SanitizeReturnUrl(request.ReturnUrl);
 
           if (user is null) {
+            authProtectionService.RecordFailedLogin("root", null, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
             return Results.LocalRedirect($"/?error=Invalid%20superadmin%20email%20or%20password&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
           }
 
+          authProtectionService.RecordSuccessfulLogin("root", null, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
           await SignInUserAsync(httpContext, user, AuthenticationSurface.Root, request.RememberMe);
 
           return Results.LocalRedirect(returnUrl);
@@ -34,10 +50,32 @@ internal static class WebAccountEndpointMappings {
         HttpContext httpContext,
         [FromForm] TenantLoginRequest request,
         IUserAuthenticationService authenticationService,
-        ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext) => {
+        ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+        IAuthProtectionService authProtectionService) => {
           var isMls = string.Equals(request.TargetSystem, "mls", StringComparison.OrdinalIgnoreCase);
           var surface = isMls ? AuthenticationSurface.TenantDesktop : AuthenticationSurface.TenantWeb;
           var tenantSlug = NormalizeTenantSlug(request.TenantDomainSlug);
+          var fallbackUrl = isMls
+          ? "/t/mls/dashboard"
+          : $"/t/{tenantSlug}/sms/dashboard";
+          var returnUrl = SanitizeReturnUrl(request.ReturnUrl, fallbackUrl);
+          var loginUrl = isMls
+          ? "/t/mls/"
+          : $"/t/{tenantSlug}/sms/";
+          var captchaResult = await authProtectionService.ValidateCaptchaAsync(
+              new CaptchaProof(request.CaptchaChallengeId, request.CaptchaAnswer),
+              httpContext.Connection.RemoteIpAddress?.ToString(),
+              httpContext.RequestAborted);
+          if (!captchaResult.IsAllowed) {
+            return Results.LocalRedirect($"{loginUrl}?error={Uri.EscapeDataString(captchaResult.ErrorMessage ?? "Complete the CAPTCHA challenge.")}&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
+          }
+
+          var scope = surface == AuthenticationSurface.TenantDesktop ? "TenantMls" : "TenantSms";
+          var lockoutResult = authProtectionService.CheckLoginAllowed(scope, tenantSlug, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
+          if (!lockoutResult.IsAllowed) {
+            return Results.LocalRedirect($"{loginUrl}?error={Uri.EscapeDataString(lockoutResult.ErrorMessage ?? "Login is temporarily locked.")}&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
+          }
+
           var user = await authenticationService.AuthenticateAsync(
           new AuthenticationRequest(
               request.Email,
@@ -45,15 +83,9 @@ internal static class WebAccountEndpointMappings {
               surface,
               tenantSlug),
           httpContext.RequestAborted);
-          var fallbackUrl = isMls
-          ? "/t/mls/dashboard"
-          : $"/t/{tenantSlug}/sms/dashboard";
-          var returnUrl = SanitizeReturnUrl(request.ReturnUrl, fallbackUrl);
 
           if (user is null) {
-            var loginUrl = isMls
-            ? "/t/mls/"
-            : $"/t/{tenantSlug}/sms/";
+            authProtectionService.RecordFailedLogin(scope, tenantSlug, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
             return Results.LocalRedirect($"{loginUrl}?error=Invalid%20tenant%20email%20or%20password&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
           }
 
@@ -68,6 +100,7 @@ internal static class WebAccountEndpointMappings {
             }
           }
 
+          authProtectionService.RecordSuccessfulLogin(scope, tenantSlug, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
           await SignInUserAsync(httpContext, user, surface);
           return Results.LocalRedirect(returnUrl);
         });

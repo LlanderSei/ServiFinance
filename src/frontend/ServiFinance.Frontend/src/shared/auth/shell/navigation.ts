@@ -53,7 +53,7 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
       }))
       .filter((section) => section.items.length > 0);
 
-  if (user.roles.includes("SuperAdmin")) {
+  if (user.surface === "Root" || user.roles.includes("SuperAdmin")) {
     return filterSections([
       {
         key: "control",

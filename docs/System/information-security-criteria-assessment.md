@@ -1,23 +1,23 @@
 # ServiFinance Information Security Criteria Assessment
 
-Last reviewed: 2026-05-02
+Last reviewed: 2026-05-11
 
 This assessment is based on the current ServiFinance codebase, current repo documentation, and targeted build verification. It is an implementation review, not a penetration test.
 
 Build verification completed during this review:
-- `dotnet build src/backend/ServiFinance.Api/ServiFinance.Api.csproj -m:1 -p:DisableServiFinanceFrontendBuild=true`
+- `dotnet build src/backend/ServiFinance.Api/ServiFinance.Api.csproj -m:1 -p:DisableServiFinanceFrontendBuild=true -p:DebugType=none -p:UseSharedCompilation=false -o %TEMP%\ServiFinanceVerifyCustomerGoogleMfaNoPdb`
 - `cmd /c npm run build` from `src/frontend/ServiFinance.Frontend`
 
 ## Summary
 
 | Criterion | Status | Closest Rubric Band | Current Reading |
 | --- | --- | --- | --- |
-| 1. Secure Coding Practices | Partially Implemented | Satisfactory | Good foundation through EF Core, externalized secrets, tenant guards, and schema constraints, but no formal secure coding standard or automated security checks. |
-| 2. Authentication System | Partially Implemented | Satisfactory | Password hashing, JWT, cookie auth, refresh token rotation, and customer/tenant/root login flows exist, but MFA, lockout, CAPTCHA, and password policy are missing. |
+| 1. Secure Coding Practices | Partially Implemented | Satisfactory | Good foundation through EF Core, externalized secrets, tenant guards, schema constraints, and centralized auth hardening services, but no formal secure coding standard or automated security checks. |
+| 2. Authentication System | Partially Implemented | Satisfactory | Password hashing, JWT, cookie auth, refresh token rotation, Cloudflare Turnstile CAPTCHA, lockout cooldown, strong password policy, Google-linked email MFA, Google-gated password reset, and Google account linking now exist across staff and customer surfaces, but Google login, SMTP production setup, and stronger MFA factors remain future work. |
 | 3. Authorization & Role Management | Partially Implemented | Satisfactory | RBAC and tenant-aware access checks are present, but authorization is still mostly role-name based and not yet fine-grained. |
 | 4. Data Encryption | Partially Implemented | Satisfactory | Passwords are hashed, refresh tokens are hashed, and HTTPS/HSTS are enabled outside development, but no at-rest encryption or managed key strategy is evident. |
-| 5. Input Validation, Sanitization & Error Handling | Partially Implemented | Satisfactory | There are several manual validations and safe redirects, but validation is inconsistent and there is no centralized sanitization or anti-forgery layer. |
-| 6. Code Auditing Tools & Audit Logging | Partially Implemented | Needs Improvement | Operational history exists in feature tables, but there is no dedicated security audit log, no CI security tooling, and no lint/security scan pipeline. |
+| 5. Input Validation, Sanitization & Error Handling | Partially Implemented | Satisfactory | There are several manual validations, safe redirects, CAPTCHA checks, and stronger password validation, but validation is still inconsistent and there is no centralized sanitization or anti-forgery layer. |
+| 6. Code Auditing Tools & Audit Logging | Partially Implemented | Satisfactory | Security audit events and free dependency-audit workflow checks now exist, but broader static security analysis is still future work. |
 | 7. System Functionality & Feature Completion | Partially Implemented | Satisfactory | The backend and frontend both build, and several major flows are implemented, but some areas are still documented as future work and there is no automated end-to-end verification. |
 | 8. Security Policies & Documentation | Partially Implemented | Needs Improvement | General implementation docs exist, but formal security policy documentation is still missing. |
 
@@ -58,12 +58,18 @@ Implemented now:
 - The API supports both cookie authentication and JWT bearer authentication.
 - Refresh tokens are randomly generated, stored as hashes, rotated on refresh, and revoked on logout.
 - Customer portal sessions are separated from root and tenant user surfaces.
+- Cloudflare Turnstile CAPTCHA validation is enforced for root, tenant, customer, and platform-registration authentication entry points when Turnstile keys are configured, with a local fallback for development.
+- Strong password policy validation blocks weak/common passwords and obvious values derived from email, names, tenant slugs, or business names.
+- Account and sitewide/network cooldown lockouts now throttle repeated failed login attempts.
+- MFA can be enabled for root, tenant, and customer users only after a Google account is linked and SMTP is configured. Sign-in challenge codes are emailed to the linked Google address and are no longer returned by the API.
+- Password reset is exposed for root, tenant SMS/MLS, and customer surfaces with CAPTCHA-protected reset requests, short-lived reset codes, Google-link gating, SMTP delivery to the linked Google address when configured, and strong password validation on completion.
+- Authenticated root, tenant, and customer users can link/unlink a Google account from their account/profile security surface.
 
 Gaps / future work:
-- There is no MFA, 2FA, OTP, or CAPTCHA flow.
-- There is no lockout, throttling, or rate-limiting for repeated failed logins.
-- There is no password complexity policy or password expiry policy in the current code.
-- There is no self-service password reset, email verification, or recovery workflow.
+- SMTP settings must be configured with a real transactional provider before production; local development falls back to a development reset code for Google-linked staff password reset when SMTP is missing.
+- TOTP or WebAuthn would still be stronger MFA factors than email codes.
+- Public "Sign in with Google" remains a future implementation after account linking.
+- Lockout state is stored in memory, so distributed deployments need shared storage.
 
 Evidence:
 - `src/backend/ServiFinance.Infrastructure/Auth/UserAuthenticationService.cs` lines 13-80
@@ -158,12 +164,14 @@ Implemented now:
 - The application records operational history through `StatusLogs`, `AssignmentEvents`, and `AssignmentEvidence`.
 - The MLS area exposes an audit-style activity feed derived from loan and payment events.
 - The repo already identifies `AuditLogs` as a target capability in schema docs and development module seeding.
+- Security audit logging now records login success/failure, logout, MFA, password change, password reset, and MFA enable/disable events.
+- `.github/workflows/security-checks.yml` adds free CI checks for vulnerable .NET packages and frontend `npm audit`.
+- `src/frontend/ServiFinance.Frontend/package.json` includes an `audit` script for local dependency checks.
 
 Gaps / future work:
-- There is no evidence of SonarLint, ESLint, Bandit, OWASP Dependency Check, or similar security/code-audit tooling in the repo.
-- The frontend `package.json` has no `lint` script.
-- `.github/workflows` currently has no active workflow files, so no CI audit pipeline is evident.
-- General security audit logging for login, logout, password resets, and user-administration actions is still missing.
+- There is no evidence of SonarLint, ESLint security rules, Bandit, OWASP Dependency Check, or similar static security-analysis tooling in the repo.
+- The frontend `package.json` still has no lint script.
+- User-administration audit coverage still needs to be reviewed feature-by-feature.
 - Existing repo docs also describe audit logging as incomplete.
 
 Evidence:
@@ -206,6 +214,7 @@ Implemented now:
 - The repo has general implementation and planning documents under `docs/System`.
 - A sample environment file documents how secrets should be supplied locally.
 - Schema documentation exists and already calls out some security-relevant entities and future additions.
+- `docs/System/auth-security-hardening-walkthrough.md` documents the implemented CAPTCHA, lockout, password policy, Google-linked email MFA, SMTP password reset, and Google OAuth setup path.
 
 Gaps / future work:
 - There is no dedicated security policy document for password rules, access control standards, audit logging policy, incident response, backup/retention, key rotation, or vulnerability management.
@@ -222,4 +231,4 @@ Evidence:
 
 ServiFinance already has a solid security foundation for a student or early-stage multi-tenant system: hashed passwords, JWT and cookie authentication, hashed refresh tokens, tenant-aware route protection, tenant query filters, and server-side schema constraints are all present in the current codebase.
 
-The biggest weaknesses are not in the basic auth foundation but in hardening and security operations. The current repo still needs MFA or lockout protection, formal permission policies, centralized security audit logging, automated code-audit tooling, and dedicated security policy documents before it can reasonably claim an excellent rating across the rubric.
+The biggest remaining weaknesses are now production-grade delivery and security operations rather than the basic auth foundation. The current repo still needs production SMTP configuration, public Google sign-in, stronger MFA options such as TOTP/WebAuthn, distributed lockout storage, formal permission policies, automated code-audit tooling, and dedicated security policy documents before it can reasonably claim an excellent rating across the rubric.

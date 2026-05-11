@@ -36,14 +36,17 @@ This plan is based on:
 - The desktop host can bootstrap the local API.
 - The shared frontend now has normalized MLS desktop routing at `/t/mls/*`.
 - The MLS desktop login is implemented and uses tenant credentials without exposing tenant slug in the URL.
+- The MLS desktop login now also has an isolated `Superadmin` mode that creates a root session and opens the existing root control-plane routes inside the desktop app.
 - Browser access to `/t/mls/*` is blocked and redirected to a desktop-required page.
 - The backend schema already includes `Invoices`, `InvoiceLines`, `MicroLoans`, `AmortizationSchedules`, and `LedgerTransaction`.
+- The backend schema now persists maker-checker approval state for service-linked loan conversion and standalone loan release.
 - SMS already finalizes invoices and exposes finance handoff state so service work can move into MLS.
 - The MLS desktop shell now includes these working modules:
   - MLS dashboard
   - customer financial records
   - invoice-to-loan conversion
   - standalone loans
+  - persisted loan approval review
   - loan accounts and payment posting
   - collections queue
   - ledger review
@@ -55,9 +58,9 @@ This plan is based on:
 - `Generate Financial / Ledger Reports` is only partially covered by the current ledger screen; dedicated report outputs and exports are still missing.
 - Premium entitlement visibility can still be made more explicit inside the MLS desktop UI, even though route-level gating already exists.
 - The current MLS login flow assumes one tenant context per email; future multi-tenant employee access is not yet implemented.
-- The shared finance workflows need more hardening around validation, reconciliation safety, and corrective edge cases.
+- The shared finance workflows still need more hardening around validation, reconciliation safety, and corrective edge cases beyond the persisted approval gate.
 - The desktop shell and MLS screens still need visual cleanup, responsive tightening, and theme consistency passes.
-- Audit coverage should be reviewed to ensure every finance action is captured, not only displayed.
+- Audit coverage should be reviewed to ensure every finance action is captured with enough context for reporting, not only displayed.
 
 ## Desktop Deliverables To Satisfy
 
@@ -66,6 +69,7 @@ The docs and deliverables consistently point to these desktop-side capabilities:
 - access desktop terminal
 - convert service invoice to micro-loan
 - process standalone loans
+- review and approve loan release
 - manage customer financial records
 - calculate amortization
 - post loan payment
@@ -78,6 +82,7 @@ Current coverage against the use case is now:
   - access desktop terminal
   - convert service invoice to micro-loan
   - process standalone loans
+  - persist maker-checker loan approval state before release
   - manage customer financial records
   - calculate amortization
   - post loan payment
@@ -90,7 +95,7 @@ The practical remaining work is therefore no longer building all MLS modules fro
 - report depth
 - entitlement clarity
 - future multi-tenant staff access
-- finance-grade hardening
+- finance-grade hardening around validation, audit detail, and correction flows
 - cleanup and UI tightening
 
 ## Recommended Delivery Order
@@ -124,6 +129,7 @@ Work:
 
 - built invoice-to-loan conversion
 - built standalone loan processing
+- added persisted maker-checker approval state for service invoice loan conversion and standalone loan release
 - implemented amortization preview and schedule generation
 - implemented loan account review and payment posting
 - added collections queue and posting flow
@@ -162,6 +168,7 @@ Move the MLS desktop from functional to finance-safe and demo-safe.
 
 Work:
 
+- keep service-linked and standalone loans out of active accounts until checker approval is recorded
 - tighten validation for money, date, and term inputs
 - verify duplicate-post prevention and repeat-submit handling
 - review installment allocation order and balance recomputation edge cases
@@ -172,6 +179,7 @@ Work:
 Output:
 
 - safer finance operations
+- explicit loan release approval before schedules, account rows, and ledger entries become active
 - fewer reconciliation risks
 - stronger demo and submission readiness
 
@@ -214,23 +222,30 @@ Output:
 
 These are valid future implementations, but they should not interrupt the current effort to improve and harden the existing MLS desktop modules.
 
-### Superadmin Desktop Surface
+### Superadmin Desktop Surface Hardening
 
 Goal:
 Allow the Superadmin interface to live in the desktop application without merging it into the tenant MLS surface.
+
+Current baseline:
+
+- the desktop login exposes a secondary `Superadmin` mode
+- superadmin credentials create a `Root` session, not a tenant MLS session
+- successful root desktop login opens the same root control-plane routes used by the web app
+- tenant MLS users still cannot reach root routes unless they authenticate as Superadmin
 
 Recommended model:
 
 - keep one desktop application and one installer
 - keep the MLS tenant desktop and Superadmin desktop as separate surfaces inside that same app
 - keep MLS as the default launch surface for normal desktop users
-- add a dedicated Superadmin desktop route namespace instead of reusing the tenant MLS route base
-- keep Superadmin login visually and functionally separate from tenant MLS login
+- keep Superadmin access visually and functionally separate from tenant MLS login
+- optionally add a dedicated Superadmin desktop route namespace later if the root desktop UX needs to diverge from the root web UX
 
 Recommended entry behavior:
 
 - default app launch opens the MLS tenant desktop surface
-- the app can expose a visible but secondary `Superadmin Access` action
+- the app exposes a visible but secondary `Superadmin` login mode
 - optionally support a launch argument such as `--superadmin` to open directly into the Superadmin desktop login
 - the launch argument should be a shortcut, not the only way to reach the Superadmin surface
 
@@ -244,15 +259,13 @@ Why this is preferred:
 Required safeguards:
 
 - Superadmin desktop routes must be isolated from tenant MLS routes
-- desktop sessions must be tagged by surface, such as `SuperAdminDesktop` versus `TenantDesktop`
+- desktop sessions must be tagged by surface; the current implementation uses the existing `Root` surface versus `TenantDesktop`
 - a tenant MLS user must not be able to access Superadmin desktop routes
 - a Superadmin desktop user must not inherit tenant MLS shell state unless explicitly entering an allowed tenant context
 
 Possible future outputs:
 
-- dedicated Superadmin desktop login page
-- dedicated Superadmin desktop shell
-- visible secondary `Superadmin Access` action in the app
+- dedicated Superadmin desktop shell if the root desktop UX needs different chrome from the web root control plane
 - optional `--superadmin` launch behavior for operations and development
 
 ### Multi-Tenant Employee Access
@@ -304,13 +317,13 @@ The next highest-value tasks are now, and they should focus on improving the cur
 
 1. add a dedicated MLS reports module for financial and ledger reporting
 2. tighten entitlement visibility and blocked-state handling for non-Premium desktop access
-3. harden finance actions with stronger validation, duplicate-submit protection, and audit completeness
+3. deepen approval, payment, and correction reporting around the persisted maker-checker workflow
 4. improve filtering and date-range controls in ledger, audit, and collections
 5. continue UI cleanup and consistency passes across light and dark theme
 
 Not part of the immediate next coding slice:
 
-- Superadmin desktop surface
+- dedicated Superadmin desktop shell beyond the implemented root login mode
 - multi-tenant employee login and tenant switching
 - global user plus tenant-membership refactor
 - cross-tenant staff administration UX
@@ -322,6 +335,7 @@ The MLS desktop side is in a usable MVP state when:
 - a Premium tenant user can sign in from the desktop client
 - the user can see finance-ready invoices produced by SMS
 - one invoice can be converted into one micro-loan
+- service-linked and standalone loans pass persisted maker-checker approval before account release
 - the system generates a correct amortization schedule
 - payments reduce balances correctly and create ledger entries
 - the user can review customer loan history and transaction history

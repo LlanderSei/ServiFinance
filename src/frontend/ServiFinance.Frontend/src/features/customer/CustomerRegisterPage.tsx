@@ -1,5 +1,8 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { CaptchaField } from "@/shared/auth/CaptchaField";
+import { PasswordPolicyChecklist } from "@/shared/auth/PasswordPolicyChecklist";
+import { useCaptchaChallenge } from "@/shared/auth/useCaptchaChallenge";
 import { getCurrentCustomerSession, registerCustomerAccount } from "./customerAuth";
 import { getCustomerHomeRoute } from "./customerNav";
 
@@ -27,6 +30,7 @@ export function CustomerRegisterPage() {
     confirmPassword: ""
   });
   const [error, setError] = useState<string | null>(null);
+  const captcha = useCaptchaChallenge();
 
   if (currentSession && currentSession.user.tenantDomainSlug.toLowerCase() === tenantDomainSlug.toLowerCase()) {
     return <Navigate to={getCustomerHomeRoute(currentSession.user)} replace />;
@@ -48,11 +52,13 @@ export function CustomerRegisterPage() {
         mobileNumber: form.mobileNumber,
         address: form.address,
         addressDetails: form.addressDetails,
-        password: form.password
+        password: form.password,
+        captcha: captcha.proof
       });
       navigate(getCustomerHomeRoute(session), { replace: true });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to create customer account.");
+      await captcha.refresh();
     }
   }
 
@@ -168,6 +174,27 @@ export function CustomerRegisterPage() {
               required
             />
           </label>
+
+          <div className="sm:col-span-2">
+            <PasswordPolicyChecklist
+              password={form.password}
+              confirmPassword={form.confirmPassword}
+              email={form.email}
+              fullName={form.fullName}
+              tenantDomainSlug={tenantDomainSlug}
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <CaptchaField
+              answer={captcha.answer}
+              challenge={captcha.challenge}
+              error={captcha.error}
+              isLoading={captcha.isLoading}
+              onAnswerChange={captcha.setAnswer}
+              onRefresh={captcha.refresh}
+            />
+          </div>
 
           {error ? (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 sm:col-span-2">

@@ -1,6 +1,6 @@
 # Desktop Application MLS Development Model Analysis
 
-Based on the current `ServiFinance` codebase, this analysis focuses on the desktop MLS side of the system. The repo already contains a `.NET MAUI` desktop host, tenant-scoped MLS login flow, protected desktop-only MLS routes, finance entities, and MLS modules for dashboard, customer financial records, loan conversion, standalone loans, loan accounts, collections, ledger, audit, and reports.
+Based on the current `ServiFinance` codebase, this analysis focuses on the desktop MLS side of the system. The repo already contains a `.NET MAUI` desktop host, tenant-scoped MLS login flow, an isolated Superadmin root login mode inside the desktop app, protected desktop-only MLS routes, finance entities, and MLS modules for dashboard, customer financial records, loan conversion, standalone loans, loan accounts, collections, ledger, audit, and reports.
 
 ## Part 1 - Project Title
 

@@ -1,197 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import type { FormEvent } from "react";
+import { useParams } from "react-router-dom";
 import { AddressLookupField } from "@/shared/location/AddressLookupField";
+import { CustomerBottomTabs } from "./CustomerBottomTabs";
+import { isHistoryRequest } from "./CustomerRequestCard";
+import { CustomerRequestsHistoryTab } from "./CustomerRequestsHistoryTab";
+import { CustomerRequestsOngoingTab } from "./CustomerRequestsOngoingTab";
 import { useCustomerProfile } from "./useCustomerProfile";
 import { useCreateCustomerRequest, useCustomerRequests, useUploadCustomerRequestAttachments } from "./useCustomerRequests";
-import type { CustomerRequest } from "./useCustomerRequests";
 
 type RequestTab = "ongoing" | "history";
 
-const historyStatuses = new Set(["Completed", "Closed", "Cancelled"]);
-
-function isHistoryRequest(status: string) {
-  return historyStatuses.has(status);
-}
-
-function isFeedbackExpired(feedbackExpiresAtUtc?: string | null) {
-  return Boolean(feedbackExpiresAtUtc && new Date(feedbackExpiresAtUtc).getTime() < Date.now());
-}
-
-function joinClasses(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(" ");
-}
-
-function formatDateTime(value?: string | null, fallback = "Unknown time") {
-  if (!value) {
-    return fallback;
-  }
-
-  return new Date(value).toLocaleString("en-PH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  });
-}
-
-function statusTone(status: string) {
-  const normalized = status.toLowerCase();
-
-  if (normalized.includes("completed") || normalized.includes("closed")) {
-    return "bg-emerald-100 text-emerald-800";
-  }
-
-  if (normalized.includes("cancel")) {
-    return "bg-rose-100 text-rose-800";
-  }
-
-  if (normalized.includes("progress") || normalized.includes("service") || normalized.includes("scheduled")) {
-    return "bg-blue-100 text-blue-800";
-  }
-
-  if (normalized.includes("pending") || normalized.includes("hold")) {
-    return "bg-amber-100 text-amber-800";
-  }
-
-  return "bg-slate-100 text-slate-700";
-}
-
-function buildRequestMeta(request: CustomerRequest) {
-  if (request.currentStatus === "Cancelled") {
-    return `Cancelled ${formatDateTime(request.cancelledAtUtc, formatDateTime(request.createdAtUtc))}`;
-  }
-
-  if (request.currentStatus === "Cancellation Requested") {
-    return `Cancellation requested ${formatDateTime(request.cancellationRequestedAtUtc, formatDateTime(request.createdAtUtc))}`;
-  }
-
-  if ((request.currentStatus === "Completed" || request.currentStatus === "Closed") && request.completedAtUtc) {
-    return `Completed ${formatDateTime(request.completedAtUtc)}`;
-  }
-
-  return `Opened ${formatDateTime(request.createdAtUtc)}`;
-}
-
-function RequestBadge({ request }: { request: CustomerRequest }) {
-  const isCompleted = request.currentStatus === "Completed" || request.currentStatus === "Closed";
-  if (request.rating != null) {
-    return (
-      <span className="rounded-full bg-emerald-50 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-700">
-        Rated {request.rating}/5
-      </span>
-    );
-  }
-
-  if (isCompleted && !isFeedbackExpired(request.feedbackExpiresAtUtc)) {
-    return (
-      <span className="rounded-full bg-amber-50 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-amber-700">
-        Feedback open
-      </span>
-    );
-  }
-
-  return null;
-}
-
-function RequestRow({ request, tenantDomainSlug }: { request: CustomerRequest; tenantDomainSlug: string }) {
-  const isOngoing = !isHistoryRequest(request.currentStatus);
-  const actionLabel = isOngoing ? "Track request" : "View";
-
-  return (
-    <article className="rounded-[1.6rem] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_28px_rgba(35,46,76,0.06)] sm:px-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-slate-500">{request.requestNumber}</p>
-          <h2 className="mt-2 truncate text-lg font-semibold tracking-[-0.03em] text-slate-950">
-            {request.itemType}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            {buildRequestMeta(request)}
-          </p>
-        </div>
-
-        <span className={joinClasses(
-          "rounded-full px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em]",
-          statusTone(request.currentStatus)
-        )}>
-          {request.currentStatus}
-        </span>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 pt-4">
-        <RequestBadge request={request} />
-
-        <Link
-          className="btn btn-sm rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
-          to={`/t/${tenantDomainSlug}/c/requests/${request.id}`}
-        >
-          {actionLabel}
-        </Link>
-      </div>
-    </article>
-  );
-}
-
-function RequestTabs({
-  activeTab,
-  ongoingCount,
-  historyCount,
-  onChange
-}: {
-  activeTab: RequestTab;
-  ongoingCount: number;
-  historyCount: number;
-  onChange: (tab: RequestTab) => void;
-}) {
-  return (
-    <div className="pointer-events-none fixed bottom-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] left-1/2 z-20 w-[calc(100%-2rem)] max-w-[24rem] -translate-x-1/2 lg:left-[calc(50%+155px)]">
-      <nav className="pointer-events-auto flex w-full items-center gap-2 rounded-full border border-slate-200/80 bg-white/96 p-2 shadow-[0_18px_36px_rgba(35,46,76,0.14)] backdrop-blur-xl">
-        <button
-          type="button"
-          className={joinClasses(
-            "flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold transition-colors duration-200",
-            activeTab === "ongoing"
-              ? "bg-slate-950 text-white"
-              : "text-slate-600 hover:bg-slate-100"
-          )}
-          onClick={() => onChange("ongoing")}
-        >
-          <span>Ongoing</span>
-          <span className={joinClasses(
-            "rounded-full px-2 py-0.5 text-[0.68rem] font-bold",
-            activeTab === "ongoing"
-              ? "bg-white/14 text-white"
-              : "bg-slate-100 text-slate-500"
-          )}>
-            {ongoingCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className={joinClasses(
-            "flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold transition-colors duration-200",
-            activeTab === "history"
-              ? "bg-slate-950 text-white"
-              : "text-slate-600 hover:bg-slate-100"
-          )}
-          onClick={() => onChange("history")}
-        >
-          <span>History</span>
-          <span className={joinClasses(
-            "rounded-full px-2 py-0.5 text-[0.68rem] font-bold",
-            activeTab === "history"
-              ? "bg-white/14 text-white"
-              : "bg-slate-100 text-slate-500"
-          )}>
-            {historyCount}
-          </span>
-        </button>
-      </nav>
-    </div>
-  );
-}
+const requestTabs: Array<{ key: RequestTab; label: string; count?: number }> = [
+  { key: "ongoing", label: "Ongoing" },
+  { key: "history", label: "History" }
+];
 
 function toUtcIso(value: string) {
   return value ? new Date(value).toISOString() : null;
@@ -228,7 +51,13 @@ export function CustomerRequestsPage() {
     () => (requests ?? []).filter((request) => isHistoryRequest(request.currentStatus)),
     [requests]
   );
-  const visibleRequests = activeTab === "ongoing" ? ongoingRequests : historyRequests;
+  const tabOptions = useMemo(
+    () => requestTabs.map((tab) => ({
+      ...tab,
+      count: tab.key === "ongoing" ? ongoingRequests.length : historyRequests.length
+    })),
+    [historyRequests.length, ongoingRequests.length]
+  );
   const headerTitle = activeTab === "ongoing" ? "My service requests" : "Request history";
   const headerDescription = activeTab === "ongoing"
     ? "Monitor active request movement and submit new requests from this tenant domain."
@@ -289,7 +118,7 @@ export function CustomerRequestsPage() {
     setAttachments([]);
   }
 
-  async function handleCreate(event: React.FormEvent) {
+  async function handleCreate(event: FormEvent) {
     event.preventDefault();
 
     try {
@@ -321,7 +150,7 @@ export function CustomerRequestsPage() {
   }
 
   return (
-    <div className="grid gap-5 pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-32">
+    <div className="flex min-h-[calc(100vh-9rem)] flex-col gap-5 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
       <section className="flex flex-col items-stretch justify-between gap-4 rounded-[2rem] border border-slate-200/80 bg-white px-5 py-6 shadow-[0_14px_30px_rgba(35,46,76,0.06)] sm:flex-row sm:items-start">
         <div>
           <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500">Customer requests</p>
@@ -346,7 +175,7 @@ export function CustomerRequestsPage() {
         </button>
       </section>
 
-      {showForm && (
+      {showForm ? (
         <section className="rounded-[2rem] border border-slate-200/80 bg-slate-50 px-5 py-6 shadow-inner">
           <h2 className="mb-4 text-xl font-semibold text-slate-900">Create New Service Request</h2>
           <form onSubmit={handleCreate} className="grid w-full gap-4 md:grid-cols-2">
@@ -435,47 +264,27 @@ export function CustomerRequestsPage() {
                 Upload issue photos now so tenant staff can inspect them from SMS. Each file must be 5 MB or smaller.
               </span>
             </label>
-            {(createRequest.isError || uploadAttachments.isError) && (
+            {createRequest.isError || uploadAttachments.isError ? (
               <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 md:col-span-2">
                 {createRequest.error?.message ?? uploadAttachments.error?.message ?? "Unable to create the service request."}
               </p>
-            )}
+            ) : null}
             <button disabled={createRequest.isPending || uploadAttachments.isPending} type="submit" className="btn w-full rounded-full bg-slate-900 px-8 text-white hover:bg-slate-800 sm:w-max md:col-span-2">
               {createRequest.isPending || uploadAttachments.isPending ? "Submitting..." : "Submit Request"}
             </button>
           </form>
         </section>
-      )}
+      ) : (
+        <>
+          {activeTab === "ongoing" ? (
+            <CustomerRequestsOngoingTab requests={ongoingRequests} tenantDomainSlug={tenantDomainSlug} isLoading={isLoading} />
+          ) : null}
+          {activeTab === "history" ? (
+            <CustomerRequestsHistoryTab requests={historyRequests} tenantDomainSlug={tenantDomainSlug} isLoading={isLoading} />
+          ) : null}
 
-      {!showForm && (
-        isLoading ? (
-          <div className="rounded-[1.8rem] border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 shadow-[0_12px_28px_rgba(35,46,76,0.06)]">
-            Loading requests...
-          </div>
-        ) : (
-          <section className="grid gap-3">
-            {visibleRequests.length === 0 ? (
-              <div className="rounded-[1.8rem] border border-slate-200 border-dashed bg-white px-5 py-10 text-center text-slate-500">
-                {activeTab === "ongoing"
-                  ? "You have no ongoing service requests right now."
-                  : "No completed or cancelled requests are in your history yet."}
-              </div>
-            ) : (
-              visibleRequests.map((request) => (
-                <RequestRow key={request.id} request={request} tenantDomainSlug={tenantDomainSlug} />
-              ))
-            )}
-          </section>
-        )
-      )}
-
-      {!showForm && (
-        <RequestTabs
-          activeTab={activeTab}
-          ongoingCount={ongoingRequests.length}
-          historyCount={historyRequests.length}
-          onChange={setActiveTab}
-        />
+          <CustomerBottomTabs tabs={tabOptions} activeTab={activeTab} onChange={setActiveTab} />
+        </>
       )}
     </div>
   );

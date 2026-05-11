@@ -1,8 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TenantMlsLoanApprovalWorkspaceResponse } from "@/shared/api/contracts";
-import { getApiErrorMessage, httpGet } from "@/shared/api/http";
+import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
-import { MlsModuleCodes } from "@/shared/auth/permissions";
+import { MlsModuleCodes, hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import { MetricCard } from "@/shared/records/MetricCard";
@@ -10,6 +10,7 @@ import { RecordContentStack, RecordScrollRegion, RecordWorkspace } from "@/share
 import { RecordTable, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
 import { WorkspaceKpiRailLayout, WorkspacePanel, WorkspacePanelHeader } from "@/shared/records/WorkspacePanel";
 import { WorkspaceInlineNote, WorkspaceNotice, WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
+import { useToast } from "@/shared/toast/ToastProvider";
 
 const currencyFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
@@ -32,6 +33,12 @@ function getApprovalTone(state: string) {
   switch (state) {
     case "Ready for approval":
       return "warning" as const;
+    case "Approved for release":
+      return "active" as const;
+    case "Approval request needed":
+      return "neutral" as const;
+    case "Rejected":
+      return "inactive" as const;
     case "Payment review required":
       return "progress" as const;
     case "Blocked":
@@ -44,9 +51,13 @@ function getApprovalTone(state: string) {
 }
 
 export function MlsLoanApprovalsPage() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
   const currentSession = getCurrentSession();
   const { data } = useRefreshSession(!currentSession);
-  const tenantDomainSlug = (currentSession ?? data)?.user.tenantDomainSlug ?? "";
+  const currentUser = (currentSession ?? data)?.user ?? null;
+  const tenantDomainSlug = currentUser?.tenantDomainSlug ?? "";
+  const canManageApprovals = hasPermission(currentUser, "mls.loan-approvals.manage");
   const approvalsQuery = useQuery({
     queryKey: ["tenant", tenantDomainSlug, "mls-loan-approvals"],
     queryFn: () => httpGet<TenantMlsLoanApprovalWorkspaceResponse>(`/api/tenants/${tenantDomainSlug}/mls/loan-approvals`),
@@ -54,6 +65,74 @@ export function MlsLoanApprovalsPage() {
   });
   const summary = approvalsQuery.data?.summary;
   const rows = approvalsQuery.data?.rows ?? [];
+  const reviewMutation = useMutation({
+    mutationFn: ({ row, decision, remarks }: {
+      row: TenantMlsLoanApprovalWorkspaceResponse["rows"][number];
+      decision: "approve" | "reject";
+      remarks: string | null;
+    }) => {
+      const collectionSegment = row.candidateKind === "standalone-loan"
+        ? "standalone-loans"
+        : "service-invoices";
+      return httpPostJson<void, { remarks: string | null }>(
+        `/api/tenants/${tenantDomainSlug}/mls/loan-approvals/${collectionSegment}/${row.candidateId}/${decision}`,
+        { remarks }
+      );
+    },
+    onSuccess: (_, variables) => {
+      toast.success({
+        title: variables.decision === "approve" ? "Approval recorded" : "Rejection recorded",
+        message: variables.decision === "approve"
+          ? "The loan request is now approved for release."
+          : "The loan request has been rejected with review remarks."
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-loan-approvals"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-loan-conversion"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-standalone-loans"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-loans"] });
+      void queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "mls-customer-finance"] });
+    },
+    onError: (error: Error) => {
+      toast.error({
+        title: "Unable to review request",
+        message: error.message
+      });
+    }
+  });
+
+  function approveRow(row: TenantMlsLoanApprovalWorkspaceResponse["rows"][number]) {
+    if (!canManageApprovals) {
+      toast.warning({
+        title: "Permission required",
+        message: "Approval review requires mls.loan-approvals.manage."
+      });
+      return;
+    }
+
+    reviewMutation.mutate({ row, decision: "approve", remarks: null });
+  }
+
+  function rejectRow(row: TenantMlsLoanApprovalWorkspaceResponse["rows"][number]) {
+    if (!canManageApprovals) {
+      toast.warning({
+        title: "Permission required",
+        message: "Approval review requires mls.loan-approvals.manage."
+      });
+      return;
+    }
+
+    const remarks = window.prompt("Review remarks for rejection");
+    if (!remarks?.trim()) {
+      toast.warning({
+        title: "Rejection remarks required",
+        message: "Add a concise reason so the maker knows what to fix."
+      });
+      return;
+    }
+
+    reviewMutation.mutate({ row, decision: "reject", remarks: remarks.trim() });
+  }
 
   return (
     <ProtectedRoute
@@ -66,7 +145,7 @@ export function MlsLoanApprovalsPage() {
       <RecordWorkspace
         breadcrumbs={`${tenantDomainSlug} / MLS / Approvals`}
         title="Loan approvals"
-        description="Review finance-ready service invoices, payment-review blockers, and released standalone loans before a future maker-checker approval workflow is persisted."
+        description="Review maker-submitted service-linked and standalone loan requests, then approve or reject them before MLS release."
         recordCount={summary?.needsReview ?? 0}
         singularLabel="review item"
       >
@@ -78,9 +157,11 @@ export function MlsLoanApprovalsPage() {
             </WorkspaceNotice>
           ) : null}
 
-          <WorkspaceNotice>
-            Approval persistence is intentionally not introduced in this slice. This page surfaces readiness, blockers, and release-control signals from the current invoice and loan model.
-          </WorkspaceNotice>
+          {!canManageApprovals ? (
+            <WorkspaceNotice>
+              You can view the approval queue. Approve and reject actions require mls.loan-approvals.manage.
+            </WorkspaceNotice>
+          ) : null}
 
           <WorkspaceKpiRailLayout
             contentClassName="overflow-hidden"
@@ -113,14 +194,15 @@ export function MlsLoanApprovalsPage() {
                         <th>State</th>
                         <th>Risk flag</th>
                         <th>Reason</th>
+                        <th>Review</th>
                         <th>Created</th>
                       </tr>
                     </thead>
                     <tbody>
                       {approvalsQuery.isLoading ? (
-                        <RecordTableStateRow colSpan={8}>Loading approval rows...</RecordTableStateRow>
+                        <RecordTableStateRow colSpan={9}>Loading approval rows...</RecordTableStateRow>
                       ) : rows.length === 0 ? (
-                        <RecordTableStateRow colSpan={8}>No approval readiness rows are available right now.</RecordTableStateRow>
+                        <RecordTableStateRow colSpan={9}>No approval readiness rows are available right now.</RecordTableStateRow>
                       ) : (
                         rows.map((row) => (
                           <tr key={row.candidateId}>
@@ -138,6 +220,32 @@ export function MlsLoanApprovalsPage() {
                             </td>
                             <td>{row.riskFlag}</td>
                             <td className="max-w-[22rem]">{row.reason}</td>
+                            <td>
+                              {row.canApprove || row.canReject ? (
+                                <div className="inline-flex min-w-[9rem] justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    className="btn btn-xs rounded-full btn-primary"
+                                    disabled={!canManageApprovals || reviewMutation.isPending}
+                                    onClick={() => approveRow(row)}
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-xs rounded-full btn-error btn-soft"
+                                    disabled={!canManageApprovals || reviewMutation.isPending}
+                                    onClick={() => rejectRow(row)}
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-base-content/55">
+                                  {row.reviewedByUserName ? `Reviewed by ${row.reviewedByUserName}` : "No action"}
+                                </span>
+                              )}
+                            </td>
                             <td>{formatDate(row.createdAtUtc)}</td>
                           </tr>
                         ))

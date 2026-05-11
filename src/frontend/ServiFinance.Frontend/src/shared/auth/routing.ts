@@ -13,8 +13,28 @@ export function getAuthenticatedHomeRoute(user: CurrentSessionUser) {
       return "/tenants";
     }
 
+    if (permissions.has("root.system-health.view")) {
+      return "/system-health";
+    }
+
     if (permissions.has("root.audits.view")) {
       return "/audits";
+    }
+
+    if (permissions.has("root.roles-permissions.manage")) {
+      return "/roles-permissions";
+    }
+
+    if (permissions.has("root.subscriptions.manage")) {
+      return "/subscriptions";
+    }
+
+    if (permissions.has("root.modules.manage")) {
+      return "/modules";
+    }
+
+    if (permissions.has("root.users.manage")) {
+      return "/root-users";
     }
 
     return "/dashboard";

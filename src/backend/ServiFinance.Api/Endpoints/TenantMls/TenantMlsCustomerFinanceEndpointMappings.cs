@@ -149,6 +149,7 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
           }
 
           var loans = customer.MicroLoans
+              .Where(IsReleasedLoan)
               .OrderByDescending(entity => entity.CreatedAtUtc)
               .Select(entity => CreateLoanAccountRow(entity, customer.FullName, lateFeePolicy, DateTime.UtcNow))
               .ToArray();
@@ -379,15 +380,16 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
       Customer entity,
       TenantMlsLateFeePolicySnapshot lateFeePolicy,
       DateTime asOfUtc) {
-    var activeLoanCount = entity.MicroLoans.Count(item => item.LoanStatus != "Paid");
-    var settledLoanCount = entity.MicroLoans.Count(item => item.LoanStatus == "Paid");
+    var releasedLoans = entity.MicroLoans.Where(IsReleasedLoan).ToArray();
+    var activeLoanCount = releasedLoans.Count(item => item.LoanStatus != "Paid");
+    var settledLoanCount = releasedLoans.Count(item => item.LoanStatus == "Paid");
     var serviceInvoiceOutstandingBalance = entity.Invoices
         .Where(item => item.MicroLoan == null)
         .Sum(item => item.OutstandingAmount);
-    var outstandingBalance = entity.MicroLoans.Sum(item => TenantMlsLoanMath.GetOutstandingBalance(item, lateFeePolicy, asOfUtc)) + serviceInvoiceOutstandingBalance;
+    var outstandingBalance = releasedLoans.Sum(item => TenantMlsLoanMath.GetOutstandingBalance(item, lateFeePolicy, asOfUtc)) + serviceInvoiceOutstandingBalance;
     var loanPaymentTransactions = GetActiveLoanPaymentTransactions(entity.Transactions);
     var totalCollectedAmount = loanPaymentTransactions.Sum(item => item.CreditAmount) + GetApprovedServiceInvoicePaymentTotal(entity.Invoices);
-    var nextDueDate = entity.MicroLoans
+    var nextDueDate = releasedLoans
         .SelectMany(item => item.AmortizationSchedules)
         .Where(item => TenantMlsLoanMath.GetInstallmentOutstandingBalance(item, lateFeePolicy, asOfUtc) > 0m)
         .OrderBy(item => item.DueDate)
@@ -509,6 +511,9 @@ internal static class TenantMlsCustomerFinanceEndpointMappings {
         .SelectMany(item => item.PaymentSubmissions)
         .Where(item => item.Status == "Approved")
         .Sum(item => item.ApprovedAmount ?? item.AmountSubmitted);
+
+  private static bool IsReleasedLoan(MicroLoan loan) =>
+    loan.LoanStatus != "Pending Approval" && loan.LoanStatus != "Rejected";
 
   private static DateTime? GetLatestDate(DateTime? first, DateTime? second) {
     if (!first.HasValue) {

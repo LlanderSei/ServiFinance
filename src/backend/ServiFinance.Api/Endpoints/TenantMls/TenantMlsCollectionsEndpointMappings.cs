@@ -37,6 +37,7 @@ internal static class TenantMlsCollectionsEndpointMappings {
               .Include(entity => entity.MicroLoan)
                 .ThenInclude(entity => entity!.Invoice)
               .Where(entity => entity.InstallmentStatus != "Paid")
+              .Where(entity => entity.MicroLoan != null && entity.MicroLoan.LoanStatus != "Pending Approval" && entity.MicroLoan.LoanStatus != "Rejected")
               .ToListAsync(cancellationToken);
 
           var allEntries = schedules

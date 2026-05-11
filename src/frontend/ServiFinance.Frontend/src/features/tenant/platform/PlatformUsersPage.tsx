@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { useParams } from "react-router-dom";
+import { PasswordPolicyChecklist } from "@/shared/auth/PasswordPolicyChecklist";
 import { hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
@@ -469,6 +470,14 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
               </WorkspaceSelect>
             </WorkspaceField>
           </WorkspaceFieldGrid>
+          {modalMode === "create" ? (
+            <PasswordPolicyChecklist
+              password={form.password}
+              email={form.email}
+              fullName={form.fullName}
+              tenantDomainSlug={tenantDomainSlug}
+            />
+          ) : null}
         </WorkspaceForm>
       </RecordFormModal>
     </>

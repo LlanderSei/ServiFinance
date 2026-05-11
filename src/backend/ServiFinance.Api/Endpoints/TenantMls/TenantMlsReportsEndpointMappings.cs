@@ -43,7 +43,7 @@ internal static class TenantMlsReportsEndpointMappings {
               .AsNoTracking()
               .Include(entity => entity.Customer)
               .Include(entity => entity.AmortizationSchedules)
-              .Where(entity => entity.LoanStatus != "Paid")
+              .Where(entity => entity.LoanStatus != "Paid" && entity.LoanStatus != "Pending Approval" && entity.LoanStatus != "Rejected")
               .ToListAsync(cancellationToken);
 
           var outstandingPortfolioBalance = activeLoans
@@ -54,6 +54,7 @@ internal static class TenantMlsReportsEndpointMappings {
               .Include(entity => entity.MicroLoan)
                 .ThenInclude(entity => entity!.Customer)
               .Where(entity => entity.InstallmentStatus != "Paid")
+              .Where(entity => entity.MicroLoan != null && entity.MicroLoan.LoanStatus != "Pending Approval" && entity.MicroLoan.LoanStatus != "Rejected")
               .ToListAsync(cancellationToken);
 
           var overdueBalance = overdueSchedules

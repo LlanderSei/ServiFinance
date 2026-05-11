@@ -256,7 +256,7 @@ This area exists today, but it is still a known depth gap compared with the rich
 ## 10. Current Deferred Or Incomplete Areas
 
 - deeper MLS reporting and comparison depth
-- persisted maker-checker loan approval decisions
+- deeper approval reporting around persisted maker-checker loan decisions
 - Google auth, MFA, password recovery, and stronger lockout or throttling
 - broader Stripe provider-event coverage and recovery hardening
 - final cleanup of redundant page-level and route-level MLS guard duplication

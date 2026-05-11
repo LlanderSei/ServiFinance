@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
+import { CaptchaField } from "@/shared/auth/CaptchaField";
+import { PasswordPolicyChecklist } from "@/shared/auth/PasswordPolicyChecklist";
+import { useCaptchaChallenge, type CaptchaChallenge } from "@/shared/auth/useCaptchaChallenge";
 import type {
   CreatePlatformTenantCheckoutRequest,
   CreatePlatformTenantCheckoutResponse,
@@ -68,6 +71,7 @@ export function RegisterPage() {
   const [formState, setFormState] = useState<RegistrationFormState>(initialFormState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [domainSlugTouched, setDomainSlugTouched] = useState(false);
+  const registrationCaptcha = useCaptchaChallenge(isRegistrationModalOpen);
 
   const checkoutState = searchParams.get("checkout");
   const checkoutSessionId = searchParams.get("session_id")?.trim() ?? "";
@@ -138,6 +142,7 @@ export function RegisterPage() {
     },
     onError: (error) => {
       setErrorMessage(getApiErrorMessage(error, "Unable to start the Stripe checkout right now."));
+      void registrationCaptcha.refresh();
     }
   });
 
@@ -197,8 +202,8 @@ export function RegisterPage() {
       return;
     }
 
-    if (formState.ownerPassword.length < 8) {
-      setErrorMessage("Owner password must be at least 8 characters.");
+    if (formState.ownerPassword.length < 12) {
+      setErrorMessage("Owner password must be at least 12 characters.");
       return;
     }
 
@@ -213,7 +218,8 @@ export function RegisterPage() {
       ownerFullName: formState.ownerFullName.trim(),
       ownerEmail: formState.ownerEmail.trim(),
       ownerPassword: formState.ownerPassword,
-      subscriptionTierId: selectedTier.id
+      subscriptionTierId: selectedTier.id,
+      captcha: registrationCaptcha.proof
     });
   }
 
@@ -325,6 +331,12 @@ export function RegisterPage() {
           onSubmit={handleSubmit}
           onUpdateField={updateField}
           onDomainSlugChange={handleDomainSlugChange}
+          captchaAnswer={registrationCaptcha.answer}
+          captchaChallenge={registrationCaptcha.challenge}
+          captchaError={registrationCaptcha.error}
+          isCaptchaLoading={registrationCaptcha.isLoading}
+          onCaptchaAnswerChange={registrationCaptcha.setAnswer}
+          onCaptchaRefresh={registrationCaptcha.refresh}
         />
       ) : null}
 
@@ -455,7 +467,13 @@ function RegistrationModal({
   onClose,
   onSubmit,
   onUpdateField,
-  onDomainSlugChange
+  onDomainSlugChange,
+  captchaAnswer,
+  captchaChallenge,
+  captchaError,
+  isCaptchaLoading,
+  onCaptchaAnswerChange,
+  onCaptchaRefresh
 }: {
   selectedTier: SubscriptionTierCard;
   tiers: SubscriptionTierCard[];
@@ -469,6 +487,12 @@ function RegistrationModal({
     value: RegistrationFormState[TKey]
   ) => void;
   onDomainSlugChange: (value: string) => void;
+  captchaAnswer: string;
+  captchaChallenge: CaptchaChallenge | null;
+  captchaError: string | null;
+  isCaptchaLoading: boolean;
+  onCaptchaAnswerChange: (value: string) => void;
+  onCaptchaRefresh: () => void;
 }) {
   const benefitPresentation = getTierBenefitPresentation(selectedTier, tiers);
   const webModules = selectedTier.modules.filter((module) => module.channel === "Web");
@@ -586,7 +610,7 @@ function RegistrationModal({
                 className="input input-bordered input-sm w-full border-slate-900/10 bg-white/95 text-slate-950"
                 value={formState.ownerPassword}
                 onChange={(event) => onUpdateField("ownerPassword", event.target.value)}
-                placeholder="Minimum 8 characters"
+                placeholder="Minimum 12 characters"
                 disabled={isPending}
               />
             </label>
@@ -602,6 +626,29 @@ function RegistrationModal({
                 disabled={isPending}
               />
             </label>
+
+            <div className="sm:col-span-2">
+              <PasswordPolicyChecklist
+                password={formState.ownerPassword}
+                confirmPassword={formState.confirmPassword}
+                email={formState.ownerEmail}
+                fullName={formState.ownerFullName}
+                tenantDomainSlug={formState.domainSlug}
+                businessName={formState.businessName}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <CaptchaField
+                answer={captchaAnswer}
+                challenge={captchaChallenge}
+                disabled={isPending}
+                error={captchaError}
+                isLoading={isCaptchaLoading}
+                onAnswerChange={onCaptchaAnswerChange}
+                onRefresh={onCaptchaRefresh}
+              />
+            </div>
 
             {errorMessage ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 sm:col-span-2">

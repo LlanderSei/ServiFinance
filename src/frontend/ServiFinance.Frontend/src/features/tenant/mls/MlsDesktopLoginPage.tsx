@@ -1,11 +1,16 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AuthSessionResponse } from "@/shared/api/contracts";
+import type { AuthSessionResponse, MfaChallengeResponse } from "@/shared/api/contracts";
 import { readApiErrorMessage } from "@/shared/api/http";
+import { CaptchaField } from "@/shared/auth/CaptchaField";
+import { PasswordResetPanel } from "@/shared/auth/PasswordResetPanel";
 import { applySession, getCurrentSession, refreshSession } from "@/shared/auth/session";
+import { useCaptchaChallenge } from "@/shared/auth/useCaptchaChallenge";
 import { PublicButton } from "@/shared/public/PublicPrimitives";
 import { isDesktopShell, resolveApiUrl, toPlatformRoute } from "@/platform/runtime";
+
+type LoginMode = "tenant" | "root";
 
 function sanitizeReturnUrl(returnUrl: string | null) {
   if (!returnUrl || !returnUrl.startsWith("/t/mls")) {
@@ -21,9 +26,15 @@ export function MlsDesktopLoginPage() {
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("admin@local.servifinance");
   const [password, setPassword] = useState("");
+  const [loginMode, setLoginMode] = useState<LoginMode>("tenant");
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [localNotice, setLocalNotice] = useState<string | null>(null);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallengeResponse | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const captcha = useCaptchaChallenge(!showPasswordReset && !mfaChallenge);
   const { data: session } = useQuery({
     queryKey: ["auth", "refresh", "optional"],
     queryFn: refreshSession,
@@ -34,35 +45,67 @@ export function MlsDesktopLoginPage() {
     () => sanitizeReturnUrl(searchParams.get("returnUrl")),
     [searchParams]
   );
+  const isRootMode = loginMode === "root";
 
   if (session?.user.surface === "TenantDesktop") {
     return <Navigate to={returnUrl} replace />;
+  }
+
+  if (session?.user.surface === "Root") {
+    return <Navigate to="/dashboard" replace />;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     setLocalError(null);
+    setLocalNotice(null);
 
     try {
-      const response = await fetch(await resolveApiUrl("/api/auth/tenant/login"), {
+      const isMfaContinuation = mfaChallenge !== null;
+      const response = await fetch(await resolveApiUrl(isRootMode ? "/api/auth/root/login" : "/api/auth/tenant/login"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         credentials: "omit",
-        body: JSON.stringify({
-          email,
-          password,
-          targetSystem: "mls",
-          useCookieSession: false,
-          returnUrl
-        })
+        body: JSON.stringify(isRootMode
+          ? {
+              email,
+              password,
+              rememberMe: false,
+              useCookieSession: false,
+              returnUrl: "/dashboard",
+              captcha: isMfaContinuation ? null : captcha.proof,
+              mfaChallengeId: mfaChallenge?.challengeId,
+              mfaCode: isMfaContinuation ? mfaCode : null
+            }
+          : {
+              email,
+              password,
+              targetSystem: "mls",
+              useCookieSession: false,
+              returnUrl,
+              captcha: isMfaContinuation ? null : captcha.proof,
+              mfaChallengeId: mfaChallenge?.challengeId,
+              mfaCode: isMfaContinuation ? mfaCode : null
+            })
       });
+
+      if (response.status === 202) {
+        const challenge = await response.json() as MfaChallengeResponse;
+        setMfaChallenge(challenge);
+        setMfaCode("");
+        setLocalError(challenge.developmentCode
+          ? `${challenge.message} Development code: ${challenge.developmentCode}`
+          : challenge.message);
+        return;
+      }
 
       if (!response.ok) {
         const errorMessage = await readApiErrorMessage(response);
-        setLocalError(errorMessage ?? "Invalid MLS email or password.");
+        setLocalError(errorMessage ?? (isRootMode ? "Invalid superadmin email or password." : "Invalid MLS email or password."));
+        await captcha.refresh();
         return;
       }
 
@@ -71,16 +114,19 @@ export function MlsDesktopLoginPage() {
       const session = getCurrentSession();
       queryClient.setQueryData(["auth", "refresh"], session);
       queryClient.setQueryData(["auth", "refresh", "optional"], session);
+      const destination = payload.user.surface === "Root" ? "/dashboard" : returnUrl;
 
       if (isDesktopShell()) {
-        navigate(returnUrl, { replace: true });
+        navigate(destination, { replace: true });
         return;
       }
 
-      window.location.assign(toPlatformRoute(returnUrl));
+      window.location.assign(toPlatformRoute(destination));
     }
     catch {
-      setLocalError("Unable to reach the MLS authentication endpoint.");
+      setLocalError(isRootMode
+        ? "Unable to reach the superadmin authentication endpoint."
+        : "Unable to reach the MLS authentication endpoint.");
     }
     finally {
       setSubmitting(false);
@@ -105,10 +151,10 @@ export function MlsDesktopLoginPage() {
               Desktop Login Dashboard
             </p>
             <p className="mt-5 max-w-[30rem] text-[1.05rem] leading-[1.8] text-[rgba(236,244,255,0.82)]">
-              Sign in with tenant owner or tenant member credentials. MLS automatically loads the correct tenant records after authentication, so this desktop surface never uses the superadmin login.
+              Sign in with tenant owner or tenant member credentials for finance work, or switch to the isolated superadmin mode when the desktop app is being used as an operations terminal.
             </p>
 
-            <div className="mt-10 grid gap-4 text-sm text-[rgba(236,244,255,0.78)] sm:grid-cols-3">
+            <div className="mt-10 grid gap-4 text-sm text-[rgba(236,244,255,0.78)] sm:grid-cols-2">
               <div className="border-t border-white/16 pt-4">
                 <strong className="block text-white">Tenant-aware by session</strong>
                 <span className="mt-2 block">Your workspace resolves from your MLS account, not from a typed route.</span>
@@ -121,6 +167,10 @@ export function MlsDesktopLoginPage() {
                 <strong className="block text-white">Shared tenant credentials</strong>
                 <span className="mt-2 block">Tenant owners and approved staff can use the same account set across SMS and MLS.</span>
               </div>
+              <div className="border-t border-white/16 pt-4">
+                <strong className="block text-white">Separate root access</strong>
+                <span className="mt-2 block">Superadmin sign-in opens the root control plane and does not inherit tenant MLS state.</span>
+              </div>
             </div>
           </div>
         </section>
@@ -129,16 +179,71 @@ export function MlsDesktopLoginPage() {
           <div className="mls-login__panel-shell mx-auto w-full max-w-[30rem] rounded-[2rem] border border-white/60 bg-[rgba(255,255,255,0.82)] p-6 shadow-[0_28px_65px_rgba(15,23,42,0.14)] backdrop-blur-xl sm:p-8">
             <div>
               <p className="text-[0.74rem] font-bold uppercase tracking-[0.2em] text-slate-500">MLS operator access</p>
-              <h2 className="mt-2 text-[2.15rem] leading-[1.02] tracking-[-0.05em] text-slate-950">Tenant desktop sign in</h2>
+              <h2 className="mt-2 text-[2.15rem] leading-[1.02] tracking-[-0.05em] text-slate-950">
+                {isRootMode ? "Superadmin desktop sign in" : "Tenant desktop sign in"}
+              </h2>
               <p className="mt-3 max-w-[24rem] text-[0.98rem] leading-[1.7] text-slate-600">
-                Enter your email and password to open the MLS desktop workspace. This page accepts tenant credentials only.
+                {isRootMode
+                  ? "Enter root credentials to open the superadmin control plane inside the desktop app. Tenant MLS state stays separate."
+                  : "Enter your email and password to open the MLS desktop workspace. Tenant records are resolved from your authenticated account."}
               </p>
             </div>
 
+            <div className="mt-6 grid grid-cols-2 gap-2 rounded-full border border-slate-200 bg-white/70 p-1 shadow-sm">
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${!isRootMode ? "bg-[#152540] text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"}`}
+                onClick={() => {
+                  setLoginMode("tenant");
+                  setLocalError(null);
+                  setLocalNotice(null);
+                  setShowPasswordReset(false);
+                  setMfaChallenge(null);
+                  setMfaCode("");
+                }}
+              >
+                Tenant MLS
+              </button>
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${isRootMode ? "bg-[#152540] text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"}`}
+                onClick={() => {
+                  setLoginMode("root");
+                  setLocalError(null);
+                  setLocalNotice(null);
+                  setShowPasswordReset(false);
+                  setMfaChallenge(null);
+                  setMfaCode("");
+                }}
+              >
+                Superadmin
+              </button>
+            </div>
+
+            {showPasswordReset ? (
+              <div className="mt-8">
+                <PasswordResetPanel
+                  surface={isRootMode ? "root" : "mls"}
+                  defaultEmail={email}
+                  onCancel={() => setShowPasswordReset(false)}
+                  onCompleted={() => {
+                    setShowPasswordReset(false);
+                    setLocalNotice("Password reset successfully. Sign in with the new password.");
+                    setLocalError(null);
+                  }}
+                />
+              </div>
+            ) : (
             <form className="mt-8 grid gap-4" onSubmit={handleSubmit}>
               {localError ? (
                 <div className="rounded-[1.35rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                   {localError}
+                </div>
+              ) : null}
+
+              {localNotice ? (
+                <div className="rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {localNotice}
                 </div>
               ) : null}
 
@@ -178,17 +283,58 @@ export function MlsDesktopLoginPage() {
                 </div>
               </label>
 
+              {mfaChallenge ? (
+                <label className="grid gap-2">
+                  <span className="text-[0.88rem] font-medium text-slate-600">MFA code</span>
+                  <input
+                    className="h-13 rounded-[1.1rem] border border-slate-200 bg-white px-4 text-slate-950 shadow-sm outline-none focus:border-slate-900 focus:ring-4 focus:ring-slate-900/8"
+                    value={mfaCode}
+                    onChange={(event) => setMfaCode(event.target.value)}
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    required
+                  />
+                </label>
+              ) : (
+                <CaptchaField
+                  answer={captcha.answer}
+                  challenge={captcha.challenge}
+                  disabled={submitting}
+                  error={captcha.error}
+                  isLoading={captcha.isLoading}
+                  onAnswerChange={captcha.setAnswer}
+                  onRefresh={captcha.refresh}
+                />
+              )}
+
+              <button
+                type="button"
+                className="w-fit text-sm font-semibold text-slate-700 underline-offset-4 hover:text-slate-950 hover:underline"
+                onClick={() => {
+                  setLocalError(null);
+                  setLocalNotice(null);
+                  setMfaChallenge(null);
+                  setMfaCode("");
+                  setShowPasswordReset(true);
+                }}
+              >
+                Forgot password?
+              </button>
+
               <button
                 type="submit"
                 className="mt-2 inline-flex min-h-13 items-center justify-center rounded-full bg-[#152540] px-5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(21,37,64,0.22)] hover:-translate-y-px hover:bg-[#0f1e36] disabled:translate-y-0 disabled:cursor-wait disabled:opacity-70"
                 disabled={submitting}
               >
-                {submitting ? "Signing in..." : "Open MLS Desktop"}
+                {submitting ? "Signing in..." : isRootMode ? "Open Superadmin Desktop" : "Open MLS Desktop"}
               </button>
             </form>
+            )}
 
             <div className="mt-8 border-t border-slate-200 pt-4 text-sm leading-[1.7] text-slate-500">
-              This MLS login dashboard is separate from the superadmin control plane. Use the web app for SMS, and this desktop surface for MLS.
+              {isRootMode
+                ? "Superadmin sessions use the root surface and cannot access tenant MLS pages unless a tenant user signs in."
+                : "Tenant MLS sessions use the desktop finance surface. Switch to Superadmin only for root platform operations."}
             </div>
           </div>
         </section>

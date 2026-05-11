@@ -293,7 +293,7 @@ const desktopRoutes = [
 ];
 
 function SuperadminProtectedLayout() {
-  return <ProtectedRoute requireSurface="Root" requireRole="SuperAdmin" />;
+  return <ProtectedRoute requireSurface="Root" />;
 }
 
 function TenantSmsProtectedLayout() {

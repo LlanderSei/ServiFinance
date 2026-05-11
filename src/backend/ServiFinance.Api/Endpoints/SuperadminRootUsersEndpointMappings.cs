@@ -56,6 +56,7 @@ internal static class SuperadminRootUsersEndpointMappings {
       [FromBody] CreateUserRequest request,
       ServiFinanceDbContext dbContext,
       IPasswordHasher<AppUser> passwordHasher,
+      IPasswordPolicyService passwordPolicyService,
       CancellationToken cancellationToken) {
     string fullName;
     string email;
@@ -73,6 +74,13 @@ internal static class SuperadminRootUsersEndpointMappings {
 
     if (string.IsNullOrWhiteSpace(request.Password)) {
       return Results.BadRequest(new { error = "Temporary password is required." });
+    }
+
+    var passwordPolicy = passwordPolicyService.Validate(
+        request.Password,
+        new PasswordPolicyContext(email, fullName));
+    if (!passwordPolicy.IsValid) {
+      return Results.BadRequest(new { error = string.Join(" ", passwordPolicy.Errors) });
     }
 
     var normalizedEmailUpper = email.ToUpperInvariant();

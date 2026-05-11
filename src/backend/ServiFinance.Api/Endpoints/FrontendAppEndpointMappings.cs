@@ -20,9 +20,13 @@ internal static class FrontendAppEndpointMappings {
     app.MapGet("/", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/register", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/dashboard", () => Results.File(indexHtml, "text/html"));
+    app.MapGet("/system-health", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/tenants", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/root-users", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/subscriptions", () => Results.File(indexHtml, "text/html"));
+    app.MapGet("/modules", () => Results.File(indexHtml, "text/html"));
+    app.MapGet("/roles-permissions", () => Results.File(indexHtml, "text/html"));
+    app.MapGet("/audits", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/desktop-required", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/forbidden", () => Results.File(indexHtml, "text/html"));
     app.MapGet("/error", () => Results.File(indexHtml, "text/html"));
@@ -47,6 +51,7 @@ internal static class FrontendAppEndpointMappings {
     app.MapGet("/t/{tenantDomainSlug}/sms/dispatch", (string tenantDomainSlug) => Results.File(indexHtml, "text/html"));
     app.MapGet("/t/{tenantDomainSlug}/sms/reports", (string tenantDomainSlug) => Results.File(indexHtml, "text/html"));
     app.MapGet("/t/{tenantDomainSlug}/sms/users", (string tenantDomainSlug) => Results.File(indexHtml, "text/html"));
+    app.MapGet("/t/{tenantDomainSlug}/sms/{**smsPath}", (string tenantDomainSlug, string? smsPath) => Results.File(indexHtml, "text/html"));
     app.MapGet("/t/{tenantDomainSlug}/mls", (string tenantDomainSlug) => Results.Redirect("/desktop-required"));
     app.MapGet("/t/{tenantDomainSlug}/mls/{**mlsPath}", (string tenantDomainSlug, string? mlsPath) => Results.Redirect("/desktop-required"));
     app.MapGet("/favicon.svg", () => File.Exists(faviconSvg)

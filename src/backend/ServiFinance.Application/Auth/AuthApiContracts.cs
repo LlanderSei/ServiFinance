@@ -5,7 +5,10 @@ public sealed record RootApiLoginRequest(
     string Password,
     bool RememberMe,
     bool UseCookieSession = false,
-    string? ReturnUrl = null);
+    string? ReturnUrl = null,
+    CaptchaProof? Captcha = null,
+    string? MfaChallengeId = null,
+    string? MfaCode = null);
 
 public sealed record TenantApiLoginRequest(
     string Email,
@@ -13,7 +16,10 @@ public sealed record TenantApiLoginRequest(
     string? TenantDomainSlug,
     string TargetSystem,
     bool UseCookieSession = false,
-    string? ReturnUrl = null);
+    string? ReturnUrl = null,
+    CaptchaProof? Captcha = null,
+    string? MfaChallengeId = null,
+    string? MfaCode = null);
 
 public sealed record RefreshSessionRequest(string RefreshToken);
 
@@ -21,7 +27,10 @@ public sealed record CustomerApiLoginRequest(
     string TenantDomainSlug,
     string Email,
     string Password,
-    bool UseCookieSession = true);
+    bool UseCookieSession = true,
+    CaptchaProof? Captcha = null,
+    string? MfaChallengeId = null,
+    string? MfaCode = null);
 
 public sealed record CustomerRegisterRequest(
     string TenantDomainSlug,
@@ -31,7 +40,8 @@ public sealed record CustomerRegisterRequest(
     string Address,
     string? AddressDetails,
     string Password,
-    bool UseCookieSession = true);
+    bool UseCookieSession = true,
+    CaptchaProof? Captcha = null);
 
 public sealed record AuthSessionTokens(
     string AccessToken,

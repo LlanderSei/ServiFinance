@@ -92,7 +92,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
 
       <div
-        className="pointer-events-none fixed right-4 top-4 z-[120] grid w-[min(24rem,calc(100vw-2rem))] gap-3"
+        className="pointer-events-none fixed right-4 top-[max(1rem,env(safe-area-inset-top))] z-[260] grid w-[min(24rem,calc(100vw-2rem))] gap-3"
         aria-live="polite"
         aria-atomic="false"
       >

@@ -422,9 +422,9 @@ Follow-up MLS Medium implementation:
 - `Medium Premium` receives the new MLS control modules as `Included`; Standard remains SMS web-only
 - backend MLS module constants and module labels now cover the new Medium Premium desktop modules
 - new permission keys exist for `mls.portfolio-risk.view`, `mls.loan-approvals.view`, and `mls.finance-policy.view`
-- tenant MLS endpoints now expose dedicated, module-guarded read models for portfolio risk, loan approval readiness, and finance policy control
+- tenant MLS endpoints now expose dedicated, module-guarded read and review models for portfolio risk, persisted loan approvals, and finance policy control
 - tenant MLS desktop sidebar and routes now hide/show the new pages based on both permission and subscription module access
-- the first approval page is intentionally read-only because persisted maker-checker approval states are not yet part of the loan schema; it reports readiness, payment-review blockers, and released loan signals from existing data
+- the loan approval page now supports persisted maker-checker review for service-linked invoice conversion and standalone loan release, while still reporting readiness, payment-review blockers, and released loan signals from existing data
 
 ## Phase 12: Subscription Recovery and Downgrade Operations
 

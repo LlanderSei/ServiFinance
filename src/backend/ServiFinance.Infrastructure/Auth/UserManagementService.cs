@@ -9,7 +9,8 @@ namespace ServiFinance.Infrastructure.Auth;
 public sealed class UserManagementService(
     ServiFinanceDbContext dbContext,
     IPasswordHasher<AppUser> passwordHasher,
-    IRolePermissionManagementService rolePermissionManagementService) : IUserManagementService {
+    IRolePermissionManagementService rolePermissionManagementService,
+    IPasswordPolicyService passwordPolicyService) : IUserManagementService {
   private const int EmailMaxLength = 50;
 
   public async Task<IReadOnlyList<UserListItem>> GetUsersAsync(CancellationToken cancellationToken = default) {
@@ -56,6 +57,13 @@ public sealed class UserManagementService(
 
     if (string.IsNullOrWhiteSpace(request.Password)) {
       throw new InvalidOperationException("Temporary password is required.");
+    }
+
+    var passwordPolicy = passwordPolicyService.Validate(
+        request.Password,
+        new PasswordPolicyContext(normalizedEmail, normalizedFullName));
+    if (!passwordPolicy.IsValid) {
+      throw new InvalidOperationException(string.Join(" ", passwordPolicy.Errors));
     }
 
     var normalizedEmailUpper = normalizedEmail.ToUpperInvariant();
@@ -134,6 +142,13 @@ public sealed class UserManagementService(
   public async Task ResetPasswordAsync(Guid userId, string newPassword, CancellationToken cancellationToken = default) {
     var user = await dbContext.Users.SingleOrDefaultAsync(entity => entity.Id == userId, cancellationToken)
         ?? throw new InvalidOperationException("User not found.");
+
+    var passwordPolicy = passwordPolicyService.Validate(
+        newPassword,
+        new PasswordPolicyContext(user.Email, user.FullName));
+    if (!passwordPolicy.IsValid) {
+      throw new InvalidOperationException(string.Join(" ", passwordPolicy.Errors));
+    }
 
     user.PasswordHash = passwordHasher.HashPassword(user, newPassword);
     await dbContext.SaveChangesAsync(cancellationToken);

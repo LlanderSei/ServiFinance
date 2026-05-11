@@ -1,7 +1,10 @@
-import { FormEvent, useMemo, useState } from "react";
-import type { AuthSessionResponse } from "@/shared/api/contracts";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { AuthSessionResponse, MfaChallengeResponse } from "@/shared/api/contracts";
+import { CaptchaField } from "@/shared/auth/CaptchaField";
+import { PasswordResetPanel } from "@/shared/auth/PasswordResetPanel";
 import { isDesktopShell, resolveApiUrl, toPlatformRoute } from "@/platform/runtime";
 import { applySession } from "@/shared/auth/session";
+import { useCaptchaChallenge } from "@/shared/auth/useCaptchaChallenge";
 import { PublicButton } from "@/shared/public/PublicPrimitives";
 
 type Props = {
@@ -17,7 +20,22 @@ export function RootLoginModal({ open, error, onClose }: Props) {
   const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [localNotice, setLocalNotice] = useState<string | null>(null);
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallengeResponse | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const captcha = useCaptchaChallenge(open && !mfaChallenge && !showPasswordReset);
   const returnUrl = useMemo(() => "/dashboard", []);
+
+  useEffect(() => {
+    if (!open) {
+      setMfaChallenge(null);
+      setMfaCode("");
+      setLocalError(null);
+      setLocalNotice(null);
+      setShowPasswordReset(false);
+    }
+  }, [open]);
 
   if (!open) {
     return null;
@@ -27,8 +45,10 @@ export function RootLoginModal({ open, error, onClose }: Props) {
     event.preventDefault();
     setSubmitting(true);
     setLocalError(null);
+    setLocalNotice(null);
 
     try {
+      const isMfaContinuation = mfaChallenge !== null;
       const response = await fetch(await resolveApiUrl("/api/auth/root/login"), {
         method: "POST",
         headers: {
@@ -40,12 +60,26 @@ export function RootLoginModal({ open, error, onClose }: Props) {
           password,
           rememberMe,
           useCookieSession: !isDesktopShell(),
-          returnUrl
+          returnUrl,
+          captcha: isMfaContinuation ? null : captcha.proof,
+          mfaChallengeId: mfaChallenge?.challengeId,
+          mfaCode: isMfaContinuation ? mfaCode : null
         })
       });
 
+      if (response.status === 202) {
+        const challenge = await response.json() as MfaChallengeResponse;
+        setMfaChallenge(challenge);
+        setMfaCode("");
+        setLocalError(challenge.developmentCode
+          ? `${challenge.message} Development code: ${challenge.developmentCode}`
+          : challenge.message);
+        return;
+      }
+
       if (!response.ok) {
         setLocalError("Invalid superadmin email or password.");
+        await captcha.refresh();
         return;
       }
 
@@ -86,8 +120,20 @@ export function RootLoginModal({ open, error, onClose }: Props) {
           </button>
         </div>
 
+        {showPasswordReset ? (
+          <PasswordResetPanel
+            surface="root"
+            defaultEmail={email}
+            onCancel={() => setShowPasswordReset(false)}
+            onCompleted={() => {
+              setShowPasswordReset(false);
+              setLocalNotice("Password reset successfully. Sign in with the new password.");
+            }}
+          />
+        ) : (
         <form className="grid gap-4" onSubmit={handleSubmit}>
           {(localError || error) && <div className="alert alert-error/80 rounded-2xl">{localError || error}</div>}
+          {localNotice && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{localNotice}</div>}
 
           <label className="grid gap-2">
             <span className="text-[0.92rem] text-slate-500">Email</span>
@@ -120,10 +166,47 @@ export function RootLoginModal({ open, error, onClose }: Props) {
             </div>
           </label>
 
+          {mfaChallenge ? (
+            <label className="grid gap-2">
+              <span className="text-[0.92rem] text-slate-500">MFA code</span>
+              <input
+                className="input input-bordered w-full border-slate-900/10 bg-white/95 text-slate-950"
+                value={mfaCode}
+                onChange={(event) => setMfaCode(event.target.value)}
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                required
+              />
+            </label>
+          ) : (
+            <CaptchaField
+              answer={captcha.answer}
+              challenge={captcha.challenge}
+              disabled={submitting}
+              error={captcha.error}
+              isLoading={captcha.isLoading}
+              onAnswerChange={captcha.setAnswer}
+              onRefresh={captcha.refresh}
+            />
+          )}
+
           <label className="inline-flex items-center gap-2 text-slate-500">
             <input className="checkbox checkbox-sm border-slate-400/60" type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} />
             <span>Remember me on this device</span>
           </label>
+
+          <button
+            type="button"
+            className="w-fit text-sm font-semibold text-slate-700 underline-offset-4 hover:text-slate-950 hover:underline"
+            onClick={() => {
+              setLocalError(null);
+              setLocalNotice(null);
+              setMfaChallenge(null);
+              setShowPasswordReset(true);
+            }}
+          >
+            Forgot password?
+          </button>
 
           <div className="flex justify-end gap-3">
             <PublicButton tone="ghost" onClick={onClose}>Cancel</PublicButton>
@@ -132,6 +215,7 @@ export function RootLoginModal({ open, error, onClose }: Props) {
             </PublicButton>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

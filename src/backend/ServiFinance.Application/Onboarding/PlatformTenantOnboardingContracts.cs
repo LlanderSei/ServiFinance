@@ -1,12 +1,15 @@
 namespace ServiFinance.Application.Onboarding;
 
+using ServiFinance.Application.Auth;
+
 public sealed record CreatePlatformTenantCheckoutRequest(
     string BusinessName,
     string DomainSlug,
     string OwnerFullName,
     string OwnerEmail,
     string OwnerPassword,
-    Guid SubscriptionTierId);
+    Guid SubscriptionTierId,
+    CaptchaProof? Captcha = null);
 
 public sealed record StripeTenantCheckoutSession(
     Guid RegistrationId,

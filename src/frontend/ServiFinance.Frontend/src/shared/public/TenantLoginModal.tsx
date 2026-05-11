@@ -1,8 +1,11 @@
-import { FormEvent, useState } from "react";
-import type { AuthSessionResponse } from "@/shared/api/contracts";
+import { FormEvent, useEffect, useState } from "react";
+import type { AuthSessionResponse, MfaChallengeResponse } from "@/shared/api/contracts";
 import { readApiErrorMessage } from "@/shared/api/http";
+import { CaptchaField } from "@/shared/auth/CaptchaField";
+import { PasswordResetPanel } from "@/shared/auth/PasswordResetPanel";
 import { isDesktopShell, resolveApiUrl, toPlatformRoute } from "@/platform/runtime";
 import { applySession } from "@/shared/auth/session";
+import { useCaptchaChallenge } from "@/shared/auth/useCaptchaChallenge";
 import { PublicButton } from "@/shared/public/PublicPrimitives";
 
 type Props = {
@@ -19,6 +22,21 @@ export function TenantLoginModal({ open, tenantDomainSlug, system, error, onClos
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [localNotice, setLocalNotice] = useState<string | null>(null);
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallengeResponse | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const captcha = useCaptchaChallenge(open && !mfaChallenge && !showPasswordReset);
+
+  useEffect(() => {
+    if (!open) {
+      setMfaChallenge(null);
+      setMfaCode("");
+      setLocalError(null);
+      setLocalNotice(null);
+      setShowPasswordReset(false);
+    }
+  }, [open]);
 
   if (!open) {
     return null;
@@ -30,8 +48,10 @@ export function TenantLoginModal({ open, tenantDomainSlug, system, error, onClos
     event.preventDefault();
     setSubmitting(true);
     setLocalError(null);
+    setLocalNotice(null);
 
     try {
+      const isMfaContinuation = mfaChallenge !== null;
       const response = await fetch(await resolveApiUrl("/api/auth/tenant/login"), {
         method: "POST",
         headers: {
@@ -44,13 +64,27 @@ export function TenantLoginModal({ open, tenantDomainSlug, system, error, onClos
           tenantDomainSlug,
           targetSystem: system,
           useCookieSession: !isDesktopShell(),
-          returnUrl: targetRoute
+          returnUrl: targetRoute,
+          captcha: isMfaContinuation ? null : captcha.proof,
+          mfaChallengeId: mfaChallenge?.challengeId,
+          mfaCode: isMfaContinuation ? mfaCode : null
         })
       });
+
+      if (response.status === 202) {
+        const challenge = await response.json() as MfaChallengeResponse;
+        setMfaChallenge(challenge);
+        setMfaCode("");
+        setLocalError(challenge.developmentCode
+          ? `${challenge.message} Development code: ${challenge.developmentCode}`
+          : challenge.message);
+        return;
+      }
 
       if (!response.ok) {
         const errorMessage = await readApiErrorMessage(response);
         setLocalError(errorMessage ?? "Invalid tenant email or password.");
+        await captcha.refresh();
         return;
       }
 
@@ -91,8 +125,21 @@ export function TenantLoginModal({ open, tenantDomainSlug, system, error, onClos
           </button>
         </div>
 
+        {showPasswordReset ? (
+          <PasswordResetPanel
+            surface={system === "mls" ? "mls" : "tenant"}
+            tenantDomainSlug={tenantDomainSlug}
+            defaultEmail={email}
+            onCancel={() => setShowPasswordReset(false)}
+            onCompleted={() => {
+              setShowPasswordReset(false);
+              setLocalNotice("Password reset successfully. Sign in with the new password.");
+            }}
+          />
+        ) : (
         <form className="grid gap-4" onSubmit={handleSubmit}>
           {(localError || error) && <div className="alert alert-error/80 rounded-2xl">{localError || error}</div>}
+          {localNotice && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{localNotice}</div>}
 
           <label className="grid gap-2">
             <span className="text-[0.92rem] text-slate-500">Email</span>
@@ -125,6 +172,43 @@ export function TenantLoginModal({ open, tenantDomainSlug, system, error, onClos
             </div>
           </label>
 
+          {mfaChallenge ? (
+            <label className="grid gap-2">
+              <span className="text-[0.92rem] text-slate-500">MFA code</span>
+              <input
+                className="input input-bordered w-full border-slate-900/10 bg-white/95 text-slate-950"
+                value={mfaCode}
+                onChange={(event) => setMfaCode(event.target.value)}
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                required
+              />
+            </label>
+          ) : (
+            <CaptchaField
+              answer={captcha.answer}
+              challenge={captcha.challenge}
+              disabled={submitting}
+              error={captcha.error}
+              isLoading={captcha.isLoading}
+              onAnswerChange={captcha.setAnswer}
+              onRefresh={captcha.refresh}
+            />
+          )}
+
+          <button
+            type="button"
+            className="w-fit text-sm font-semibold text-slate-700 underline-offset-4 hover:text-slate-950 hover:underline"
+            onClick={() => {
+              setLocalError(null);
+              setLocalNotice(null);
+              setMfaChallenge(null);
+              setShowPasswordReset(true);
+            }}
+          >
+            Forgot password?
+          </button>
+
           <div className="flex justify-end gap-3">
             <PublicButton tone="ghost" onClick={onClose}>Cancel</PublicButton>
             <PublicButton type="submit" tone="primary">
@@ -132,6 +216,7 @@ export function TenantLoginModal({ open, tenantDomainSlug, system, error, onClos
             </PublicButton>
           </div>
         </form>
+        )}
       </div>
     </div>
   );
