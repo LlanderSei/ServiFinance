@@ -730,7 +730,6 @@ internal static class CustomerPortalApiEndpointMappings {
         Guid id,
         ClaimsPrincipal user,
         HttpRequest httpRequest,
-        [FromForm] SubmitCustomerServiceRequestAttachmentRequest payload,
         IImageUploadService imageUploadService,
         ServiFinanceDbContext dbContext,
         CancellationToken cancellationToken) => {
@@ -755,10 +754,13 @@ internal static class CustomerPortalApiEndpointMappings {
             return Results.BadRequest(new { error = "Attachments cannot be added after cancellation or completion starts." });
           }
 
+          if (!httpRequest.HasFormContentType) {
+            return Results.BadRequest(new { error = "Upload pictures using multipart form data." });
+          }
+
           var form = await httpRequest.ReadFormAsync(cancellationToken);
-          var files = payload.Files is { Count: > 0 }
-              ? payload.Files
-              : form.Files.ToList();
+          var namedFiles = form.Files.GetFiles("files");
+          var files = namedFiles.Count > 0 ? namedFiles.ToList() : form.Files.ToList();
 
           if (files.Count == 0) {
             return Results.BadRequest(new { error = "Select at least one picture to upload." });
@@ -1786,9 +1788,6 @@ public sealed record CustomerPortalCancelRequestResponse(
     bool CanCancelDirectly,
     bool CanRequestCancellation);
 public sealed record SubmitFeedbackPayload(int Rating, string? FeedbackComments, string? SuggestionCategory);
-public sealed class SubmitCustomerServiceRequestAttachmentRequest {
-  public List<IFormFile>? Files { get; init; }
-}
 public sealed class SubmitCustomerInvoicePaymentSubmissionRequest {
   public decimal AmountSubmitted { get; init; }
   public string? PaymentMethod { get; init; }

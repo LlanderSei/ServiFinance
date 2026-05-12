@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AuthSessionResponse, MfaChallengeResponse } from "@/shared/api/contracts";
+import { readApiErrorMessage } from "@/shared/api/http";
 import { CaptchaField } from "@/shared/auth/CaptchaField";
 import { PasswordResetPanel } from "@/shared/auth/PasswordResetPanel";
 import { isDesktopShell, resolveApiUrl, toPlatformRoute } from "@/platform/runtime";
@@ -78,7 +79,8 @@ export function RootLoginModal({ open, error, onClose }: Props) {
       }
 
       if (!response.ok) {
-        setLocalError("Invalid superadmin email or password.");
+        const errorMessage = await readApiErrorMessage(response);
+        setLocalError(errorMessage ?? "Invalid superadmin email or password.");
         await captcha.refresh();
         return;
       }

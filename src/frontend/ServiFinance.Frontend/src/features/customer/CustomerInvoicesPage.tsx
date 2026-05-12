@@ -10,6 +10,7 @@ import {
   useSubmitCustomerInvoicePaymentProof
 } from "./useCustomerInvoices";
 import { useToast } from "@/shared/toast/ToastProvider";
+import { UploadProgressBar } from "@/shared/uploads/UploadProgressBar";
 
 const paymentMethodOptions = [
   "GCash",
@@ -120,6 +121,7 @@ export function CustomerInvoicesPage() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [note, setNote] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofUploadProgress, setProofUploadProgress] = useState<number | null>(null);
   const handledCheckoutTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -180,6 +182,7 @@ export function CustomerInvoicesPage() {
     setReferenceNumber("");
     setNote("");
     setProofFile(null);
+    setProofUploadProgress(null);
   }
 
   function closeSubmissionForm() {
@@ -189,6 +192,7 @@ export function CustomerInvoicesPage() {
     setReferenceNumber("");
     setNote("");
     setProofFile(null);
+    setProofUploadProgress(null);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>, invoice: CustomerInvoice) {
@@ -204,16 +208,21 @@ export function CustomerInvoicesPage() {
     payload.append("ReferenceNumber", referenceNumber);
     payload.append("Note", note);
     payload.append("ProofFile", proofFile);
+    setProofUploadProgress(0);
 
     submitPaymentProof.mutate(
       {
         invoiceId: invoice.id,
         serviceRequestId: invoice.serviceRequestId,
-        payload
+        payload,
+        onProgress: setProofUploadProgress
       },
       {
         onSuccess: () => {
           closeSubmissionForm();
+        },
+        onSettled: () => {
+          setProofUploadProgress(null);
         }
       }
     );
@@ -389,6 +398,10 @@ export function CustomerInvoicesPage() {
                         <p className="text-sm text-slate-500">
                           Attach the receipt or proof before submitting.
                         </p>
+                      ) : null}
+
+                      {submitPaymentProof.isPending && isFormOpen ? (
+                        <UploadProgressBar label="Uploading settlement proof" progress={proofUploadProgress} />
                       ) : null}
 
                       {submitPaymentProof.isError && isFormOpen ? (

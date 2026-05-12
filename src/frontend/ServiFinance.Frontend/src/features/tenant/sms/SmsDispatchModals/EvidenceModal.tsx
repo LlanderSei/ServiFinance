@@ -8,12 +8,14 @@ import {
   WorkspaceInput,
   WorkspaceFileInput,
 } from "@/shared/records/WorkspaceControls";
+import { UploadProgressBar } from "@/shared/uploads/UploadProgressBar";
 
 interface EvidenceModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (formData: FormData) => void;
   isPending: boolean;
+  uploadProgress: number | null;
 }
 
 export function EvidenceModal({
@@ -21,6 +23,7 @@ export function EvidenceModal({
   onClose,
   onSubmit,
   isPending,
+  uploadProgress,
 }: EvidenceModalProps) {
   const [note, setNote] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -76,6 +79,11 @@ export function EvidenceModal({
               onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
             />
           </WorkspaceField>
+          {isPending ? (
+            <div className="md:col-span-2">
+              <UploadProgressBar label="Uploading evidence photos" progress={uploadProgress} />
+            </div>
+          ) : null}
         </WorkspaceFieldGrid>
       </WorkspaceForm>
     </RecordFormModal>

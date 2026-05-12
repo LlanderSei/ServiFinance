@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { httpGet, httpPostFormData, httpPostJson } from "@/shared/api/http";
+import { httpGet, httpPostFormDataWithProgress, httpPostJson } from "@/shared/api/http";
+import type { UploadProgressHandler } from "@/shared/api/http";
 
 export type CustomerRequest = {
   id: string;
@@ -212,8 +213,12 @@ export function useUploadCustomerRequestAttachments() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: FormData }) =>
-      httpPostFormData<CustomerRequestAttachment[]>(`/api/customer-portal/requests/${id}/attachments`, payload),
+    mutationFn: ({ id, payload, onProgress }: { id: string; payload: FormData; onProgress?: UploadProgressHandler }) =>
+      httpPostFormDataWithProgress<CustomerRequestAttachment[]>(
+        `/api/customer-portal/requests/${id}/attachments`,
+        payload,
+        onProgress
+      ),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["customer", "requests"] });
       queryClient.invalidateQueries({ queryKey: ["customer", "requests", variables.id, "details"] });

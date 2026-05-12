@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { CustomerBottomTabs } from "./CustomerBottomTabs";
+import { MapPin, Shield, User } from "lucide-react";
+import { CustomerBottomTabs, type CustomerBottomTab } from "./CustomerBottomTabs";
 import { CustomerProfileAddressLoadoutsTab } from "./CustomerProfileAddressLoadoutsTab";
 import { CustomerProfileBasicInformationTab } from "./CustomerProfileBasicInformationTab";
 import { CustomerProfileSecurityTab } from "./CustomerProfileSecurityTab";
@@ -7,10 +8,10 @@ import { useCustomerProfile } from "./useCustomerProfile";
 
 type ProfileTab = "basic" | "security" | "addresses";
 
-const profileTabs: Array<{ key: ProfileTab; label: string }> = [
-  { key: "basic", label: "Basic Information" },
-  { key: "security", label: "Password & Security" },
-  { key: "addresses", label: "Address Loadouts" }
+const profileTabs: Array<CustomerBottomTab<ProfileTab>> = [
+  { key: "basic", label: "Basic Information", icon: User },
+  { key: "security", label: "Password & Security", icon: Shield },
+  { key: "addresses", label: "Address Loadouts", icon: MapPin }
 ];
 
 function getInitialProfileTab(): ProfileTab {

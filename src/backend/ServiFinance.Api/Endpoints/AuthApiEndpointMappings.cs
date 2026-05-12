@@ -76,7 +76,9 @@ internal static class AuthApiEndpointMappings {
                 null,
                 request.Email,
                 "Failed superadmin login attempt.");
-            return Results.Unauthorized();
+            return CreateJsonError(
+                StatusCodes.Status401Unauthorized,
+                "The customer email or password is incorrect for this tenant domain.");
           }
 
           var mfaResult = await ResolveMfaGateAsync(

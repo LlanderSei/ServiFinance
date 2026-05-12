@@ -95,8 +95,6 @@ e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\codex-api-verify\ServiFina
 e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\codex-api-verify\ServiFinance.Application.dll
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\api-build\ServiFinance.Application.deps.json
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\api-build\ServiFinance.Application.dll
-E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\bin\Debug\net10.0\ServiFinance.Application.pdb
-E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\bin\Debug\net10.0\ServiFinance.Domain.pdb
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\api-build-dispatch-feedback\ServiFinance.Application.deps.json
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\api-build-dispatch-feedback\ServiFinance.Application.dll
 E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\artifacts\api-build-onboarding-fix\ServiFinance.Application.deps.json
@@ -146,5 +144,7 @@ C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb2\ServiFinance
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb2\ServiFinance.Application.dll
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyIdleLogoutNoPdb\ServiFinance.Application.deps.json
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyIdleLogoutNoPdb\ServiFinance.Application.dll
-E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.sourcelink.json
-E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Application\obj\Debug\net10.0\ServiFinance.Application.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check\bin\ServiFinance.Application.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check\bin\ServiFinance.Application.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-login\bin\ServiFinance.Application.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-login\bin\ServiFinance.Application.dll

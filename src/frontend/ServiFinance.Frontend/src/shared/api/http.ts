@@ -2,6 +2,8 @@ import { resolveApiUrl } from "@/platform/runtime";
 import { isDesktopShell } from "@/platform/runtime";
 import { ensureAccessToken, getAccessToken } from "@/shared/auth/session";
 
+export type UploadProgressHandler = (progress: number) => void;
+
 async function createRequestInit(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<RequestInit> {
   const headers: Record<string, string> = {};
   const shouldAttachToken = path.startsWith("/api/") && (!path.startsWith("/api/auth/") || path === "/api/auth/logout");
@@ -25,7 +27,7 @@ async function createRequestInit(method: "GET" | "POST" | "PUT" | "DELETE", path
   };
 }
 
-async function createFormDataRequestInit(path: string, body: FormData): Promise<RequestInit> {
+async function createFormDataRequestMetadata(path: string): Promise<{ headers: Record<string, string>; credentials: RequestCredentials }> {
   const headers: Record<string, string> = {};
   const shouldAttachToken = path.startsWith("/api/") && !path.startsWith("/api/auth/");
 
@@ -37,9 +39,17 @@ async function createFormDataRequestInit(path: string, body: FormData): Promise<
   }
 
   return {
-    method: "POST",
     headers,
-    credentials: isDesktopShell() ? "omit" : "include",
+    credentials: isDesktopShell() ? "omit" : "include"
+  };
+}
+
+async function createFormDataRequestInit(path: string, body: FormData): Promise<RequestInit> {
+  const metadata = await createFormDataRequestMetadata(path);
+
+  return {
+    method: "POST",
+    ...metadata,
     body
   };
 }
@@ -123,6 +133,55 @@ export async function httpPostFormData<TResponse>(path: string, body: FormData):
   return response.json() as Promise<TResponse>;
 }
 
+export async function httpPostFormDataWithProgress<TResponse>(
+  path: string,
+  body: FormData,
+  onProgress?: UploadProgressHandler
+): Promise<TResponse> {
+  const url = await resolveApiUrl(path);
+  const metadata = await createFormDataRequestMetadata(path);
+
+  return new Promise<TResponse>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", url);
+    request.withCredentials = metadata.credentials === "include";
+
+    Object.entries(metadata.headers).forEach(([key, value]) => {
+      request.setRequestHeader(key, value);
+    });
+
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable || !onProgress) {
+        return;
+      }
+
+      onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+    };
+
+    request.onload = () => {
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(readXhrErrorMessage(request) ?? `Request failed: ${request.status}`));
+        return;
+      }
+
+      if (request.status === 204) {
+        resolve(undefined as TResponse);
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(request.responseText) as TResponse);
+      } catch {
+        reject(new Error("The upload completed but the server returned an invalid response."));
+      }
+    };
+
+    request.onerror = () => reject(new Error("Network error while uploading."));
+    request.onabort = () => reject(new Error("Upload was cancelled."));
+    request.send(body);
+  });
+}
+
 export async function httpDelete(path: string): Promise<void> {
   const response = await fetch(await resolveApiUrl(path), await createRequestInit("DELETE", path));
 
@@ -143,4 +202,20 @@ export async function httpDeleteJson<TResponse>(path: string): Promise<TResponse
   }
 
   return response.json() as Promise<TResponse>;
+}
+
+function readXhrErrorMessage(request: XMLHttpRequest): string | null {
+  const contentType = request.getResponseHeader("content-type");
+  const isJson = contentType && contentType.includes("application/json");
+
+  if (!isJson || !request.responseText) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(request.responseText) as { error?: string };
+    return payload.error?.trim() ? payload.error : null;
+  } catch {
+    return null;
+  }
 }

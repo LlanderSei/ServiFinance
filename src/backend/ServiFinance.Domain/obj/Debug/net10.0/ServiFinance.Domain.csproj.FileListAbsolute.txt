@@ -92,7 +92,6 @@ e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\codex-api-verify\ServiFina
 e:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\codex-api-verify\ServiFinance.Domain.dll
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\api-build\ServiFinance.Domain.deps.json
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\api-build\ServiFinance.Domain.dll
-E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\bin\Debug\net10.0\ServiFinance.Domain.pdb
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\api-build-dispatch-feedback\ServiFinance.Domain.deps.json
 E:\Documents\Llander\Yuemnigga\ServiFinance\artifacts\api-build-dispatch-feedback\ServiFinance.Domain.dll
 E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\artifacts\api-build-onboarding-fix\ServiFinance.Domain.deps.json
@@ -141,5 +140,7 @@ C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb2\ServiFinance
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyAuditToolingNoPdb2\ServiFinance.Domain.dll
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyIdleLogoutNoPdb\ServiFinance.Domain.deps.json
 C:\Users\PC\AppData\Local\Temp\ServiFinanceVerifyIdleLogoutNoPdb\ServiFinance.Domain.dll
-E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.sourcelink.json
-E:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.pdb
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check\bin\ServiFinance.Domain.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check\bin\ServiFinance.Domain.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-login\bin\ServiFinance.Domain.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-login\bin\ServiFinance.Domain.dll

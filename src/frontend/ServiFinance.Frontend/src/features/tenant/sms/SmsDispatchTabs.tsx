@@ -11,7 +11,8 @@ import type {
   UpdateTenantAssignmentEvidenceRequest,
   UpdateTenantAssignmentStatusRequest
 } from "@/shared/api/contracts";
-import { httpDelete, httpGet, httpPostFormData, httpPostJson } from "@/shared/api/http";
+import { httpDelete, httpGet, httpPostFormDataWithProgress, httpPostJson } from "@/shared/api/http";
+import type { UploadProgressHandler } from "@/shared/api/http";
 import { SmsModuleCodes, hasFullModuleAccess } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
@@ -78,6 +79,7 @@ export function SmsDispatchPage() {
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
   const [isEvidenceEditModalOpen, setIsEvidenceEditModalOpen] = useState(false);
+  const [evidenceUploadProgress, setEvidenceUploadProgress] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const { viewMode, setViewMode } = useDispatchPage();
   const [editingEvidence, setEditingEvidence] = useState<TenantDispatchAssignmentEvidenceRow | null>(null);
@@ -200,9 +202,9 @@ export function SmsDispatchPage() {
     }
   });
 
-  const submitEvidenceMutation = useMutation<any, Error, { assignmentId: string; payload: FormData }>({
-    mutationFn: ({ assignmentId, payload }: { assignmentId: string; payload: FormData }) =>
-      httpPostFormData(`/api/tenants/${tenantDomainSlug}/sms/dispatch/${assignmentId}/evidence`, payload),
+  const submitEvidenceMutation = useMutation<any, Error, { assignmentId: string; payload: FormData; onProgress?: UploadProgressHandler }>({
+    mutationFn: ({ assignmentId, payload, onProgress }: { assignmentId: string; payload: FormData; onProgress?: UploadProgressHandler }) =>
+      httpPostFormDataWithProgress(`/api/tenants/${tenantDomainSlug}/sms/dispatch/${assignmentId}/evidence`, payload, onProgress),
     onSuccess: async () => {
       if (selectedAssignment) {
         await queryClient.invalidateQueries({ queryKey: ["tenant", tenantDomainSlug, "sms-dispatch-detail", selectedAssignment.id] });
@@ -212,6 +214,9 @@ export function SmsDispatchPage() {
     },
     onError: (mutationError: Error) => {
       toast.error({ title: "Unable to submit evidence", message: mutationError.message });
+    },
+    onSettled: () => {
+      setEvidenceUploadProgress(null);
     }
   });
 
@@ -608,9 +613,17 @@ export function SmsDispatchPage() {
         open={isEvidenceModalOpen}
         onClose={() => setIsEvidenceModalOpen(false)}
         onSubmit={(payload) => {
-          if (selectedAssignment) submitEvidenceMutation.mutate({ assignmentId: selectedAssignment.id, payload });
+          if (selectedAssignment) {
+            setEvidenceUploadProgress(0);
+            submitEvidenceMutation.mutate({
+              assignmentId: selectedAssignment.id,
+              payload,
+              onProgress: setEvidenceUploadProgress
+            });
+          }
         }}
         isPending={submitEvidenceMutation.isPending}
+        uploadProgress={evidenceUploadProgress}
       />
 
       <EvidenceEditModal

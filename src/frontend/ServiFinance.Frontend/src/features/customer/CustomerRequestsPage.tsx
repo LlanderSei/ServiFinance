@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
+import { History, ListChecks } from "lucide-react";
 import { AddressLookupField } from "@/shared/location/AddressLookupField";
-import { CustomerBottomTabs } from "./CustomerBottomTabs";
+import { UploadProgressBar } from "@/shared/uploads/UploadProgressBar";
+import { CustomerBottomTabs, type CustomerBottomTab } from "./CustomerBottomTabs";
 import { isHistoryRequest } from "./CustomerRequestCard";
 import { CustomerRequestsHistoryTab } from "./CustomerRequestsHistoryTab";
 import { CustomerRequestsOngoingTab } from "./CustomerRequestsOngoingTab";
@@ -11,9 +13,9 @@ import { useCreateCustomerRequest, useCustomerRequests, useUploadCustomerRequest
 
 type RequestTab = "ongoing" | "history";
 
-const requestTabs: Array<{ key: RequestTab; label: string; count?: number }> = [
-  { key: "ongoing", label: "Ongoing" },
-  { key: "history", label: "History" }
+const requestTabs: Array<CustomerBottomTab<RequestTab>> = [
+  { key: "ongoing", label: "Ongoing", icon: ListChecks },
+  { key: "history", label: "History", icon: History }
 ];
 
 function toUtcIso(value: string) {
@@ -42,6 +44,7 @@ export function CustomerRequestsPage() {
   const [preferredScheduleEndUtc, setPreferredScheduleEndUtc] = useState("");
   const [neededByUtc, setNeededByUtc] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachmentUploadProgress, setAttachmentUploadProgress] = useState<number | null>(null);
 
   const ongoingRequests = useMemo(
     () => (requests ?? []).filter((request) => !isHistoryRequest(request.currentStatus)),
@@ -116,10 +119,12 @@ export function CustomerRequestsPage() {
     setPreferredScheduleEndUtc("");
     setNeededByUtc("");
     setAttachments([]);
+    setAttachmentUploadProgress(null);
   }
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
+    setAttachmentUploadProgress(null);
 
     try {
       const createdRequest = await createRequest.mutateAsync({
@@ -139,7 +144,12 @@ export function CustomerRequestsPage() {
       if (attachments.length) {
         const payload = new FormData();
         attachments.forEach((file) => payload.append("files", file));
-        await uploadAttachments.mutateAsync({ id: createdRequest.id, payload });
+        setAttachmentUploadProgress(0);
+        await uploadAttachments.mutateAsync({
+          id: createdRequest.id,
+          payload,
+          onProgress: setAttachmentUploadProgress
+        });
       }
 
       setActiveTab("ongoing");
@@ -264,13 +274,18 @@ export function CustomerRequestsPage() {
                 Upload issue photos now so tenant staff can inspect them from SMS. Each file must be 5 MB or smaller.
               </span>
             </label>
+            {uploadAttachments.isPending ? (
+              <div className="md:col-span-2">
+                <UploadProgressBar label="Uploading request pictures" progress={attachmentUploadProgress} />
+              </div>
+            ) : null}
             {createRequest.isError || uploadAttachments.isError ? (
               <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 md:col-span-2">
                 {createRequest.error?.message ?? uploadAttachments.error?.message ?? "Unable to create the service request."}
               </p>
             ) : null}
             <button disabled={createRequest.isPending || uploadAttachments.isPending} type="submit" className="btn w-full rounded-full bg-slate-900 px-8 text-white hover:bg-slate-800 sm:w-max md:col-span-2">
-              {createRequest.isPending || uploadAttachments.isPending ? "Submitting..." : "Submit Request"}
+              {uploadAttachments.isPending ? "Uploading pictures..." : createRequest.isPending ? "Submitting..." : "Submit Request"}
             </button>
           </form>
         </section>

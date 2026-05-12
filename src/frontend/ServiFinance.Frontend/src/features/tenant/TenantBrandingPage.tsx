@@ -6,7 +6,7 @@ import type {
   TenantBrandingSettingsResponse,
   UpdateTenantBrandingSettingsRequest
 } from "@/shared/api/contracts";
-import { getApiErrorMessage, httpGet, httpPostFormData, httpPutJson } from "@/shared/api/http";
+import { getApiErrorMessage, httpGet, httpPostFormDataWithProgress, httpPutJson } from "@/shared/api/http";
 import { getCurrentSession } from "@/shared/auth/session";
 import {
   WorkspaceField,
@@ -31,6 +31,7 @@ import {
   toTenantBranding
 } from "@/shared/tenant/tenantBranding";
 import { useToast } from "@/shared/toast/ToastProvider";
+import { UploadProgressBar } from "@/shared/uploads/UploadProgressBar";
 
 type BrandingDraft = UpdateTenantBrandingSettingsRequest;
 
@@ -55,6 +56,7 @@ export function TenantBrandingPage() {
   const [draft, setDraft] = useState<BrandingDraft>(emptyDraft);
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
   const [logoInputKey, setLogoInputKey] = useState(0);
+  const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const brandingQuery = useQuery({
     queryKey,
     queryFn: () => httpGet<TenantBrandingSettingsResponse>(`/api/tenants/${brandingTenantSlug}/branding?scope=${workspaceScope}`),
@@ -84,9 +86,11 @@ export function TenantBrandingPage() {
     mutationFn: (file: File) => {
       const payload = new FormData();
       payload.append("logoFile", file);
-      return httpPostFormData<TenantBrandingSettingsResponse>(
+      setLogoUploadProgress(0);
+      return httpPostFormDataWithProgress<TenantBrandingSettingsResponse>(
         `/api/tenants/${brandingTenantSlug}/branding/logo?scope=${workspaceScope}`,
-        payload
+        payload,
+        setLogoUploadProgress
       );
     },
     onSuccess: (response) => {
@@ -103,6 +107,9 @@ export function TenantBrandingPage() {
         title: "Unable to upload logo",
         message: getApiErrorMessage(error, "Tenant logo could not be uploaded.")
       });
+    },
+    onSettled: () => {
+      setLogoUploadProgress(null);
     }
   });
 
@@ -207,6 +214,9 @@ export function TenantBrandingPage() {
                           {logoUploadMutation.isPending ? "Uploading..." : "Upload logo"}
                         </WorkspaceModalButton>
                       </div>
+                      {logoUploadMutation.isPending ? (
+                        <UploadProgressBar label="Uploading logo" progress={logoUploadProgress} />
+                      ) : null}
                     </div>
                   </WorkspaceField>
                   <ColorField

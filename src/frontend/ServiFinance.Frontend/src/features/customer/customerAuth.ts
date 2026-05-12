@@ -104,7 +104,7 @@ export async function loginCustomerAccount(request: LoginCustomerAccountRequest)
   }
 
   if (!response.ok) {
-    throw new Error(await readApiErrorMessage(response) ?? "Unable to sign in.");
+    throw new Error(await readApiErrorMessage(response) ?? "The customer email or password is incorrect for this tenant domain.");
   }
 
   const payload = await response.json() as AuthSessionResponse;

@@ -1,7 +1,10 @@
+import type { ElementType } from "react";
+
 export type CustomerBottomTab<TTab extends string> = {
   key: TTab;
   label: string;
   count?: number;
+  icon?: ElementType<{ className?: string }>;
 };
 
 type CustomerBottomTabsProps<TTab extends string> = {
@@ -37,6 +40,7 @@ export function CustomerBottomTabs<TTab extends string>({
           >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
+              const Icon = tab.icon;
 
               return (
                 <button
@@ -49,8 +53,13 @@ export function CustomerBottomTabs<TTab extends string>({
                       : "border-transparent text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
                   )}
                   onClick={() => onChange(tab.key)}
+                  aria-label={tab.label}
+                  title={tab.label}
                 >
-                  <span className="min-w-0 whitespace-normal break-words">{tab.label}</span>
+                  {Icon ? <Icon className="h-5 w-5 shrink-0 sm:hidden" /> : null}
+                  <span className={joinClasses("min-w-0 whitespace-normal break-words", Icon && "hidden sm:inline")}>
+                    {tab.label}
+                  </span>
                   {tab.count != null ? (
                     <span
                       className={joinClasses(

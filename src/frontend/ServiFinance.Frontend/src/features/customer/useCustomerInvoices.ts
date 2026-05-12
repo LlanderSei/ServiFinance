@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { httpGet, httpPostFormData, httpPostJson } from "@/shared/api/http";
+import { httpGet, httpPostFormDataWithProgress, httpPostJson } from "@/shared/api/http";
+import type { UploadProgressHandler } from "@/shared/api/http";
 
 export type CustomerInvoicePaymentSubmission = {
   id: string;
@@ -56,10 +57,11 @@ export function useSubmitCustomerInvoicePaymentProof() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ invoiceId, serviceRequestId, payload }: { invoiceId: string; serviceRequestId?: string | null; payload: FormData }) =>
-      httpPostFormData<CustomerInvoicePaymentSubmission>(
+    mutationFn: ({ invoiceId, payload, onProgress }: { invoiceId: string; serviceRequestId?: string | null; payload: FormData; onProgress?: UploadProgressHandler }) =>
+      httpPostFormDataWithProgress<CustomerInvoicePaymentSubmission>(
         `/api/customer-portal/invoices/${invoiceId}/payment-submissions`,
-        payload
+        payload,
+        onProgress
       ),
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["customer", "invoices"] });
