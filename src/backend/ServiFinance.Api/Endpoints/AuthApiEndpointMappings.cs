@@ -61,7 +61,7 @@ internal static class AuthApiEndpointMappings {
           new AuthenticationRequest(request.Email, request.Password, AuthenticationSurface.Root),
           httpContext.RequestAborted);
           if (user is null) {
-            authProtectionService.RecordFailedLogin("root", null, request.Email, ResolveIpAddress(httpContext));
+            await authProtectionService.RecordFailedLoginAsync("root", null, request.Email, ResolveIpAddress(httpContext), httpContext.RequestAborted);
             await WriteSecurityAuditAsync(
                 auditLogService,
                 httpContext,
@@ -94,7 +94,7 @@ internal static class AuthApiEndpointMappings {
             return mfaResult;
           }
 
-          authProtectionService.RecordSuccessfulLogin("root", null, request.Email, ResolveIpAddress(httpContext));
+          await authProtectionService.RecordSuccessfulLoginAsync("root", null, request.Email, ResolveIpAddress(httpContext), httpContext.RequestAborted);
 
           var tokens = await sessionTokenService.CreateSessionAsync(user, AuthenticationSurface.Root, request.RememberMe, httpContext.RequestAborted);
           if (request.UseCookieSession) {
@@ -158,7 +158,7 @@ internal static class AuthApiEndpointMappings {
           new AuthenticationRequest(request.Email, request.Password, surface, tenantSlug),
           httpContext.RequestAborted);
           if (user is null) {
-            authProtectionService.RecordFailedLogin(ResolveAuditScope(surface), tenantSlug, request.Email, ResolveIpAddress(httpContext));
+            await authProtectionService.RecordFailedLoginAsync(ResolveAuditScope(surface), tenantSlug, request.Email, ResolveIpAddress(httpContext), httpContext.RequestAborted);
             await WriteSecurityAuditAsync(
                 auditLogService,
                 httpContext,
@@ -214,7 +214,7 @@ internal static class AuthApiEndpointMappings {
             return mfaResult;
           }
 
-          authProtectionService.RecordSuccessfulLogin(ResolveAuditScope(surface), tenantSlug, request.Email, ResolveIpAddress(httpContext));
+          await authProtectionService.RecordSuccessfulLoginAsync(ResolveAuditScope(surface), tenantSlug, request.Email, ResolveIpAddress(httpContext), httpContext.RequestAborted);
 
           var tokens = await sessionTokenService.CreateSessionAsync(user, surface, cancellationToken: httpContext.RequestAborted);
           if (request.UseCookieSession) {
@@ -280,7 +280,7 @@ internal static class AuthApiEndpointMappings {
           var user = await authenticationService.AuthenticateAsync(
               request.Email, request.Password, tenantSlug, httpContext.RequestAborted);
           if (user is null) {
-            authProtectionService.RecordFailedLogin("Customer", tenantSlug, request.Email, ResolveIpAddress(httpContext));
+            await authProtectionService.RecordFailedLoginAsync("Customer", tenantSlug, request.Email, ResolveIpAddress(httpContext), httpContext.RequestAborted);
             await WriteSecurityAuditAsync(
                 auditLogService,
                 httpContext,
@@ -291,10 +291,10 @@ internal static class AuthApiEndpointMappings {
                 null,
                 null,
                 request.Email,
-                "CustomerSession",
+                "CustomerPortalSession",
                 null,
-                tenantSlug,
-                "Failed customer login attempt.");
+                request.Email,
+                $"Customer portal login failed for tenant domain {tenantSlug}.");
             return Results.Unauthorized();
           }
 
@@ -312,7 +312,7 @@ internal static class AuthApiEndpointMappings {
             return mfaResult;
           }
 
-          authProtectionService.RecordSuccessfulLogin("Customer", tenantSlug, request.Email, ResolveIpAddress(httpContext));
+          await authProtectionService.RecordSuccessfulLoginAsync("Customer", tenantSlug, request.Email, ResolveIpAddress(httpContext), httpContext.RequestAborted);
 
           var tokens = await sessionTokenService.CreateSessionAsync(user, surface, cancellationToken: httpContext.RequestAborted);
           if (request.UseCookieSession) {
@@ -330,10 +330,10 @@ internal static class AuthApiEndpointMappings {
               null,
               user.FullName,
               user.Email,
-              "CustomerSession",
+              "CustomerPortalSession",
               user.UserId,
               user.Email,
-              "Customer signed in.");
+              $"Customer portal sign-in for tenant domain {user.TenantDomainSlug}.");
 
           return Results.Ok(new AuthSessionResponse(tokens, ToCurrentSessionUser(user, surface)));
         });

@@ -9,6 +9,7 @@ import { buildCustomerNav } from "./customerNav";
 
 type Props = {
   session: CustomerSession | null;
+  isSessionRestoring?: boolean;
   children: ReactNode;
 };
 
@@ -44,7 +45,7 @@ function trimNotificationText(value: string, maxLength = 140) {
   return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
-export function CustomerShell({ session, children }: Props) {
+export function CustomerShell({ session, isSessionRestoring = false, children }: Props) {
   const { tenantDomainSlug = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -391,18 +392,20 @@ export function CustomerShell({ session, children }: Props) {
 
   const authLinks = isAuthenticated
     ? navItems
-    : [
-        {
-          to: `/t/${tenantDomainSlug}/c/login`,
-          label: "Login",
-          eyebrow: "Access"
-        },
-        {
-          to: `/t/${tenantDomainSlug}/c/register`,
-          label: "Register",
-          eyebrow: "Create"
-        }
-      ];
+    : isSessionRestoring
+      ? []
+      : [
+          {
+            to: `/t/${tenantDomainSlug}/c/login`,
+            label: "Login",
+            eyebrow: "Access"
+          },
+          {
+            to: `/t/${tenantDomainSlug}/c/register`,
+            label: "Register",
+            eyebrow: "Create"
+          }
+        ];
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(163,202,255,0.24),transparent_24%),linear-gradient(180deg,#f7fbff_0%,#eff4fb_46%,#f5f7fb_100%)] text-slate-950">
@@ -445,7 +448,7 @@ export function CustomerShell({ session, children }: Props) {
 
           <div className="mt-8 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(240,246,255,0.92),rgba(255,255,255,0.92))] px-4 py-4">
             <p className="text-[0.72rem] font-bold uppercase tracking-[0.22em] text-slate-500">
-              {isAuthenticated ? "Signed in" : "Tenant-scoped access"}
+              {isAuthenticated ? "Signed in" : isSessionRestoring ? "Checking session" : "Tenant-scoped access"}
             </p>
             {session ? (
               <>
@@ -453,6 +456,13 @@ export function CustomerShell({ session, children }: Props) {
                 <p className="mt-1 text-sm text-slate-600">{session.email}</p>
                 <p className="mt-3 text-sm leading-6 text-slate-600">
                   Your customer profile and activity stay isolated inside this tenant domain.
+                </p>
+              </>
+            ) : isSessionRestoring ? (
+              <>
+                <strong className="mt-2 block text-lg text-slate-950">Restoring customer session</strong>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  Checking your saved customer access before showing tenant-scoped navigation.
                 </p>
               </>
             ) : (
@@ -466,6 +476,14 @@ export function CustomerShell({ session, children }: Props) {
           </div>
 
           <nav className="mt-8 grid gap-2">
+            {isSessionRestoring && (
+              <div className="rounded-[1.4rem] bg-slate-100 px-4 py-3 text-slate-600">
+                <span className="block text-[0.7rem] font-bold uppercase tracking-[0.2em] text-slate-400">
+                  Customer workspace
+                </span>
+                <span className="mt-1 block text-sm font-semibold tracking-[0.01em]">Loading navigation...</span>
+              </div>
+            )}
             {authLinks.map((item) => (
               <NavLink
                 key={item.to}
@@ -505,6 +523,10 @@ export function CustomerShell({ session, children }: Props) {
               >
                 Sign out
               </button>
+            ) : isSessionRestoring ? (
+              <p className="px-2 text-sm leading-6 text-slate-500">
+                Saved customer access is being verified.
+              </p>
             ) : (
               <p className="px-2 text-sm leading-6 text-slate-500">
                 Accounts are tenant-scoped. Registering here does not create access for other tenant domains.
@@ -539,7 +561,7 @@ export function CustomerShell({ session, children }: Props) {
                   {tenantDomainSlug} / Customer
                 </p>
                 <h2 className="truncate text-lg font-semibold tracking-[-0.03em] text-slate-950">
-                  {session ? `Welcome back, ${session.fullName.split(" ")[0]}` : "Customer Access"}
+                  {session ? `Welcome back, ${session.fullName.split(" ")[0]}` : isSessionRestoring ? "Restoring customer access" : "Customer Access"}
                 </h2>
               </div>
             </div>

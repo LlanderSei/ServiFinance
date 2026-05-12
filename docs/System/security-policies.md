@@ -43,6 +43,8 @@ Implemented baseline:
 - CAPTCHA is required on public login, registration, and password-reset entry points when Cloudflare Turnstile is configured.
 - The local arithmetic CAPTCHA fallback is allowed only for development or non-production environments.
 - Failed login attempts create account-level and network-level cooldown lockouts through database-backed `AuthProtectionRecords`.
+- Account lockouts send an email alert to the locked account's linked Google email when SMTP is configured.
+- Network-wide lockouts send email alerts to linked root SuperAdmin Google emails for root-origin lockouts, or linked tenant Owner/Administrator Google emails for tenant/customer-origin lockouts.
 - MFA can be enabled only after the local account is linked to a Google account.
 - MFA challenge codes are emailed to the linked Google address through the configured SMTP sender.
 - Password reset is allowed only for accounts that already have a linked Google account.
@@ -54,6 +56,7 @@ Operational expectations:
 
 - Production SMTP must use a verified sender or authenticated domain.
 - MFA and reset codes must not be returned by production API responses.
+- Lockout alert emails are skipped when SMTP is unavailable or when the target account/administrator has no linked Google account.
 - Support staff must not bypass Google-link requirements unless a documented manual recovery process is added and audited.
 
 Future improvements:

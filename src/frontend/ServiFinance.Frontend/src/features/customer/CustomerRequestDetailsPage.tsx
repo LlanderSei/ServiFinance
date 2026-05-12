@@ -85,13 +85,13 @@ export function CustomerRequestDetailsPage() {
   ];
 
   return (
-    <div className="flex min-h-[calc(100vh-9rem)] flex-col gap-5 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
-      <section className="rounded-[2rem] border border-slate-200/80 bg-white px-5 py-6 shadow-[0_14px_30px_rgba(35,46,76,0.06)]">
+    <div className="flex min-h-[calc(100vh-9rem)] min-w-0 max-w-full flex-col gap-5 overflow-x-hidden pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+      <section className="min-w-0 overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white px-5 py-6 shadow-[0_14px_30px_rgba(35,46,76,0.06)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500">Request tracking</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">{request.requestNumber}</h1>
-            <p className="mt-3 max-w-[42rem] text-sm leading-6 text-slate-600">
+          <div className="min-w-0">
+            <p className="min-w-0 break-words text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500 [overflow-wrap:anywhere]">Request tracking</p>
+            <h1 className="mt-2 min-w-0 break-words text-3xl font-semibold tracking-[-0.05em] text-slate-950 [overflow-wrap:anywhere]">{request.requestNumber}</h1>
+            <p className="mt-3 max-w-[42rem] break-words text-sm leading-6 text-slate-600 [overflow-wrap:anywhere]">
               Follow request movement through focused tabs for overview, dispatch, finance, evidence, and timeline updates.
             </p>
           </div>

@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { History, ListChecks } from "lucide-react";
 import { AddressLookupField } from "@/shared/location/AddressLookupField";
+import { useToast } from "@/shared/toast/ToastProvider";
 import { UploadProgressBar } from "@/shared/uploads/UploadProgressBar";
 import { CustomerBottomTabs, type CustomerBottomTab } from "./CustomerBottomTabs";
 import { isHistoryRequest } from "./CustomerRequestCard";
@@ -13,6 +14,9 @@ import { useCreateCustomerRequest, useCustomerRequests, useUploadCustomerRequest
 
 type RequestTab = "ongoing" | "history";
 
+const MAX_REQUEST_ATTACHMENTS = 5;
+const MAX_REQUEST_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
 const requestTabs: Array<CustomerBottomTab<RequestTab>> = [
   { key: "ongoing", label: "Ongoing", icon: ListChecks },
   { key: "history", label: "History", icon: History }
@@ -22,8 +26,27 @@ function toUtcIso(value: string) {
   return value ? new Date(value).toISOString() : null;
 }
 
+function validateRequestAttachments(files: File[]) {
+  if (files.length > MAX_REQUEST_ATTACHMENTS) {
+    return `Upload at most ${MAX_REQUEST_ATTACHMENTS} image(s) for one request.`;
+  }
+
+  const oversizedFile = files.find((file) => file.size > MAX_REQUEST_ATTACHMENT_BYTES);
+  if (oversizedFile) {
+    return `${oversizedFile.name} exceeds the 5 MB upload limit.`;
+  }
+
+  const unsupportedFile = files.find((file) => file.type && !file.type.startsWith("image/"));
+  if (unsupportedFile) {
+    return `${unsupportedFile.name} must be an image file.`;
+  }
+
+  return null;
+}
+
 export function CustomerRequestsPage() {
   const { tenantDomainSlug = "" } = useParams();
+  const toast = useToast();
   const { data: requests, isLoading } = useCustomerRequests();
   const profileQuery = useCustomerProfile();
   const createRequest = useCreateCustomerRequest();
@@ -44,6 +67,7 @@ export function CustomerRequestsPage() {
   const [preferredScheduleEndUtc, setPreferredScheduleEndUtc] = useState("");
   const [neededByUtc, setNeededByUtc] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachmentValidationError, setAttachmentValidationError] = useState<string | null>(null);
   const [attachmentUploadProgress, setAttachmentUploadProgress] = useState<number | null>(null);
 
   const ongoingRequests = useMemo(
@@ -119,12 +143,33 @@ export function CustomerRequestsPage() {
     setPreferredScheduleEndUtc("");
     setNeededByUtc("");
     setAttachments([]);
+    setAttachmentValidationError(null);
+    setAttachmentUploadProgress(null);
+  }
+
+  function handleAttachmentChange(files: File[]) {
+    const validationError = validateRequestAttachments(files);
+    setAttachmentValidationError(validationError);
+    setAttachments(validationError ? [] : files);
+  }
+
+  function clearAttachments() {
+    setAttachments([]);
+    setAttachmentValidationError(null);
     setAttachmentUploadProgress(null);
   }
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
     setAttachmentUploadProgress(null);
+    createRequest.reset();
+    uploadAttachments.reset();
+
+    const validationError = validateRequestAttachments(attachments);
+    if (validationError || attachmentValidationError) {
+      setAttachmentValidationError(validationError ?? attachmentValidationError);
+      return;
+    }
 
     try {
       const createdRequest = await createRequest.mutateAsync({
@@ -145,13 +190,31 @@ export function CustomerRequestsPage() {
         const payload = new FormData();
         attachments.forEach((file) => payload.append("files", file));
         setAttachmentUploadProgress(0);
-        await uploadAttachments.mutateAsync({
-          id: createdRequest.id,
-          payload,
-          onProgress: setAttachmentUploadProgress
-        });
+        try {
+          await uploadAttachments.mutateAsync({
+            id: createdRequest.id,
+            payload,
+            onProgress: setAttachmentUploadProgress
+          });
+        } catch (error) {
+          toast.warning({
+            title: "Request submitted, pictures not attached",
+            message: error instanceof Error
+              ? error.message
+              : "The request was created, but the pictures could not be uploaded."
+          });
+          setActiveTab("ongoing");
+          resetForm();
+          return;
+        }
       }
 
+      toast.success({
+        title: "Request submitted",
+        message: attachments.length
+          ? "Your service request and pictures were sent to the tenant team."
+          : "Your service request was sent to the tenant team."
+      });
       setActiveTab("ongoing");
       resetForm();
     } catch {
@@ -268,23 +331,37 @@ export function CustomerRequestsPage() {
                 accept="image/*"
                 multiple
                 className="file-input file-input-bordered w-full rounded-xl bg-white"
-                onChange={(event) => setAttachments(Array.from(event.target.files ?? []))}
+                onChange={(event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  handleAttachmentChange(files);
+                  if (validateRequestAttachments(files)) {
+                    event.currentTarget.value = "";
+                  }
+                }}
               />
               <span className="text-xs leading-5 text-slate-500">
-                Upload issue photos now so tenant staff can inspect them from SMS. Each file must be 5 MB or smaller.
+                Upload up to {MAX_REQUEST_ATTACHMENTS} issue photos now so tenant staff can inspect them from SMS. Each file must be 5 MB or smaller.
               </span>
+              {attachments.length || attachmentValidationError ? (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  {attachments.length ? <span>{attachments.length} image(s) selected.</span> : null}
+                  <button type="button" className="btn btn-xs rounded-full bg-white" onClick={clearAttachments}>
+                    Clear pictures
+                  </button>
+                </div>
+              ) : null}
             </label>
             {uploadAttachments.isPending ? (
               <div className="md:col-span-2">
                 <UploadProgressBar label="Uploading request pictures" progress={attachmentUploadProgress} />
               </div>
             ) : null}
-            {createRequest.isError || uploadAttachments.isError ? (
+            {attachmentValidationError || createRequest.isError || uploadAttachments.isError ? (
               <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 md:col-span-2">
-                {createRequest.error?.message ?? uploadAttachments.error?.message ?? "Unable to create the service request."}
+                {attachmentValidationError ?? createRequest.error?.message ?? uploadAttachments.error?.message ?? "Unable to create the service request."}
               </p>
             ) : null}
-            <button disabled={createRequest.isPending || uploadAttachments.isPending} type="submit" className="btn w-full rounded-full bg-slate-900 px-8 text-white hover:bg-slate-800 sm:w-max md:col-span-2">
+            <button disabled={Boolean(attachmentValidationError) || createRequest.isPending || uploadAttachments.isPending} type="submit" className="btn w-full rounded-full bg-slate-900 px-8 text-white hover:bg-slate-800 sm:w-max md:col-span-2">
               {uploadAttachments.isPending ? "Uploading pictures..." : createRequest.isPending ? "Submitting..." : "Submit Request"}
             </button>
           </form>

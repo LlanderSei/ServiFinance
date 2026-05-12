@@ -38,61 +38,66 @@ export function CustomerRequestOverviewTab({
   }
 
   return (
-    <div className="grid gap-5">
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Item" value={request.itemType} description={request.itemDescription} />
-        <MetricCard label="Priority" value={request.priority} description={`Opened ${formatDateTime(request.createdAtUtc)}`} />
-        <MetricCard
-          label="Service mode"
-          value={request.serviceMode || "Drop-off"}
-          description={formatRequestAddress(request)}
-        />
-        <MetricCard
-          label="Needed by"
-          value={formatDate(request.neededByUtc ?? request.requestedServiceDate)}
-          description={formatScheduleRange(request.preferredScheduleStartUtc, request.preferredScheduleEndUtc)}
-        />
-        <MetricCard
-          label="Finance"
-          value={invoice ? invoice.invoiceStatus : costSheet ? `${costSheet.status} draft` : "Not invoiced"}
-          description={
-            invoice
-              ? `${formatCurrency(invoice.outstandingAmount)} outstanding`
-              : costSheet
-                ? `${formatCurrency(costSheet.totalAmount)} draft total`
-                : "Invoice will appear here after tenant finalization."
-          }
-        />
+    <div className="grid min-w-0 max-w-full gap-5">
+      <section className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-2 md:overflow-visible md:pb-0">
+        <div className="flex w-max max-w-none gap-3 pr-6 md:grid md:w-full md:max-w-full md:grid-cols-2 md:gap-4 md:pr-0 xl:grid-cols-5">
+          <MetricCard className="w-[min(17rem,calc(100vw-4rem))] max-w-[17rem] shrink-0 md:w-auto md:max-w-none" label="Item" value={request.itemType} description={request.itemDescription} />
+          <MetricCard className="w-[min(17rem,calc(100vw-4rem))] max-w-[17rem] shrink-0 md:w-auto md:max-w-none" label="Priority" value={request.priority} description={`Opened ${formatDateTime(request.createdAtUtc)}`} />
+          <MetricCard
+            className="w-[min(17rem,calc(100vw-4rem))] max-w-[17rem] shrink-0 md:w-auto md:max-w-none"
+            label="Service mode"
+            value={request.serviceMode || "Drop-off"}
+            description={formatRequestAddress(request)}
+          />
+          <MetricCard
+            className="w-[min(17rem,calc(100vw-4rem))] max-w-[17rem] shrink-0 md:w-auto md:max-w-none"
+            label="Needed by"
+            value={formatDate(request.neededByUtc ?? request.requestedServiceDate)}
+            description={formatScheduleRange(request.preferredScheduleStartUtc, request.preferredScheduleEndUtc)}
+          />
+          <MetricCard
+            className="w-[min(17rem,calc(100vw-4rem))] max-w-[17rem] shrink-0 md:w-auto md:max-w-none"
+            label="Finance"
+            value={invoice ? invoice.invoiceStatus : costSheet ? `${costSheet.status} draft` : "Not invoiced"}
+            description={
+              invoice
+                ? `${formatCurrency(invoice.outstandingAmount)} outstanding`
+                : costSheet
+                  ? `${formatCurrency(costSheet.totalAmount)} draft total`
+                  : "Invoice will appear here after tenant finalization."
+            }
+          />
+        </div>
       </section>
 
       <Panel title="Issue summary" eyebrow="Intake">
-        <p className="break-words text-sm leading-7 text-slate-700">{request.issueDescription}</p>
+        <p className="min-w-0 whitespace-pre-wrap break-words text-sm leading-7 text-slate-700 [overflow-wrap:anywhere]">{request.issueDescription}</p>
       </Panel>
 
       <Panel title="Visit and contact" eyebrow="Customer logistics">
-        <dl className="grid gap-3 text-sm text-slate-600 md:grid-cols-2">
-          <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
+        <dl className="grid min-w-0 gap-3 text-sm text-slate-600 md:grid-cols-2">
+          <div className="min-w-0 rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
             <dt className="font-semibold text-slate-900">Service mode</dt>
-            <dd className="mt-2">{request.serviceMode || "Drop-off"}</dd>
+            <dd className="mt-2 min-w-0 break-words [overflow-wrap:anywhere]">{request.serviceMode || "Drop-off"}</dd>
           </div>
-          <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
+          <div className="min-w-0 rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
             <dt className="font-semibold text-slate-900">Contact</dt>
-            <dd className="mt-2">
+            <dd className="mt-2 min-w-0 break-words [overflow-wrap:anywhere]">
               {request.contactName || "Not provided"}
               {request.contactPhone ? ` / ${request.contactPhone}` : ""}
             </dd>
           </div>
-          <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
+          <div className="min-w-0 rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
             <dt className="font-semibold text-slate-900">Service address</dt>
-            <dd className="mt-2">{formatRequestAddress(request)}</dd>
+            <dd className="mt-2 min-w-0 break-words [overflow-wrap:anywhere]">{formatRequestAddress(request)}</dd>
           </div>
-          <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
+          <div className="min-w-0 rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
             <dt className="font-semibold text-slate-900">Preferred schedule</dt>
-            <dd className="mt-2">{formatScheduleRange(request.preferredScheduleStartUtc, request.preferredScheduleEndUtc)}</dd>
+            <dd className="mt-2 min-w-0 break-words [overflow-wrap:anywhere]">{formatScheduleRange(request.preferredScheduleStartUtc, request.preferredScheduleEndUtc)}</dd>
           </div>
-          <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
+          <div className="min-w-0 rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-4">
             <dt className="font-semibold text-slate-900">Needed by</dt>
-            <dd className="mt-2">{formatDateTime(request.neededByUtc, "No due preference")}</dd>
+            <dd className="mt-2 min-w-0 break-words [overflow-wrap:anywhere]">{formatDateTime(request.neededByUtc, "No due preference")}</dd>
           </div>
         </dl>
       </Panel>
@@ -100,7 +105,7 @@ export function CustomerRequestOverviewTab({
       {(request.canCancelDirectly || request.canRequestCancellation || request.cancellationReason) ? (
         <Panel title="Cancellation" eyebrow="Request control">
           {request.cancellationReason ? (
-            <div className="rounded-[1.4rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-800">
+            <div className="min-w-0 break-words rounded-[1.4rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-800 [overflow-wrap:anywhere]">
               <strong>{request.cancelledAtUtc ? "Cancelled" : "Cancellation note"}:</strong> {request.cancellationReason}
               {request.cancellationRequestedAtUtc ? <p className="mt-1">Requested {formatDateTime(request.cancellationRequestedAtUtc)}</p> : null}
               {request.cancelledAtUtc ? <p className="mt-1">Cancelled {formatDateTime(request.cancelledAtUtc)}</p> : null}

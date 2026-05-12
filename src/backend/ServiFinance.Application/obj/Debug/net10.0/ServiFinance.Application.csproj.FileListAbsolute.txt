@@ -148,3 +148,5 @@ C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check\bin\ServiFinance.App
 C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check\bin\ServiFinance.Application.dll
 C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-login\bin\ServiFinance.Application.deps.json
 C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-login\bin\ServiFinance.Application.dll
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-dispatch-evidence\bin\ServiFinance.Application.deps.json
+C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-dispatch-evidence\bin\ServiFinance.Application.dll

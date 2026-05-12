@@ -7,6 +7,7 @@ let accessToken: string | null = null;
 let currentSession: AuthSessionResponse | null = null;
 let refreshRequest: Promise<AuthSessionResponse | null> | null = null;
 let sessionEpoch = 0;
+const sessionListeners = new Set<(session: AuthSessionResponse | null) => void>();
 
 type ApplySessionOptions = {
   rememberOnWeb?: boolean;
@@ -50,6 +51,17 @@ function normalizeSessionResponse(response: AuthSessionResponse): AuthSessionRes
   };
 }
 
+function notifySessionChanged() {
+  sessionListeners.forEach((listener) => listener(currentSession));
+}
+
+export function subscribeToSessionChanges(listener: (session: AuthSessionResponse | null) => void) {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+}
+
 export function getAccessToken() {
   return accessToken;
 }
@@ -75,6 +87,7 @@ export function updateCurrentSessionUser(patch: Partial<AuthSessionResponse["use
     }
   });
   accessToken = currentSession.tokens.accessToken;
+  notifySessionChanged();
   return currentSession;
 }
 
@@ -86,6 +99,7 @@ export async function applySession(response: AuthSessionResponse, options: Apply
 
   if (isDesktopShell()) {
     await desktopBridge.saveRefreshToken(normalizedResponse.tokens.refreshToken);
+    notifySessionChanged();
     return;
   }
 
@@ -94,6 +108,8 @@ export async function applySession(response: AuthSessionResponse, options: Apply
   } else {
     webSessionStorage.clear();
   }
+
+  notifySessionChanged();
 }
 
 export async function clearSession() {
@@ -104,10 +120,12 @@ export async function clearSession() {
 
   if (isDesktopShell()) {
     await desktopBridge.clearRefreshToken();
+    notifySessionChanged();
     return;
   }
 
   webSessionStorage.clear();
+  notifySessionChanged();
 }
 
 export async function refreshSession() {

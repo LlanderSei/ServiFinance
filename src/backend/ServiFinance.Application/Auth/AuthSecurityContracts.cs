@@ -63,6 +63,6 @@ public interface IAuthProtectionService {
   CaptchaChallengeResponse CreateCaptchaChallenge(bool useLocalChallenge = false);
   Task<AuthProtectionResult> ValidateCaptchaAsync(CaptchaProof? proof, string? ipAddress, CancellationToken cancellationToken);
   AuthProtectionResult CheckLoginAllowed(string scope, string? tenantDomainSlug, string email, string? ipAddress);
-  void RecordFailedLogin(string scope, string? tenantDomainSlug, string email, string? ipAddress);
-  void RecordSuccessfulLogin(string scope, string? tenantDomainSlug, string email, string? ipAddress);
+  Task RecordFailedLoginAsync(string scope, string? tenantDomainSlug, string email, string? ipAddress, CancellationToken cancellationToken = default);
+  Task RecordSuccessfulLoginAsync(string scope, string? tenantDomainSlug, string email, string? ipAddress, CancellationToken cancellationToken = default);
 }

@@ -37,11 +37,11 @@ internal static class WebAccountEndpointMappings {
           httpContext.RequestAborted);
 
           if (user is null) {
-            authProtectionService.RecordFailedLogin("root", null, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
+            await authProtectionService.RecordFailedLoginAsync("root", null, request.Email, httpContext.Connection.RemoteIpAddress?.ToString(), httpContext.RequestAborted);
             return Results.LocalRedirect($"/?error=Invalid%20superadmin%20email%20or%20password&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
           }
 
-          authProtectionService.RecordSuccessfulLogin("root", null, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
+          await authProtectionService.RecordSuccessfulLoginAsync("root", null, request.Email, httpContext.Connection.RemoteIpAddress?.ToString(), httpContext.RequestAborted);
           await SignInUserAsync(httpContext, user, AuthenticationSurface.Root, request.RememberMe);
 
           return Results.LocalRedirect(returnUrl);
@@ -85,7 +85,7 @@ internal static class WebAccountEndpointMappings {
           httpContext.RequestAborted);
 
           if (user is null) {
-            authProtectionService.RecordFailedLogin(scope, tenantSlug, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
+            await authProtectionService.RecordFailedLoginAsync(scope, tenantSlug, request.Email, httpContext.Connection.RemoteIpAddress?.ToString(), httpContext.RequestAborted);
             return Results.LocalRedirect($"{loginUrl}?error=Invalid%20tenant%20email%20or%20password&returnUrl={Uri.EscapeDataString(returnUrl)}&showLogin=true");
           }
 
@@ -100,7 +100,7 @@ internal static class WebAccountEndpointMappings {
             }
           }
 
-          authProtectionService.RecordSuccessfulLogin(scope, tenantSlug, request.Email, httpContext.Connection.RemoteIpAddress?.ToString());
+          await authProtectionService.RecordSuccessfulLoginAsync(scope, tenantSlug, request.Email, httpContext.Connection.RemoteIpAddress?.ToString(), httpContext.RequestAborted);
           await SignInUserAsync(httpContext, user, surface);
           return Results.LocalRedirect(returnUrl);
         });

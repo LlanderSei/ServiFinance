@@ -14,6 +14,7 @@ internal static class AuditApiEndpointMappings {
   private const string ScopeSuperadmin = "Superadmin";
   private const string ScopeTenantSms = "TenantSms";
   private const string ScopeTenantMls = "TenantMls";
+  private const string ScopeCustomer = "Customer";
   private const string CategorySystem = "System";
   private const string CategorySecurity = "Security";
   private static readonly string[] TenantMlsSyntheticActionTypes = ["LoanCreation", "StandaloneLoanCreation", "LoanPayment", "LoanPaymentReversal"];
@@ -124,6 +125,32 @@ internal static class AuditApiEndpointMappings {
     }
 
     var scope = ResolveTenantAuditScope(requestedScope);
+    if (scope == ScopeCustomer) {
+      if (!TryGetCurrentUserId(httpContext.User, out var userId)) {
+        return TenantAuditAccess.Unauthorized();
+      }
+
+      var rolePermissionAuthorizationService = httpContext.RequestServices.GetRequiredService<IRolePermissionAuthorizationService>();
+      var canViewSmsAudits = await rolePermissionAuthorizationService.HasPermissionAsync(
+        userId,
+        PlatformRolePolicy.SmsScope,
+        "sms.audits.view",
+        cancellationToken);
+      var canViewMlsAudits = await rolePermissionAuthorizationService.HasPermissionAsync(
+        userId,
+        PlatformRolePolicy.MlsScope,
+        "mls.audits.view",
+        cancellationToken);
+
+      if (!canViewSmsAudits && !canViewMlsAudits) {
+        return TenantAuditAccess.Failed(CreateJsonError(
+          StatusCodes.Status403Forbidden,
+          "Your role does not include the required tenant audit permission for customer portal security events."));
+      }
+
+      return TenantAuditAccess.Allowed(tenantId, scope);
+    }
+
     if (scope == ScopeTenantMls) {
       var rolePermissionAuthorizationService = httpContext.RequestServices.GetRequiredService<IRolePermissionAuthorizationService>();
       var accessError = await RequireTenantMlsAccessAsync(
@@ -170,6 +197,7 @@ internal static class AuditApiEndpointMappings {
 
   private static string ResolveTenantAuditScope(string? requestedScope) =>
     requestedScope?.Trim().ToLowerInvariant() switch {
+      "customer" or "customerweb" or "customer-web" or "customer-portal" => ScopeCustomer,
       "mls" or "tenantmls" or "tenant-mls" => ScopeTenantMls,
       _ => ScopeTenantSms
     };

@@ -177,10 +177,6 @@ internal sealed record UpdateTenantAssignmentStatusRequest(
     string? ServiceStatus,
     string? Remarks);
 internal sealed record UpdateTenantAssignmentEvidenceRequest(string Note);
-internal sealed class SubmitTenantAssignmentEvidenceRequest {
-  public string? Note { get; init; }
-  public List<IFormFile> Files { get; init; } = [];
-}
 internal sealed class SubmitTenantBillingProofRequest {
   public decimal AmountSubmitted { get; init; }
   public string PaymentMethod { get; init; } = string.Empty;

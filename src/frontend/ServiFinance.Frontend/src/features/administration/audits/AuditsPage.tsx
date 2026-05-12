@@ -12,9 +12,14 @@ type AuditsPageProps = {
   scope: AuditScope;
 };
 
-const auditTabs = [
+const baseAuditTabs = [
   { key: "system", label: "System" },
   { key: "security", label: "Security" }
+];
+
+const tenantAuditTabs = [
+  ...baseAuditTabs,
+  { key: "customer-security", label: "Customer Portal" }
 ];
 
 export function PlatformAuditsPage() {
@@ -38,6 +43,7 @@ function AuditsPage({ scope }: AuditsPageProps) {
     : tenantDomainSlug;
   const endpoints = resolveAuditEndpoints(scope, resolvedTenantSlug);
   const scopeLabel = resolveScopeLabel(scope, resolvedTenantSlug);
+  const tabs = scope === "superadmin" ? baseAuditTabs : tenantAuditTabs;
 
   return (
     <RecordWorkspace
@@ -45,11 +51,13 @@ function AuditsPage({ scope }: AuditsPageProps) {
       title="Audits"
       description="Review scoped system activity and security events without mixing platform, SMS, and MLS audit streams."
       headerBottom={(
-        <WorkspaceTopTabs tabs={auditTabs} activeTab={activeTab} onChange={setActiveTab} />
+        <WorkspaceTopTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
       )}
     >
       <RecordContentStack>
-        {activeTab === "security" ? (
+        {activeTab === "customer-security" ? (
+          <SecurityAudits endpoint={endpoints.customerSecurity} scopeLabel={`${resolvedTenantSlug} Customer Portal`} />
+        ) : activeTab === "security" ? (
           <SecurityAudits endpoint={endpoints.security} scopeLabel={scopeLabel} />
         ) : (
           <SystemAudits endpoint={endpoints.system} scopeLabel={scopeLabel} />
@@ -63,14 +71,16 @@ function resolveAuditEndpoints(scope: AuditScope, tenantDomainSlug: string) {
   if (scope === "superadmin") {
     return {
       system: "/api/platform/audits/system",
-      security: "/api/platform/audits/security"
+      security: "/api/platform/audits/security",
+      customerSecurity: "/api/platform/audits/security"
     };
   }
 
   const moduleScope = scope === "tenant-mls" ? "mls" : "sms";
   return {
     system: `/api/tenants/${tenantDomainSlug}/audits/system?scope=${moduleScope}`,
-    security: `/api/tenants/${tenantDomainSlug}/audits/security?scope=${moduleScope}`
+    security: `/api/tenants/${tenantDomainSlug}/audits/security?scope=${moduleScope}`,
+    customerSecurity: `/api/tenants/${tenantDomainSlug}/audits/security?scope=customer`
   };
 }
 

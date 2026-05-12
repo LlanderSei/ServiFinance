@@ -20,7 +20,7 @@ if ([string]::IsNullOrWhiteSpace($password)) {
   throw "MonsterASP Web Deploy password was not provided."
 }
 
-$projectPath = Join-Path $PSScriptRoot "..\$Project"
+$projectPath = Join-Path $PSScriptRoot "..\\$Project"
 $projectDirectory = Split-Path -Parent $projectPath
 
 Push-Location $projectDirectory
@@ -35,6 +35,8 @@ try {
   if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
   }
+
+  exit 0
 } finally {
   Pop-Location
 }
