@@ -348,6 +348,86 @@ export function AssignmentDetailsModal({
   if (!activeAssignment) return null;
 
   const visibleSections = detailSectionsByTab[activeTab];
+  const assignmentActions = (
+    <>
+      {!isTerminalAssignment ? (
+        <WorkspaceModalButton
+          onClick={onAddEvidence}
+          disabled={!evidenceReadiness.allowed || isPendingEvidence}
+          title={evidenceReadiness.reason ?? undefined}
+        >
+          Add evidence
+        </WorkspaceModalButton>
+      ) : null}
+      {!isTerminalAssignment ? (
+        <WorkspaceModalButton
+          onClick={onReschedule}
+          disabled={!rescheduleReadiness.allowed || isPendingReschedule}
+          title={rescheduleReadiness.reason ?? undefined}
+        >
+          Reschedule
+        </WorkspaceModalButton>
+      ) : null}
+      {!isTerminalAssignment && activeAssignment.assignmentStatus !== "In Progress" ? (
+        <WorkspaceModalButton
+          tone="primary"
+          onClick={() => onStatusUpdate(activeAssignment, "In Progress", "In Service")}
+          disabled={!startWorkReadiness.allowed || isPendingStatusUpdate}
+          title={startWorkReadiness.reason ?? undefined}
+        >
+          Start work
+        </WorkspaceModalButton>
+      ) : null}
+      {!isTerminalAssignment && activeAssignment.assignmentStatus !== "On Hold" ? (
+        <WorkspaceModalButton
+          onClick={() => onStatusUpdate(activeAssignment, "On Hold")}
+          disabled={!holdReadiness.allowed || isPendingStatusUpdate}
+          title={holdReadiness.reason ?? undefined}
+        >
+          Put on hold
+        </WorkspaceModalButton>
+      ) : null}
+      {!isTerminalAssignment ? (
+        <WorkspaceModalButton
+          tone="primary"
+          onClick={() => onStatusUpdate(activeAssignment, "Completed")}
+          disabled={!completeReadiness.allowed || isPendingStatusUpdate}
+          title={completeReadiness.reason ?? undefined}
+        >
+          Mark completed
+        </WorkspaceModalButton>
+      ) : null}
+      {!isTerminalAssignment ? (
+        <WorkspaceModalButton
+          tone="danger"
+          onClick={() => onCancel(activeAssignment)}
+          disabled={!cancelReadiness.allowed || isPendingCancel}
+          title={cancelReadiness.reason ?? undefined}
+        >
+          Cancel assignment
+        </WorkspaceModalButton>
+      ) : null}
+      {!isTerminalAssignment ? (
+        <WorkspaceModalButton
+          onClick={() => onHandover(activeAssignment)}
+          disabled={!handoverReadiness.allowed || isPendingHandover}
+          title={handoverReadiness.reason ?? undefined}
+        >
+          Handover
+        </WorkspaceModalButton>
+      ) : null}
+      {!isTerminalAssignment ? (
+        <WorkspaceModalButton
+          tone="danger"
+          onClick={() => onAbandon(activeAssignment)}
+          disabled={!abandonReadiness.allowed || isPendingAbandon}
+          title={abandonReadiness.reason ?? undefined}
+        >
+          Abandon
+        </WorkspaceModalButton>
+      ) : null}
+    </>
+  );
 
   return (
     <>
@@ -364,84 +444,10 @@ export function AssignmentDetailsModal({
             <WorkspaceModalButton onClick={onClose}>
               Close
             </WorkspaceModalButton>
-            {!isTerminalAssignment ? (
-              <WorkspaceModalButton
-                onClick={onAddEvidence}
-                disabled={!evidenceReadiness.allowed || isPendingEvidence}
-                title={evidenceReadiness.reason ?? undefined}
-              >
-                Add evidence
-              </WorkspaceModalButton>
-            ) : null}
-            {!isTerminalAssignment ? (
-              <WorkspaceModalButton
-                onClick={onReschedule}
-                disabled={!rescheduleReadiness.allowed || isPendingReschedule}
-                title={rescheduleReadiness.reason ?? undefined}
-              >
-                Reschedule
-              </WorkspaceModalButton>
-            ) : null}
-            {!isTerminalAssignment && activeAssignment.assignmentStatus !== "In Progress" ? (
-              <WorkspaceModalButton
-                tone="primary"
-                onClick={() => onStatusUpdate(activeAssignment, "In Progress", "In Service")}
-                disabled={!startWorkReadiness.allowed || isPendingStatusUpdate}
-                title={startWorkReadiness.reason ?? undefined}
-              >
-                Start work
-              </WorkspaceModalButton>
-            ) : null}
-            {!isTerminalAssignment && activeAssignment.assignmentStatus !== "On Hold" ? (
-              <WorkspaceModalButton
-                onClick={() => onStatusUpdate(activeAssignment, "On Hold")}
-                disabled={!holdReadiness.allowed || isPendingStatusUpdate}
-                title={holdReadiness.reason ?? undefined}
-              >
-                Put on hold
-              </WorkspaceModalButton>
-            ) : null}
-            {!isTerminalAssignment ? (
-              <WorkspaceModalButton
-                tone="primary"
-                onClick={() => onStatusUpdate(activeAssignment, "Completed")}
-                disabled={!completeReadiness.allowed || isPendingStatusUpdate}
-                title={completeReadiness.reason ?? undefined}
-              >
-                Mark completed
-              </WorkspaceModalButton>
-            ) : null}
-            {!isTerminalAssignment ? (
-              <WorkspaceModalButton
-                tone="danger"
-                onClick={() => onCancel(activeAssignment)}
-                disabled={!cancelReadiness.allowed || isPendingCancel}
-                title={cancelReadiness.reason ?? undefined}
-              >
-                Cancel assignment
-              </WorkspaceModalButton>
-            ) : null}
-            {!isTerminalAssignment ? (
-              <WorkspaceModalButton
-                onClick={() => onHandover(activeAssignment)}
-                disabled={!handoverReadiness.allowed || isPendingHandover}
-                title={handoverReadiness.reason ?? undefined}
-              >
-                Handover
-              </WorkspaceModalButton>
-            ) : null}
-            {!isTerminalAssignment ? (
-              <WorkspaceModalButton
-                tone="danger"
-                onClick={() => onAbandon(activeAssignment)}
-                disabled={!abandonReadiness.allowed || isPendingAbandon}
-                title={abandonReadiness.reason ?? undefined}
-              >
-                Abandon
-              </WorkspaceModalButton>
-            ) : null}
+            {assignmentActions}
           </>
         }
+        mobileOptions={assignmentActions}
         onClose={onClose}
         onTabChange={(tabKey) => setActiveTab(tabKey as AssignmentDetailTab)}
       >

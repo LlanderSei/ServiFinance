@@ -22,12 +22,10 @@ import { WorkspacePanel, WorkspacePanelHeader } from "@/shared/records/Workspace
 import {
   WorkspaceActionButton,
   WorkspaceField,
-  WorkspaceFieldGrid,
   WorkspaceInput,
   WorkspaceSelect,
   WorkspaceStatusPill,
-  WorkspaceToggleButton,
-  WorkspaceToggleGroup
+  WorkspaceToggleButton
 } from "@/shared/records/WorkspaceControls";
 import { useToast } from "@/shared/toast/ToastProvider";
 
@@ -364,6 +362,18 @@ export function SmsDispatchPage() {
   const visibleActiveTab = dispatchTabs.some((tab) => tab.key === activeTab)
     ? activeTab
     : fallbackDispatchTab;
+  const viewModeControls = canViewAllAssignments ? (
+    <div className="grid w-full grid-cols-2 gap-1 rounded-full border border-base-300/70 bg-base-100/88 p-1">
+      <WorkspaceToggleButton className="min-w-0 justify-center px-3" active={effectiveViewMode === "all"} onClick={() => setViewMode("all")}>
+        All assignments
+      </WorkspaceToggleButton>
+      <WorkspaceToggleButton className="min-w-0 justify-center px-3" active={effectiveViewMode === "mine"} onClick={() => setViewMode("mine")}>
+        My assignments
+      </WorkspaceToggleButton>
+    </div>
+  ) : (
+    <WorkspaceStatusPill tone="neutral">My assignments only</WorkspaceStatusPill>
+  );
 
   function handleStatusUpdate(assignment: TenantDispatchAssignmentRow, assignmentStatus: string, serviceStatus?: string) {
     if (!canUpdateAssignments) {
@@ -447,6 +457,7 @@ export function SmsDispatchPage() {
             openCancelModal={(a) => { setSelectedAssignment(a); setIsCancelModalOpen(true); }}
             openHandoverModal={(a) => { setSelectedAssignment(a); setIsHandoverModalOpen(true); }}
             openAbandonModal={(a) => { setSelectedAssignment(a); setIsAbandonModalOpen(true); }}
+            viewModeControls={viewModeControls}
             {...commonProps}
           />
         );
@@ -509,20 +520,11 @@ export function SmsDispatchPage() {
         recordCount={visibleAssignments.length}
         singularLabel="assignment"
         headerBottom={
-          <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <WorkspaceTopTabs tabs={dispatchTabs} activeTab={visibleActiveTab} onChange={setActiveTab} />
-            {canViewAllAssignments ? (
-              <WorkspaceToggleGroup className="w-max max-w-full overflow-x-auto">
-                <WorkspaceToggleButton active={effectiveViewMode === "all"} onClick={() => setViewMode("all")}>
-                  All assignments
-                </WorkspaceToggleButton>
-                <WorkspaceToggleButton active={effectiveViewMode === "mine"} onClick={() => setViewMode("mine")}>
-                  My assignments
-                </WorkspaceToggleButton>
-              </WorkspaceToggleGroup>
-            ) : (
-              <WorkspaceStatusPill tone="neutral">My assignments only</WorkspaceStatusPill>
-            )}
+            <div className="hidden w-[min(24rem,38vw)] shrink-0 lg:block">
+              {viewModeControls}
+            </div>
           </div>
         }
       >
@@ -534,6 +536,11 @@ export function SmsDispatchPage() {
               meta={dispatchMetaQuery.data}
               canFilterStaff={canViewAllAssignments}
             />
+          ) : null}
+          {visibleActiveTab !== "overview" ? (
+            <div className="flex w-full justify-end lg:hidden">
+              {viewModeControls}
+            </div>
           ) : null}
           {renderTabContent()}
           <WorkspaceFabDock
@@ -774,81 +781,160 @@ function DispatchFilterPanel({
   meta?: TenantDispatchMetaResponse;
   canFilterStaff: boolean;
 }) {
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const clearFilters = () => setFilters({
+    assignedUserId: "",
+    assignmentStatus: "",
+    priority: "",
+    dateFrom: "",
+    dateTo: ""
+  });
+
   return (
-    <WorkspacePanel className="shrink-0">
-      <WorkspacePanelHeader
-        eyebrow="Filters"
-        title="Assignment ledger filters"
-        actions={(
-          <WorkspaceActionButton
-            onClick={() => setFilters({
-              assignedUserId: "",
-              assignmentStatus: "",
-              priority: "",
-              dateFrom: "",
-              dateTo: ""
-            })}
+    <>
+      <WorkspacePanel className="shrink-0">
+        <WorkspacePanelHeader
+          eyebrow="Filters"
+          title="Assignment ledger filters"
+          actions={(
+            <>
+              <WorkspaceActionButton className="lg:hidden" onClick={() => setIsMobileFiltersOpen(true)}>
+                Options
+              </WorkspaceActionButton>
+              <WorkspaceActionButton onClick={clearFilters}>
+                Clear filters
+              </WorkspaceActionButton>
+            </>
+          )}
+        />
+        <div className="hidden min-w-0 overflow-x-auto overflow-y-hidden pb-1 lg:block">
+          <div className="grid w-full grid-cols-5 items-end gap-4">
+            <DispatchFilterFields
+              filters={filters}
+              setFilters={setFilters}
+              meta={meta}
+              canFilterStaff={canFilterStaff}
+            />
+          </div>
+        </div>
+      </WorkspacePanel>
+
+      {isMobileFiltersOpen ? (
+        <div
+          className="fixed inset-0 z-[165] grid place-items-end bg-black/45 p-3 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsMobileFiltersOpen(false)}
+          role="presentation"
+        >
+          <section
+            className="grid max-h-[86dvh] w-full grid-rows-[auto_1fr_auto] overflow-hidden rounded-[1.5rem] border border-base-300/70 bg-base-100 shadow-[0_24px_70px_rgba(15,23,42,0.28)]"
+            onClick={(event) => event.stopPropagation()}
           >
-            Clear filters
-          </WorkspaceActionButton>
-        )}
-      />
-      <WorkspaceFieldGrid className="sm:grid-cols-2 lg:grid-cols-5">
-        {canFilterStaff ? (
-          <WorkspaceField label="Assigned staff">
-            <WorkspaceSelect
-              value={filters.assignedUserId}
-              onChange={(event) => setFilters({ ...filters, assignedUserId: event.target.value })}
-            >
-              <option value="">All staff</option>
-              {(meta?.assignableUsers ?? []).map((user) => (
-                <option key={user.id} value={user.id}>{user.fullName}</option>
-              ))}
-            </WorkspaceSelect>
-          </WorkspaceField>
-        ) : null}
-        <WorkspaceField label="Assignment status">
+            <header className="flex items-start justify-between gap-4 border-b border-base-300/70 px-4 py-4">
+              <div>
+                <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.12em] text-base-content/55">Filters</p>
+                <h3 className="mt-1 text-lg font-black tracking-[-0.04em] text-base-content">Assignment options</h3>
+              </div>
+              <button
+                type="button"
+                className="btn btn-circle btn-sm border-base-300/70 bg-base-100 text-base-content shadow-none"
+                onClick={() => setIsMobileFiltersOpen(false)}
+                aria-label="Close dispatch filters"
+              >
+                x
+              </button>
+            </header>
+            <div className="min-h-0 overflow-y-auto px-4 py-4">
+              <div className="grid gap-4">
+                <DispatchFilterFields
+                  filters={filters}
+                  setFilters={setFilters}
+                  meta={meta}
+                  canFilterStaff={canFilterStaff}
+                />
+              </div>
+            </div>
+            <footer className="flex justify-end gap-2 border-t border-base-300/70 px-4 pt-3 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
+              <WorkspaceActionButton onClick={clearFilters}>
+                Clear filters
+              </WorkspaceActionButton>
+              <WorkspaceActionButton onClick={() => setIsMobileFiltersOpen(false)}>
+                Apply
+              </WorkspaceActionButton>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function DispatchFilterFields({
+  filters,
+  setFilters,
+  meta,
+  canFilterStaff
+}: {
+  filters: DispatchFilterState;
+  setFilters: (filters: DispatchFilterState) => void;
+  meta?: TenantDispatchMetaResponse;
+  canFilterStaff: boolean;
+}) {
+  return (
+    <>
+      {canFilterStaff ? (
+        <WorkspaceField label="Assigned staff">
           <WorkspaceSelect
-            value={filters.assignmentStatus}
-            onChange={(event) => setFilters({ ...filters, assignmentStatus: event.target.value })}
+            value={filters.assignedUserId}
+            onChange={(event) => setFilters({ ...filters, assignedUserId: event.target.value })}
           >
-            <option value="">All statuses</option>
-            <option value="Pending Acceptance">Pending Acceptance</option>
-            <option value="Scheduled">Scheduled</option>
-            <option value="In Progress">In Progress</option>
-            <option value="On Hold">On Hold</option>
-            <option value="Completed">Completed</option>
-            <option value="Cancelled">Cancelled</option>
-            <option value="Abandoned">Abandoned</option>
+            <option value="">All staff</option>
+            {(meta?.assignableUsers ?? []).map((user) => (
+              <option key={user.id} value={user.id}>{user.fullName}</option>
+            ))}
           </WorkspaceSelect>
         </WorkspaceField>
-        <WorkspaceField label="Priority">
-          <WorkspaceSelect
-            value={filters.priority}
-            onChange={(event) => setFilters({ ...filters, priority: event.target.value })}
-          >
-            <option value="">All priorities</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-          </WorkspaceSelect>
-        </WorkspaceField>
-        <WorkspaceField label="Date from">
-          <WorkspaceInput
-            type="date"
-            value={filters.dateFrom}
-            onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })}
-          />
-        </WorkspaceField>
-        <WorkspaceField label="Date to">
-          <WorkspaceInput
-            type="date"
-            value={filters.dateTo}
-            onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })}
-          />
-        </WorkspaceField>
-      </WorkspaceFieldGrid>
-    </WorkspacePanel>
+      ) : null}
+      <WorkspaceField label="Assignment status">
+        <WorkspaceSelect
+          value={filters.assignmentStatus}
+          onChange={(event) => setFilters({ ...filters, assignmentStatus: event.target.value })}
+        >
+          <option value="">All statuses</option>
+          <option value="Pending Acceptance">Pending Acceptance</option>
+          <option value="Scheduled">Scheduled</option>
+          <option value="In Progress">In Progress</option>
+          <option value="On Hold">On Hold</option>
+          <option value="Completed">Completed</option>
+          <option value="Cancelled">Cancelled</option>
+          <option value="Abandoned">Abandoned</option>
+        </WorkspaceSelect>
+      </WorkspaceField>
+      <WorkspaceField label="Priority">
+        <WorkspaceSelect
+          value={filters.priority}
+          onChange={(event) => setFilters({ ...filters, priority: event.target.value })}
+        >
+          <option value="">All priorities</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </WorkspaceSelect>
+      </WorkspaceField>
+      <WorkspaceField label="Date from">
+        <WorkspaceInput
+          type="date"
+          value={filters.dateFrom}
+          onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })}
+        />
+      </WorkspaceField>
+      <WorkspaceField label="Date to">
+        <WorkspaceInput
+          type="date"
+          value={filters.dateTo}
+          onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })}
+        />
+      </WorkspaceField>
+    </>
   );
 }
 

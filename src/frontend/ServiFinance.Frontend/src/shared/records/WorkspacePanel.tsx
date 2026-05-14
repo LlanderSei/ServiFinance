@@ -95,8 +95,8 @@ function joinClasses(...values: Array<string | false | null | undefined>) {
 
 export function WorkspaceScrollStack({ children, className }: WorkspaceScrollStackProps) {
   return (
-    <div className={joinClasses("min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pr-1 [contain:layout_paint]", className)}>
-      <div className="grid auto-rows-max gap-4">
+    <div className={joinClasses("authed-workspace__workspace-scroll-stack min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pb-4 pr-1 [scroll-padding-bottom:1rem] [contain:layout_paint] lg:pb-0 lg:[scroll-padding-bottom:1rem]", className)}>
+      <div className="grid auto-rows-max gap-3 lg:gap-4">
         {children}
       </div>
     </div>
@@ -105,7 +105,7 @@ export function WorkspaceScrollStack({ children, className }: WorkspaceScrollSta
 
 export function WorkspaceMetricGrid({ children, className }: WorkspaceMetricGridProps) {
   return (
-    <section className={joinClasses("grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5", className)}>
+    <section className={joinClasses("flex items-stretch gap-3 overflow-x-auto pb-2 lg:grid lg:gap-4 lg:overflow-visible lg:pb-0 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 [&>*]:min-h-[9rem] [&>*]:min-w-[14rem] lg:[&>*]:min-h-[9rem] lg:[&>*]:min-w-0", className)}>
       {children}
     </section>
   );
@@ -121,17 +121,17 @@ export function WorkspaceKpiRailLayout({
   return (
     <div
       className={joinClasses(
-        "grid h-full min-h-0 flex-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)]",
+        "grid h-auto min-h-0 flex-none gap-4 lg:h-full lg:flex-1 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)]",
         className
       )}
     >
       <aside
         className={joinClasses(
-          "min-h-0 max-h-72 overflow-y-auto overscroll-contain rounded-box border border-base-300/65 bg-base-200/35 p-3 [contain:layout_paint] lg:max-h-none",
+          "min-h-0 max-h-none overflow-x-auto overflow-y-hidden overscroll-contain rounded-box border border-base-300/65 bg-base-200/35 p-3 [contain:layout_paint] lg:overflow-x-hidden lg:overflow-y-auto",
           railClassName
         )}
       >
-        <div className="grid gap-3">
+        <div className="flex items-stretch gap-3 lg:grid [&>*]:min-h-[9rem] [&>*]:min-w-[14rem] lg:[&>*]:min-h-[9rem] lg:[&>*]:min-w-0">
           {kpis}
         </div>
       </aside>
@@ -165,7 +165,7 @@ export function WorkspacePanel({ children, className }: WorkspacePanelProps) {
   return (
     <section
       className={joinClasses(
-        "authed-workspace__panel flex min-h-0 flex-col gap-4 rounded-box border border-base-300/65 bg-base-100 p-4 shadow-sm [content-visibility:auto] [contain-intrinsic-size:360px]",
+        "authed-workspace__panel flex min-h-0 flex-col gap-3 rounded-box border border-base-300/65 bg-base-100 p-3 shadow-sm lg:gap-4 lg:p-4 lg:[content-visibility:auto] lg:[contain-intrinsic-size:360px]",
         className
       )}
     >
@@ -176,20 +176,20 @@ export function WorkspacePanel({ children, className }: WorkspacePanelProps) {
 
 export function WorkspacePanelHeader({ eyebrow, title, actions }: WorkspacePanelHeaderProps) {
   return (
-    <div className="flex flex-col items-stretch justify-between gap-4 lg:flex-row lg:items-start">
-      <div>
-        {eyebrow ? <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">{eyebrow}</p> : null}
-        <h2 className="mt-1 text-[1.15rem] tracking-[-0.03em] text-base-content">{title}</h2>
+    <div className="flex flex-row items-start justify-between gap-3 lg:gap-4">
+      <div className="min-w-0">
+        {eyebrow ? <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60 lg:text-[0.74rem]">{eyebrow}</p> : null}
+        <h2 className="mt-0.5 text-[1.05rem] leading-tight tracking-[-0.03em] break-words text-base-content lg:mt-1 lg:text-[1.15rem]">{title}</h2>
       </div>
 
-      {actions ? <div className="flex flex-wrap gap-2.5">{actions}</div> : null}
+      {actions ? <div className="flex shrink-0 flex-wrap justify-end gap-2">{actions}</div> : null}
     </div>
   );
 }
 
 export function WorkspaceToolbar({ children, className }: WorkspaceToolbarProps) {
   return (
-    <div className={joinClasses("flex flex-wrap items-end gap-3", className)}>
+    <div className={joinClasses("flex flex-wrap items-end gap-2 lg:gap-3", className)}>
       {children}
     </div>
   );
@@ -197,7 +197,7 @@ export function WorkspaceToolbar({ children, className }: WorkspaceToolbarProps)
 
 export function WorkspaceSubtableShell({ children, className }: WorkspaceSubtableShellProps) {
   return (
-    <div className={joinClasses("authed-workspace__subtable-shell overflow-x-auto overflow-y-hidden rounded-box border border-base-300/65 bg-base-100", className)}>
+    <div className={joinClasses("authed-workspace__subtable-shell overflow-auto rounded-box border border-base-300/65 bg-base-100", className)}>
       {children}
     </div>
   );
@@ -207,7 +207,7 @@ export function WorkspaceSubtable({ children, className, ...props }: WorkspaceSu
   return (
     <table
       className={joinClasses(
-        "authed-workspace__subtable table table-pin-rows text-sm text-base-content [&_td]:border-base-300/55 [&_th]:border-b [&_th]:border-base-300/70 [&_th]:bg-base-200 [&_th]:text-[0.76rem] [&_th]:font-extrabold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-base-content/64 [&_tr:hover_td]:bg-base-content/3",
+        "authed-workspace__subtable table table-pin-rows text-sm text-base-content max-lg:block max-lg:min-w-0 max-lg:[&_thead]:hidden max-lg:[&_tbody]:grid max-lg:[&_tbody]:gap-3 max-lg:[&_tr]:grid max-lg:[&_tr]:grid-cols-1 max-lg:[&_tr]:gap-2 max-lg:[&_tr]:rounded-[1.15rem] max-lg:[&_tr]:border max-lg:[&_tr]:border-base-300/70 max-lg:[&_tr]:bg-base-100 max-lg:[&_tr]:p-3 max-lg:[&_td]:min-w-0 max-lg:[&_td]:border-0 max-lg:[&_td]:px-0 max-lg:[&_td]:py-0 max-lg:[&_td]:text-[0.82rem] max-lg:[&_td]:leading-5 max-lg:[&_td]:break-words max-lg:[&_td:first-child]:text-sm max-lg:[&_td:first-child]:font-bold [&_td]:border-base-300/55 [&_th]:border-b [&_th]:border-base-300/70 [&_th]:bg-base-200 [&_th]:text-[0.76rem] [&_th]:font-extrabold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-base-content/64 [&_tr:hover_td]:bg-base-content/3",
         className
       )}
       {...props}
@@ -229,7 +229,7 @@ export function WorkspaceDetailItem({ label, value }: WorkspaceDetailItemProps) 
   return (
     <div className="rounded-box border border-base-300/65 bg-base-200/52 px-4 py-3">
       <dt className="text-[0.74rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">{label}</dt>
-      <dd className="mt-1 text-base-content">{value}</dd>
+      <dd className="mt-1 min-w-0 break-words text-base-content">{value}</dd>
     </div>
   );
 }

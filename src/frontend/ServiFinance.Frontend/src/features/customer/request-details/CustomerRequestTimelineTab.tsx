@@ -1,3 +1,4 @@
+import { Star } from "lucide-react";
 import type { CustomerRequest, CustomerRequestTimelineEntry } from "../useCustomerRequests";
 import {
   EmptyState,
@@ -21,6 +22,14 @@ type CustomerRequestTimelineTabProps = {
   onSuggestionCategoryChange: (value: string) => void;
   onSubmitFeedback: () => void;
 };
+
+const ratingOptions = [
+  { value: 1, label: "Poor" },
+  { value: 2, label: "Fair" },
+  { value: 3, label: "Good" },
+  { value: 4, label: "Very good" },
+  { value: 5, label: "Excellent" }
+];
 
 export function CustomerRequestTimelineTab({
   request,
@@ -58,17 +67,36 @@ export function CustomerRequestTimelineTab({
                 Feedback stays open for 7 days after completion{request.feedbackExpiresAtUtc ? `, until ${formatDateTime(request.feedbackExpiresAtUtc)}` : ""}.
               </p>
             </div>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-slate-700">Rating (1-5)</span>
-              <input
-                type="number"
-                min="1"
-                max="5"
-                className="input input-bordered w-24 rounded-xl bg-white"
-                value={rating}
-                onChange={(event) => onRatingChange(Number(event.target.value))}
-              />
-            </label>
+            <div className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700">Rating</span>
+              <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Service rating">
+                {ratingOptions.map((option) => {
+                  const selected = rating >= option.value;
+                  const exactRating = rating === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={exactRating}
+                      aria-label={`${option.value} star${option.value === 1 ? "" : "s"} - ${option.label}`}
+                      className={`grid h-11 w-11 place-items-center rounded-full border transition-colors ${
+                        selected
+                          ? "border-amber-300 bg-amber-100 text-amber-600"
+                          : "border-slate-200 bg-white text-slate-300 hover:border-amber-300 hover:text-amber-500"
+                      }`}
+                      onClick={() => onRatingChange(option.value)}
+                    >
+                      <Star className="h-5 w-5" fill={selected ? "currentColor" : "none"} />
+                    </button>
+                  );
+                })}
+                <span className="ml-1 text-sm font-semibold text-slate-700">
+                  {ratingOptions.find((option) => option.value === rating)?.label ?? `${rating}/5`}
+                </span>
+              </div>
+            </div>
             <label className="grid gap-2">
               <span className="text-sm font-medium text-slate-700">Suggestion type (optional)</span>
               <select

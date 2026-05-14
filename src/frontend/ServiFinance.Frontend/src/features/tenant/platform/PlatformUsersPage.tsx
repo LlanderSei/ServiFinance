@@ -299,12 +299,41 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
 
                 {sortedUsers.map((user) => (
                   <tr key={user.id}>
-                    <td>{user.fullName}</td>
-                    <td>{user.email}</td>
                     <td>
+                      <div className="grid gap-3 lg:hidden">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <strong className="block text-sm text-base-content">{user.fullName}</strong>
+                            <span className="block text-xs text-base-content/65">{user.email}</span>
+                            <span className="block text-xs text-base-content/60">
+                              Created {new Date(user.createdAtUtc).toLocaleDateString("en-PH")}
+                            </span>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <AccessPill category={getAccessCategory(user.platformScopes.length ? user.platformScopes : user.roles)} />
+                            <WorkspaceStatusPill tone={user.isActive ? "active" : "inactive"}>
+                              {user.isActive ? "Active" : "Disabled"}
+                            </WorkspaceStatusPill>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {user.roles.map((role) => (
+                            <span
+                              key={role}
+                              className="rounded-full border border-base-300/70 bg-base-200/60 px-2.5 py-1 text-xs font-semibold text-base-content/70"
+                            >
+                              {role}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <span className="hidden lg:inline">{user.fullName}</span>
+                    </td>
+                    <td className="max-lg:hidden">{user.email}</td>
+                    <td className="max-lg:hidden">
                       <AccessPill category={getAccessCategory(user.platformScopes.length ? user.platformScopes : user.roles)} />
                     </td>
-                    <td>
+                    <td className="max-lg:hidden">
                       <div className="flex flex-wrap gap-1.5">
                         {user.roles.map((role) => (
                           <span
@@ -316,14 +345,14 @@ export function PlatformUsersPage({ entrySurface }: { entrySurface: PlatformUser
                         ))}
                       </div>
                     </td>
-                    <td>
+                    <td className="max-lg:hidden">
                       <WorkspaceStatusPill tone={user.isActive ? "active" : "inactive"}>
                         {user.isActive ? "Active" : "Disabled"}
                       </WorkspaceStatusPill>
                     </td>
-                    <td>{new Date(user.createdAtUtc).toLocaleDateString("en-PH")}</td>
+                    <td className="max-lg:hidden">{new Date(user.createdAtUtc).toLocaleDateString("en-PH")}</td>
                     <td>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:flex-wrap">
                         <RecordTableActionButton
                           onClick={() => openEditModal(user)}
                           disabled={!canManageUsers || rolesQuery.isLoading || !hasSelectableRoles}

@@ -421,117 +421,119 @@ export function CustomerShell({ session, isSessionRestoring = false, children }:
 
         <aside
           className={joinClasses(
-            "fixed inset-y-0 left-0 z-50 flex w-[min(86vw,21rem)] flex-col overflow-y-auto overscroll-contain border-r border-slate-200/70 bg-white/96 px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-5 shadow-[0_22px_50px_rgba(33,44,74,0.18)] backdrop-blur-xl transition-transform duration-300 lg:sticky lg:inset-auto lg:top-5 lg:h-[calc(100vh-2.5rem)] lg:w-[290px] lg:shrink-0 lg:self-start lg:translate-x-0 lg:rounded-[2rem] lg:border lg:pb-8 lg:shadow-[0_20px_45px_rgba(42,56,92,0.08)]",
+            "fixed inset-y-0 left-0 z-50 flex w-[min(86vw,21rem)] flex-col overflow-visible border-r border-slate-200/70 bg-white/96 shadow-[0_22px_50px_rgba(33,44,74,0.18)] backdrop-blur-xl transition-transform duration-300 lg:sticky lg:inset-auto lg:top-5 lg:h-[calc(100vh-2.5rem)] lg:w-[290px] lg:shrink-0 lg:self-start lg:translate-x-0 lg:rounded-[2rem] lg:border lg:shadow-[0_20px_45px_rgba(42,56,92,0.08)]",
             isDrawerOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           )}
         >
-          <div className="flex items-center justify-between gap-3 px-2">
-            <div className="flex items-center gap-3">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[linear-gradient(145deg,#102147_0%,#2d5fff_100%)] text-sm font-semibold uppercase tracking-[0.16em] text-white">
-                C
-              </span>
-              <div>
-                <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-slate-500">Customer Portal</p>
-                <h1 className="text-lg font-semibold tracking-[-0.03em] text-slate-950">{tenantDomainSlug}</h1>
+          <button
+            type="button"
+            className="absolute right-0 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 translate-x-1/2 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-[0_12px_28px_rgba(35,46,76,0.14)] hover:bg-slate-50 lg:hidden"
+            onClick={() => setIsDrawerOpen(false)}
+            aria-label="Close customer navigation"
+          >
+            <span className="text-xl leading-none">&lt;</span>
+          </button>
+
+          <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-5 lg:pb-8">
+            <div className="flex items-center justify-between gap-3 px-2">
+              <div className="flex items-center gap-3">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[linear-gradient(145deg,#102147_0%,#2d5fff_100%)] text-sm font-semibold uppercase tracking-[0.16em] text-white">
+                  C
+                </span>
+                <div>
+                  <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-slate-500">Customer Portal</p>
+                  <h1 className="text-lg font-semibold tracking-[-0.03em] text-slate-950">{tenantDomainSlug}</h1>
+                </div>
               </div>
             </div>
 
-            <button
-              type="button"
-              className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 lg:hidden"
-              onClick={() => setIsDrawerOpen(false)}
-              aria-label="Close customer navigation"
-            >
-              <span className="text-xl leading-none">&lt;</span>
-            </button>
-          </div>
-
-          <div className="mt-8 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(240,246,255,0.92),rgba(255,255,255,0.92))] px-4 py-4">
-            <p className="text-[0.72rem] font-bold uppercase tracking-[0.22em] text-slate-500">
-              {isAuthenticated ? "Signed in" : isSessionRestoring ? "Checking session" : "Tenant-scoped access"}
-            </p>
-            {session ? (
-              <>
-                <strong className="mt-2 block text-lg text-slate-950">{session.fullName}</strong>
-                <p className="mt-1 text-sm text-slate-600">{session.email}</p>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Your customer profile and activity stay isolated inside this tenant domain.
-                </p>
-              </>
-            ) : isSessionRestoring ? (
-              <>
-                <strong className="mt-2 block text-lg text-slate-950">Restoring customer session</strong>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Checking your saved customer access before showing tenant-scoped navigation.
-                </p>
-              </>
-            ) : (
-              <>
-                <strong className="mt-2 block text-lg text-slate-950">Separate from SMS staff access</strong>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Customer login and registration stay under `/t/&lbrace;tenant&rbrace;/c/*` so tenant staff and customer journeys do not mix.
-                </p>
-              </>
-            )}
-          </div>
-
-          <nav className="mt-8 grid gap-2">
-            {isSessionRestoring && (
-              <div className="rounded-[1.4rem] bg-slate-100 px-4 py-3 text-slate-600">
-                <span className="block text-[0.7rem] font-bold uppercase tracking-[0.2em] text-slate-400">
-                  Customer workspace
-                </span>
-                <span className="mt-1 block text-sm font-semibold tracking-[0.01em]">Loading navigation...</span>
-              </div>
-            )}
-            {authLinks.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  joinClasses(
-                    "group rounded-[1.4rem] px-4 py-3 no-underline transition-colors duration-200",
-                    isActive
-                      ? "bg-slate-950 text-white"
-                      : "text-slate-700 hover:bg-slate-100"
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <span
-                      className={joinClasses(
-                        "block text-[0.7rem] font-bold uppercase tracking-[0.2em]",
-                        isActive ? "text-white/60" : "text-slate-400"
-                      )}
-                    >
-                      {item.eyebrow}
-                    </span>
-                    <span className="mt-1 block text-sm font-semibold tracking-[0.01em]">{item.label}</span>
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </nav>
-
-          <div className="mt-8 border-t border-slate-200/70 pt-5">
-            {isAuthenticated ? (
-              <button
-                type="button"
-                className="btn w-full rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100"
-                onClick={handleLogout}
-              >
-                Sign out
-              </button>
-            ) : isSessionRestoring ? (
-              <p className="px-2 text-sm leading-6 text-slate-500">
-                Saved customer access is being verified.
+            <div className="mt-8 rounded-[1.6rem] border border-slate-200/70 bg-[linear-gradient(180deg,rgba(240,246,255,0.92),rgba(255,255,255,0.92))] px-4 py-4">
+              <p className="text-[0.72rem] font-bold uppercase tracking-[0.22em] text-slate-500">
+                {isAuthenticated ? "Signed in" : isSessionRestoring ? "Checking session" : "Tenant-scoped access"}
               </p>
-            ) : (
-              <p className="px-2 text-sm leading-6 text-slate-500">
-                Accounts are tenant-scoped. Registering here does not create access for other tenant domains.
-              </p>
-            )}
+              {session ? (
+                <>
+                  <strong className="mt-2 block text-lg text-slate-950">{session.fullName}</strong>
+                  <p className="mt-1 text-sm text-slate-600">{session.email}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">
+                    Your customer profile and activity stay isolated inside this tenant domain.
+                  </p>
+                </>
+              ) : isSessionRestoring ? (
+                <>
+                  <strong className="mt-2 block text-lg text-slate-950">Restoring customer session</strong>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">
+                    Checking your saved customer access before showing tenant-scoped navigation.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <strong className="mt-2 block text-lg text-slate-950">Separate from SMS staff access</strong>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">
+                    Customer login and registration stay under `/t/&lbrace;tenant&rbrace;/c/*` so tenant staff and customer journeys do not mix.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <nav className="mt-8 grid gap-2">
+              {isSessionRestoring && (
+                <div className="rounded-[1.4rem] bg-slate-100 px-4 py-3 text-slate-600">
+                  <span className="block text-[0.7rem] font-bold uppercase tracking-[0.2em] text-slate-400">
+                    Customer workspace
+                  </span>
+                  <span className="mt-1 block text-sm font-semibold tracking-[0.01em]">Loading navigation...</span>
+                </div>
+              )}
+              {authLinks.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    joinClasses(
+                      "group rounded-[1.4rem] px-4 py-3 no-underline transition-colors duration-200",
+                      isActive
+                        ? "bg-slate-950 text-white"
+                        : "text-slate-700 hover:bg-slate-100"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className={joinClasses(
+                          "block text-[0.7rem] font-bold uppercase tracking-[0.2em]",
+                          isActive ? "text-white/60" : "text-slate-400"
+                        )}
+                      >
+                        {item.eyebrow}
+                      </span>
+                      <span className="mt-1 block text-sm font-semibold tracking-[0.01em]">{item.label}</span>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="mt-auto border-t border-slate-200/70 pt-5">
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  className="btn w-full rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100"
+                  onClick={handleLogout}
+                >
+                  Sign out
+                </button>
+              ) : isSessionRestoring ? (
+                <p className="px-2 text-sm leading-6 text-slate-500">
+                  Saved customer access is being verified.
+                </p>
+              ) : (
+                <p className="px-2 text-sm leading-6 text-slate-500">
+                  Accounts are tenant-scoped. Registering here does not create access for other tenant domains.
+                </p>
+              )}
+            </div>
           </div>
         </aside>
 

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { Activity, Clock, CreditCard, Image, Truck } from "lucide-react";
 import { useToast } from "@/shared/toast/ToastProvider";
 import { CustomerBottomTabs } from "./CustomerBottomTabs";
@@ -13,19 +13,41 @@ import { CustomerRequestTimelineTab } from "./request-details/CustomerRequestTim
 import { statusTone } from "./request-details/CustomerRequestDetailsShared";
 
 type TrackingTab = "overview" | "dispatch" | "finance" | "evidence" | "timeline";
+type RequestListTab = "ongoing" | "history";
+
+const trackingTabKeys = new Set<TrackingTab>(["overview", "dispatch", "finance", "evidence", "timeline"]);
+
+function normalizeTrackingTab(value: string | null): TrackingTab | null {
+  return value && trackingTabKeys.has(value as TrackingTab) ? value as TrackingTab : null;
+}
+
+function normalizeRequestListTab(value: unknown): RequestListTab | null {
+  return value === "ongoing" || value === "history" ? value : null;
+}
 
 export function CustomerRequestDetailsPage() {
   const { requestId = "", tenantDomainSlug = "" } = useParams();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const requestedTrackingTab = normalizeTrackingTab(searchParams.get("trackingTab"));
+  const requestedReturnTab = normalizeRequestListTab(searchParams.get("from"));
+  const stateReturnTab = normalizeRequestListTab((location.state as { requestsTab?: string } | null)?.requestsTab);
   const toast = useToast();
   const detailsQuery = useCustomerRequestDetails(requestId || null);
   const cancelRequest = useCancelCustomerRequest();
   const submitFeedback = useSubmitCustomerFeedback();
   const createStripeCheckout = useCreateCustomerInvoiceStripeCheckout();
-  const [activeTab, setActiveTab] = useState<TrackingTab>("overview");
+  const [activeTab, setActiveTab] = useState<TrackingTab>(() => requestedTrackingTab ?? "overview");
   const [cancelReason, setCancelReason] = useState("");
   const [rating, setRating] = useState(5);
   const [feedbackComments, setFeedbackComments] = useState("");
   const [suggestionCategory, setSuggestionCategory] = useState("");
+
+  useEffect(() => {
+    if (requestedTrackingTab) {
+      setActiveTab(requestedTrackingTab);
+    }
+  }, [requestedTrackingTab]);
 
   function handleStartOnlinePayment(invoiceId: string) {
     createStripeCheckout.mutate(
@@ -53,6 +75,8 @@ export function CustomerRequestDetailsPage() {
   }
 
   if (detailsQuery.isError || !detailsQuery.data) {
+    const fallbackReturnTab = stateReturnTab ?? requestedReturnTab ?? "ongoing";
+
     return (
       <section className="grid gap-4 rounded-[2rem] border border-rose-200/80 bg-white px-6 py-10 text-center shadow-[0_14px_30px_rgba(35,46,76,0.06)]">
         <div>
@@ -65,7 +89,7 @@ export function CustomerRequestDetailsPage() {
         <div>
           <Link
             className="btn rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
-            to={`/t/${tenantDomainSlug}/c/requests`}
+            to={`/t/${tenantDomainSlug}/c/requests?tab=${fallbackReturnTab}`}
           >
             Back to requests
           </Link>
@@ -76,6 +100,8 @@ export function CustomerRequestDetailsPage() {
 
   const details = detailsQuery.data;
   const { request, timeline, assignments, attachments } = details;
+  const returnTab = stateReturnTab ?? requestedReturnTab ?? (request.currentStatus === "Completed" || request.currentStatus === "Closed" || request.currentStatus === "Cancelled" ? "history" : "ongoing");
+  const requestListUrl = `/t/${tenantDomainSlug}/c/requests?tab=${returnTab}`;
   const tabOptions = [
     { key: "overview" as const, label: "Overview", icon: Activity },
     { key: "dispatch" as const, label: "Dispatch", count: assignments.length, icon: Truck },
@@ -87,7 +113,7 @@ export function CustomerRequestDetailsPage() {
   return (
     <div className="flex min-h-[calc(100vh-9rem)] min-w-0 max-w-full flex-col gap-5 overflow-x-hidden pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
       <section className="min-w-0 overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white px-5 py-6 shadow-[0_14px_30px_rgba(35,46,76,0.06)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className="min-w-0 break-words text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500 [overflow-wrap:anywhere]">Request tracking</p>
             <h1 className="mt-2 min-w-0 break-words text-3xl font-semibold tracking-[-0.05em] text-slate-950 [overflow-wrap:anywhere]">{request.requestNumber}</h1>
@@ -95,13 +121,13 @@ export function CustomerRequestDetailsPage() {
               Follow request movement through focused tabs for overview, dispatch, finance, evidence, and timeline updates.
             </p>
           </div>
-          <div className="grid gap-2 justify-items-start sm:justify-items-end">
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end sm:justify-start">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${statusTone(request.currentStatus)}`}>
               {request.currentStatus}
             </span>
             <Link
-              className="btn rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
-              to={`/t/${tenantDomainSlug}/c/requests`}
+              className="btn shrink-0 rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
+              to={requestListUrl}
             >
               Back to requests
             </Link>

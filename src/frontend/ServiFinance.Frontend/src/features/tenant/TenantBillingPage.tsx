@@ -174,26 +174,26 @@ export function TenantBillingPage() {
         />
       }
     >
-      {billingQuery.isError ? (
-        <WorkspaceNotice tone="error" className="m-4 mb-0">
-          Unable to load the tenant billing workspace right now.
-        </WorkspaceNotice>
-      ) : null}
-
-      {portalMutation.isError ? (
-        <WorkspaceNotice tone="error" className="m-4 mb-0">
-          {portalMutation.error.message}
-        </WorkspaceNotice>
-      ) : null}
-
-      {renewalWarningMessage ? (
-        <WorkspaceNotice tone={isAutorenewalManaged ? "info" : "error"} className="m-4 mb-0">
-          {renewalWarningMessage}
-        </WorkspaceNotice>
-      ) : null}
-
       <RecordScrollRegion>
         <WorkspaceScrollStack className="p-0">
+          {billingQuery.isError ? (
+            <WorkspaceNotice tone="error">
+              Unable to load the tenant billing workspace right now.
+            </WorkspaceNotice>
+          ) : null}
+
+          {portalMutation.isError ? (
+            <WorkspaceNotice tone="error">
+              {portalMutation.error.message}
+            </WorkspaceNotice>
+          ) : null}
+
+          {renewalWarningMessage ? (
+            <WorkspaceNotice tone={isAutorenewalManaged ? "info" : "error"}>
+              {renewalWarningMessage}
+            </WorkspaceNotice>
+          ) : null}
+
           {activeBillingTab === "overview" ? (
             <BillingOverviewTab
               data={billingQuery.data}

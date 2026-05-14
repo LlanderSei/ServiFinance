@@ -81,6 +81,19 @@ async function throwApiError(response: Response): Promise<never> {
   throw new Error(errorMessage ?? `Request failed: ${response.status}`);
 }
 
+async function readJsonOrEmpty<T>(response: Response): Promise<T> {
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+  if (!text.trim()) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
+}
+
 export async function httpGet<T>(path: string): Promise<T> {
   const response = await fetch(await resolveApiUrl(path), await createRequestInit("GET", path));
 
@@ -88,7 +101,7 @@ export async function httpGet<T>(path: string): Promise<T> {
     await throwApiError(response);
   }
 
-  return response.json() as Promise<T>;
+  return readJsonOrEmpty<T>(response);
 }
 
 export async function httpPostJson<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
@@ -98,11 +111,7 @@ export async function httpPostJson<TResponse, TBody>(path: string, body: TBody):
     await throwApiError(response);
   }
 
-  if (response.status === 204) {
-    return undefined as TResponse;
-  }
-
-  return response.json() as Promise<TResponse>;
+  return readJsonOrEmpty<TResponse>(response);
 }
 
 export async function httpPutJson<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
@@ -112,11 +121,7 @@ export async function httpPutJson<TResponse, TBody>(path: string, body: TBody): 
     await throwApiError(response);
   }
 
-  if (response.status === 204) {
-    return undefined as TResponse;
-  }
-
-  return response.json() as Promise<TResponse>;
+  return readJsonOrEmpty<TResponse>(response);
 }
 
 export async function httpPostFormData<TResponse>(path: string, body: FormData): Promise<TResponse> {
@@ -126,11 +131,7 @@ export async function httpPostFormData<TResponse>(path: string, body: FormData):
     await throwApiError(response);
   }
 
-  if (response.status === 204) {
-    return undefined as TResponse;
-  }
-
-  return response.json() as Promise<TResponse>;
+  return readJsonOrEmpty<TResponse>(response);
 }
 
 export async function httpPostFormDataWithProgress<TResponse>(
@@ -169,6 +170,11 @@ export async function httpPostFormDataWithProgress<TResponse>(
         return;
       }
 
+      if (!request.responseText.trim()) {
+        resolve(undefined as TResponse);
+        return;
+      }
+
       try {
         resolve(JSON.parse(request.responseText) as TResponse);
       } catch {
@@ -197,11 +203,7 @@ export async function httpDeleteJson<TResponse>(path: string): Promise<TResponse
     await throwApiError(response);
   }
 
-  if (response.status === 204) {
-    return undefined as TResponse;
-  }
-
-  return response.json() as Promise<TResponse>;
+  return readJsonOrEmpty<TResponse>(response);
 }
 
 function readXhrErrorMessage(request: XMLHttpRequest): string | null {

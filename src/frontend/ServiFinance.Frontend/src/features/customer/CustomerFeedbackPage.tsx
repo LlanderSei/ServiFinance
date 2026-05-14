@@ -1,10 +1,9 @@
 import { useCustomerRequests } from "./useCustomerRequests";
-import { Link } from "react-router-dom";
-import { getCurrentCustomerSession } from "./customerAuth";
+import { Link, useParams } from "react-router-dom";
 
 export function CustomerFeedbackPage() {
+  const { tenantDomainSlug = "" } = useParams();
   const { data: requests, isLoading } = useCustomerRequests();
-  const session = getCurrentCustomerSession();
 
   const requestsNeedingFeedback = requests?.filter(
     r => (r.currentStatus === "Completed" || r.currentStatus === "Closed") &&
@@ -51,7 +50,11 @@ export function CustomerFeedbackPage() {
                 <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500">{request.requestNumber}</p>
                 <h3 className="mt-1 text-lg font-semibold tracking-[-0.03em] text-slate-950">{request.itemType}</h3>
               </div>
-               <Link to={`/t/${session?.user?.tenantDomainSlug}/c/requests`} className="btn bg-slate-900 text-white rounded-xl hover:bg-slate-800">
+              <Link
+                to={`/t/${tenantDomainSlug}/c/requests/${request.id}?from=history&trackingTab=timeline`}
+                state={{ requestsTab: "history" }}
+                className="btn rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+              >
                 Leave Feedback
               </Link>
             </article>

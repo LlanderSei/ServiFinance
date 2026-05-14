@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import type { LucideIcon } from "lucide-react";
+import { BadgeDollarSign, Boxes, UserRound } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
 import { CaptchaField } from "@/shared/auth/CaptchaField";
@@ -60,6 +62,8 @@ type TierBenefitPresentation = {
   incrementalModules: SubscriptionTierCard["modules"];
   totalModuleCount: number;
 };
+
+type RegistrationModalTabKey = "plan" | "modules" | "owner";
 
 export function RegisterPage() {
   const { data } = useSubscriptionTiers();
@@ -280,13 +284,13 @@ export function RegisterPage() {
                 </p>
               </div>
 
-              <div className="inline-flex rounded-full border border-slate-900/10 bg-slate-100/80 p-1">
+              <div className="grid w-full grid-cols-2 rounded-full border border-slate-900/10 bg-slate-100/80 p-1 lg:inline-flex lg:w-auto">
                 {editionTabs.map((edition) => (
                   <button
                     key={edition}
                     type="button"
                     className={[
-                      "rounded-full px-5 py-2 text-sm font-semibold transition",
+                      "w-full rounded-full px-5 py-2 text-sm font-semibold transition",
                       selectedEdition === edition
                         ? "bg-slate-950 text-white shadow-[0_12px_26px_rgba(15,23,42,0.16)]"
                         : "text-slate-600 hover:bg-white"
@@ -300,7 +304,7 @@ export function RegisterPage() {
             </div>
 
             {editionTiers.length ? (
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-3 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0 lg:pb-0">
                 {editionTiers.map((tier) => (
                   <TierCard
                     key={tier.id}
@@ -310,6 +314,7 @@ export function RegisterPage() {
                     onSelect={() => handleChooseTier(tier)}
                   />
                 ))}
+                <span className="w-1 shrink-0 lg:hidden" aria-hidden />
               </div>
             ) : (
               <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 px-5 py-5 text-amber-800">
@@ -386,7 +391,7 @@ function TierCard({
   return (
     <article
       className={[
-        "flex min-h-[34rem] flex-col gap-5 rounded-[1.6rem] border p-5 transition",
+        "flex min-h-[34rem] min-w-[min(86vw,22rem)] snap-start flex-col gap-5 rounded-[1.6rem] border p-5 transition lg:min-w-0",
         isSelected
           ? "border-primary/30 bg-gradient-to-b from-sky-50 to-teal-50 shadow-[0_18px_34px_rgba(63,88,184,0.1)]"
           : "border-slate-900/10 bg-white/90"
@@ -497,14 +502,20 @@ function RegistrationModal({
   const benefitPresentation = getTierBenefitPresentation(selectedTier, tiers);
   const webModules = selectedTier.modules.filter((module) => module.channel === "Web");
   const desktopModules = selectedTier.modules.filter((module) => module.channel === "Desktop");
+  const [activeModalTab, setActiveModalTab] = useState<RegistrationModalTabKey>("plan");
+  const modalTabs: Array<{ key: RegistrationModalTabKey; label: string; Icon: LucideIcon }> = [
+    { key: "plan", label: "Plan", Icon: BadgeDollarSign },
+    { key: "modules", label: "Modules", Icon: Boxes },
+    { key: "owner", label: "Owner", Icon: UserRound }
+  ];
 
   return (
-    <div className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/55 p-2 backdrop-blur-sm sm:px-4 sm:py-6">
       <form
-        className="flex h-[min(48rem,calc(100vh-3rem))] w-full max-w-[74rem] flex-col overflow-hidden rounded-[1.7rem] border border-white/70 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.35)]"
+        className="flex h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[74rem] flex-col overflow-hidden rounded-[1.35rem] border border-white/70 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.35)] lg:h-[min(48rem,calc(100vh-3rem))] lg:rounded-[1.7rem]"
         onSubmit={onSubmit}
       >
-        <header className="flex flex-col gap-3 border-b border-slate-900/10 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
+        <header className="relative flex flex-col gap-3 border-b border-slate-900/10 px-5 py-4 pr-14 lg:flex-row lg:items-start lg:justify-between lg:px-6 lg:py-5 lg:pr-14">
           <div>
             <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Tenant registration</p>
             <h2 className="mt-2 text-[clamp(1.65rem,3vw,2.4rem)] leading-none tracking-[-0.045em] text-slate-950">
@@ -512,10 +523,45 @@ function RegistrationModal({
             </h2>
           </div>
           <PublicBadge>{selectedTier.subscriptionEdition} / {selectedTier.businessSizeSegment}</PublicBadge>
+          <button
+            type="button"
+            className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full border border-slate-900/10 bg-white text-slate-700 shadow-sm hover:bg-slate-50"
+            onClick={onClose}
+            disabled={isPending}
+            aria-label="Close registration modal"
+          >
+            x
+          </button>
         </header>
 
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[0.85fr_1fr_1.2fr] lg:overflow-hidden">
-          <section className="grid min-h-0 content-start gap-4 rounded-[1.35rem] border border-slate-900/10 bg-slate-50 p-4">
+        <nav className="grid grid-cols-3 border-b border-slate-900/10 bg-slate-50/80 p-1.5 lg:hidden" aria-label="Registration sections">
+          {modalTabs.map(({ key, label, Icon }) => {
+            const isActive = activeModalTab === key;
+
+            return (
+              <button
+                key={key}
+                type="button"
+                className={[
+                  "grid min-h-[3.1rem] place-items-center gap-0.5 rounded-[1rem] px-2 py-2 text-[0.68rem] font-extrabold uppercase tracking-[0.06em] transition",
+                  isActive ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:bg-white/70 hover:text-slate-900"
+                ].join(" ")}
+                onClick={() => setActiveModalTab(key)}
+              >
+                <Icon size={17} strokeWidth={2.2} aria-hidden />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="grid min-h-0 flex-1 gap-4 overflow-hidden p-3 lg:grid-cols-[0.85fr_1fr_1.2fr] lg:p-4">
+          <section
+            className={[
+              activeModalTab === "plan" ? "grid" : "hidden",
+              "min-h-0 content-start gap-4 overflow-y-auto rounded-[1.35rem] border border-slate-900/10 bg-slate-50 p-4 lg:grid"
+            ].join(" ")}
+          >
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Selected plan</p>
               <h3 className="mt-2 text-3xl tracking-[-0.045em] text-slate-950">{selectedTier.displayName}</h3>
@@ -533,7 +579,12 @@ function RegistrationModal({
             </div>
           </section>
 
-          <section className="flex min-h-0 flex-col gap-4 overflow-hidden rounded-[1.35rem] border border-slate-900/10 bg-white p-4">
+          <section
+            className={[
+              activeModalTab === "modules" ? "flex" : "hidden",
+              "min-h-0 flex-col gap-4 overflow-hidden rounded-[1.35rem] border border-slate-900/10 bg-white p-4 lg:flex"
+            ].join(" ")}
+          >
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Modules and benefits</p>
               <h3 className="mt-2 text-xl text-slate-950">All entitlements in this tier</h3>
@@ -551,7 +602,12 @@ function RegistrationModal({
             </div>
           </section>
 
-          <section className="grid min-h-0 content-start gap-3 overflow-hidden rounded-[1.35rem] border border-slate-900/10 bg-white p-4 sm:grid-cols-2">
+          <section
+            className={[
+              activeModalTab === "owner" ? "grid" : "hidden",
+              "min-h-0 content-start gap-3 overflow-y-auto rounded-[1.35rem] border border-slate-900/10 bg-white p-4 sm:grid-cols-2 lg:grid"
+            ].join(" ")}
+          >
             <div className="sm:col-span-2">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Owner and tenant</p>
               <h3 className="mt-2 text-xl text-slate-950">Create the first administrator</h3>
@@ -662,11 +718,11 @@ function RegistrationModal({
           </section>
         </div>
 
-        <footer className="flex flex-col gap-3 border-t border-slate-900/10 bg-slate-50 px-6 py-3 sm:flex-row sm:justify-end">
-          <PublicButton className="sm:min-w-32" onClick={onClose} disabled={isPending}>
+        <footer className="flex flex-col gap-3 border-t border-slate-900/10 bg-slate-50 px-4 py-3 sm:flex-row sm:justify-end sm:px-6">
+          <PublicButton className="w-full sm:min-w-32 sm:w-auto" onClick={onClose} disabled={isPending}>
             Cancel
           </PublicButton>
-          <PublicButton tone="primary" className="sm:min-w-52" type="submit" disabled={isPending}>
+          <PublicButton tone="primary" className="w-full sm:min-w-52 sm:w-auto" type="submit" disabled={isPending}>
             {isPending ? "Preparing Stripe checkout..." : "Continue to Stripe"}
           </PublicButton>
         </footer>

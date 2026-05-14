@@ -1,6 +1,6 @@
 import { Link, useLocation, useMatches } from "react-router-dom";
 import { toPlatformRoute } from "@/platform/runtime";
-import { PublicButton, PublicButtonLink, PublicContainer } from "@/shared/public/PublicPrimitives";
+import { PublicButton, PublicButtonLink } from "@/shared/public/PublicPrimitives";
 
 type Props = {
   onLoginRequested?: () => void;
@@ -32,41 +32,41 @@ export function PublicHeader({ onLoginRequested, tenantDisplayName, tenantLogoUr
   // Logo slot content — use tenant branding if provided, else show platform defaults
   const logoBlock = tenantDisplayName ? (
     <>
-      {tenantLogoUrl ? (
-        <img
-          src={tenantLogoUrl}
-          alt={tenantDisplayName}
-          className="h-11 w-11 rounded-2xl object-cover shadow-sm"
-        />
-      ) : (
-        <span
-          className="grid h-11 w-11 place-items-center rounded-2xl font-bold text-white shadow-sm"
-          style={{ background: "var(--tenant-primary-color, linear-gradient(135deg, #53d5cb, #7c9cff))" }}
-        >
-          {tenantDisplayName.charAt(0).toUpperCase()}
-        </span>
-      )}
-      <span>
-        <strong className="block text-base tracking-[-0.02em] text-slate-950">{tenantDisplayName}</strong>
+          {tenantLogoUrl ? (
+            <img
+              src={tenantLogoUrl}
+              alt={tenantDisplayName}
+              className="h-11 w-11 shrink-0 rounded-2xl object-cover shadow-sm"
+            />
+          ) : (
+            <span
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl font-bold text-white shadow-sm"
+              style={{ background: "var(--tenant-primary-color, linear-gradient(135deg, #53d5cb, #7c9cff))" }}
+            >
+              {tenantDisplayName.charAt(0).toUpperCase()}
+            </span>
+          )}
+      <span className="min-w-0">
+        <strong className="block truncate text-base tracking-[-0.02em] text-slate-950">{tenantDisplayName}</strong>
       </span>
     </>
   ) : (
     <>
-      <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-[#53d5cb] via-[#7c9cff] to-[#8f7dff] font-bold text-white shadow-[0_16px_34px_rgba(107,145,255,0.22)]">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#53d5cb] via-[#7c9cff] to-[#8f7dff] font-bold text-white shadow-[0_16px_34px_rgba(107,145,255,0.22)]">
         SF
       </span>
-      <span>
-        <strong className="block text-base tracking-[-0.02em] text-slate-950">ServiFinance</strong>
-        <small className="block text-slate-500">Unified operations and lending</small>
+      <span className="min-w-0">
+        <strong className="block truncate text-base tracking-[-0.02em] text-slate-950">ServiFinance</strong>
+        <small className="hidden truncate text-slate-500 sm:block">Unified operations and lending</small>
       </span>
     </>
   );
 
   return (
-    <header className="sticky top-0 z-20 px-7 pt-6">
-      <PublicContainer>
-        <div className="flex items-center justify-between gap-4 rounded-full border border-white/70 bg-white/92 px-4 py-4 shadow-[0_16px_34px_rgba(35,46,76,0.08),inset_0_1px_0_rgba(255,255,255,0.75)] backdrop-blur-sm">
-          <Link to="/" className="inline-flex items-center gap-3 text-inherit no-underline">
+    <header className="sticky top-0 z-20 px-2 pt-2 sm:px-0 sm:pt-6">
+      <div className="mx-auto w-full max-w-[1260px] sm:px-7">
+        <div className="flex w-full items-center justify-between gap-2 rounded-[1.35rem] border border-white/70 bg-white/92 px-3 py-3 shadow-[0_16px_34px_rgba(35,46,76,0.08),inset_0_1px_0_rgba(255,255,255,0.75)] backdrop-blur-sm sm:gap-4 sm:rounded-full sm:px-4 sm:py-4">
+          <Link to="/" className="inline-flex min-w-0 items-center gap-2 text-inherit no-underline sm:gap-3">
             {logoBlock}
           </Link>
 
@@ -78,18 +78,18 @@ export function PublicHeader({ onLoginRequested, tenantDisplayName, tenantLogoUr
             </nav>
           )}
 
-          <div className="flex gap-3">
-            <PublicButton tone="ghost" onClick={handleLogin}>
+          <div className="flex shrink-0 gap-2 sm:gap-3">
+            <PublicButton className="px-2.5 text-xs sm:px-4 sm:text-sm" tone="ghost" onClick={handleLogin}>
               Login
             </PublicButton>
             {!isTenantRoute && (
-              <PublicButtonLink to={isRegister ? "/" : "/register"} tone="primary">
+              <PublicButtonLink className="px-2.5 text-xs sm:px-4 sm:text-sm" to={isRegister ? "/" : "/register"} tone="primary">
                 {isRegister ? "Back Home" : "Register"}
               </PublicButtonLink>
             )}
           </div>
         </div>
-      </PublicContainer>
+      </div>
     </header>
   );
 }

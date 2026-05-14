@@ -7,8 +7,16 @@ export function isHistoryRequest(status: string) {
   return historyStatuses.has(status);
 }
 
-function isFeedbackExpired(feedbackExpiresAtUtc?: string | null) {
+export function isFeedbackExpired(feedbackExpiresAtUtc?: string | null) {
   return Boolean(feedbackExpiresAtUtc && new Date(feedbackExpiresAtUtc).getTime() < Date.now());
+}
+
+export function isCompletedOrClosedRequest(request: CustomerRequest) {
+  return request.currentStatus === "Completed" || request.currentStatus === "Closed";
+}
+
+export function hasOpenFeedbackRequest(request: CustomerRequest) {
+  return isCompletedOrClosedRequest(request) && request.rating == null && !isFeedbackExpired(request.feedbackExpiresAtUtc);
 }
 
 function joinClasses(...values: Array<string | false | null | undefined>) {
@@ -68,7 +76,6 @@ function buildRequestMeta(request: CustomerRequest) {
 }
 
 function RequestBadge({ request }: { request: CustomerRequest }) {
-  const isCompleted = request.currentStatus === "Completed" || request.currentStatus === "Closed";
   if (request.rating != null) {
     return (
       <span className="rounded-full bg-emerald-50 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-emerald-700">
@@ -77,7 +84,7 @@ function RequestBadge({ request }: { request: CustomerRequest }) {
     );
   }
 
-  if (isCompleted && !isFeedbackExpired(request.feedbackExpiresAtUtc)) {
+  if (hasOpenFeedbackRequest(request)) {
     return (
       <span className="rounded-full bg-amber-50 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-amber-700">
         Feedback open
@@ -96,16 +103,17 @@ type CustomerRequestCardProps = {
 export function CustomerRequestCard({ request, tenantDomainSlug }: CustomerRequestCardProps) {
   const isOngoing = !isHistoryRequest(request.currentStatus);
   const actionLabel = isOngoing ? "Track request" : "View";
+  const sourceTab = isOngoing ? "ongoing" : "history";
 
   return (
     <article className="rounded-[1.6rem] border border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_28px_rgba(35,46,76,0.06)] sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-slate-500">{request.requestNumber}</p>
-          <h2 className="mt-2 truncate text-lg font-semibold tracking-[-0.03em] text-slate-950">
+          <h2 className="mt-1 truncate text-lg font-semibold tracking-[-0.03em] text-slate-950">
             {request.itemType}
           </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <p className="mt-1.5 text-sm leading-6 text-slate-500">
             {buildRequestMeta(request)}
           </p>
         </div>
@@ -118,12 +126,15 @@ export function CustomerRequestCard({ request, tenantDomainSlug }: CustomerReque
         </span>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 pt-4">
-        <RequestBadge request={request} />
+      <div className="mt-3 flex items-center gap-3 border-t border-slate-200/80 pt-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <RequestBadge request={request} />
+        </div>
 
         <Link
-          className="btn btn-sm rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
-          to={`/t/${tenantDomainSlug}/c/requests/${request.id}`}
+          className="btn btn-sm ml-auto shrink-0 rounded-full border-slate-300 bg-white text-slate-900 shadow-none hover:bg-slate-100 no-underline"
+          to={`/t/${tenantDomainSlug}/c/requests/${request.id}?from=${sourceTab}`}
+          state={{ requestsTab: sourceTab }}
         >
           {actionLabel}
         </Link>

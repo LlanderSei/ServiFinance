@@ -146,3 +146,6 @@ C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-login\bin\ServiFinan
 C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-login\bin\ServiFinance.Domain.dll
 C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-dispatch-evidence\bin\ServiFinance.Domain.deps.json
 C:\Users\PC\AppData\Local\Temp\servifinance-api-build-check-dispatch-evidence\bin\ServiFinance.Domain.dll
+e:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\bin\Debug\net10.0\ServiFinance.Domain.pdb
+e:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.sourcelink.json
+e:\Documents\Llander\Yuemnigga\ServiFinance\src\backend\ServiFinance.Domain\obj\Debug\net10.0\ServiFinance.Domain.pdb

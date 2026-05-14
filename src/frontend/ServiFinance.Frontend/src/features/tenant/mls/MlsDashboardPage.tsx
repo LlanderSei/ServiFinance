@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRefreshSession } from "@/shared/auth/useRefreshSession";
 import type { TenantMlsDashboardResponse } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet } from "@/shared/api/http";
+import { WorkspaceBarChart, WorkspacePieChart } from "@/shared/charts/WorkspaceCharts";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { MlsModuleCodes } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
@@ -68,6 +69,20 @@ export function MlsDashboardPage() {
     enabled: Boolean(tenantDomainSlug)
   });
   const dashboard = dashboardQuery.data;
+  const handoffChart = (dashboard?.handoffDistribution ?? []).map((row) => ({
+    name: row.label,
+    value: row.count
+  }));
+  const financeQueueChart = (dashboard?.financeQueue ?? []).slice(0, 6).map((item) => ({
+    name: item.invoiceNumber,
+    outstanding: item.outstandingAmount,
+    interestable: item.interestableAmount
+  }));
+  const recentLoanChart = (dashboard?.recentLoans ?? []).slice(0, 6).map((loan) => ({
+    name: loan.invoiceNumber,
+    principal: loan.principalAmount,
+    repayable: loan.totalRepayableAmount
+  }));
 
   return (
     <ProtectedRoute
@@ -120,6 +135,17 @@ export function MlsDashboardPage() {
             <WorkspacePanel>
               <WorkspacePanelHeader eyebrow="Finance queue" title="Invoices ready for MLS handoff" />
 
+              <WorkspaceBarChart
+                data={financeQueueChart}
+                height={250}
+                series={[
+                  { key: "outstanding", name: "Outstanding" },
+                  { key: "interestable", name: "Interestable" }
+                ]}
+                valueFormatter={formatCurrency}
+                emptyMessage="No finance queue amounts can be charted yet."
+              />
+
               {dashboard?.financeQueue.length ? (
                 <WorkspaceSubtableShell>
                   <WorkspaceSubtable>
@@ -171,6 +197,8 @@ export function MlsDashboardPage() {
             <WorkspacePanel>
               <WorkspacePanelHeader eyebrow="Handoff mix" title="Current finance-state distribution" />
 
+              <WorkspacePieChart data={handoffChart} height={240} emptyMessage="No finance-state mix can be charted yet." />
+
               <div className="grid gap-4">
                 {dashboard?.handoffDistribution.length ? dashboard.handoffDistribution.map((item) => {
                   const total = dashboard.handoffDistribution.reduce((sum, current) => sum + current.count, 0);
@@ -194,6 +222,17 @@ export function MlsDashboardPage() {
           <WorkspacePanelGrid>
             <WorkspacePanel>
               <WorkspacePanelHeader eyebrow="Recent finance activity" title="Converted loans" />
+
+              <WorkspaceBarChart
+                data={recentLoanChart}
+                height={250}
+                series={[
+                  { key: "principal", name: "Principal" },
+                  { key: "repayable", name: "Total repayable" }
+                ]}
+                valueFormatter={formatCurrency}
+                emptyMessage="No converted loan values can be charted yet."
+              />
 
               {dashboard?.recentLoans.length ? (
                 <WorkspaceSubtableShell>

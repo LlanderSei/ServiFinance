@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useParams } from "react-router-dom";
-import { History, ListChecks } from "lucide-react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { Filter, History, ListChecks } from "lucide-react";
 import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import { useToast } from "@/shared/toast/ToastProvider";
 import { UploadProgressBar } from "@/shared/uploads/UploadProgressBar";
 import { CustomerBottomTabs, type CustomerBottomTab } from "./CustomerBottomTabs";
-import { isHistoryRequest } from "./CustomerRequestCard";
+import { hasOpenFeedbackRequest, isCompletedOrClosedRequest, isHistoryRequest } from "./CustomerRequestCard";
 import { CustomerRequestsHistoryTab } from "./CustomerRequestsHistoryTab";
 import { CustomerRequestsOngoingTab } from "./CustomerRequestsOngoingTab";
 import { useCustomerProfile } from "./useCustomerProfile";
+import type { CustomerRequest } from "./useCustomerRequests";
 import { useCreateCustomerRequest, useCustomerRequests, useUploadCustomerRequestAttachments } from "./useCustomerRequests";
 
 type RequestTab = "ongoing" | "history";
+type HistoryFilter = "all" | "openFeedback" | "completed" | "cancelled";
 
 const MAX_REQUEST_ATTACHMENTS = 5;
 const MAX_REQUEST_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -21,6 +23,64 @@ const requestTabs: Array<CustomerBottomTab<RequestTab>> = [
   { key: "ongoing", label: "Ongoing", icon: ListChecks },
   { key: "history", label: "History", icon: History }
 ];
+
+const historyFilters: Array<{ key: HistoryFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "openFeedback", label: "Open Feedback" },
+  { key: "completed", label: "Closed Feedback / Completed" },
+  { key: "cancelled", label: "Cancelled" }
+];
+
+function normalizeRequestTab(value: string | null): RequestTab | null {
+  return value === "history" || value === "ongoing" ? value : null;
+}
+
+function getHistoryBucket(request: CustomerRequest) {
+  if (hasOpenFeedbackRequest(request)) {
+    return 0;
+  }
+
+  if (isCompletedOrClosedRequest(request)) {
+    return 1;
+  }
+
+  if (request.currentStatus === "Cancelled") {
+    return 2;
+  }
+
+  return 3;
+}
+
+function getRequestHistoryDate(request: CustomerRequest) {
+  return request.cancelledAtUtc ?? request.completedAtUtc ?? request.createdAtUtc;
+}
+
+function filterHistoryRequests(requests: CustomerRequest[], filter: HistoryFilter) {
+  return [...requests]
+    .filter((request) => {
+      if (filter === "openFeedback") {
+        return hasOpenFeedbackRequest(request);
+      }
+
+      if (filter === "completed") {
+        return isCompletedOrClosedRequest(request) && !hasOpenFeedbackRequest(request);
+      }
+
+      if (filter === "cancelled") {
+        return request.currentStatus === "Cancelled";
+      }
+
+      return true;
+    })
+    .sort((left, right) => {
+      const bucketDelta = getHistoryBucket(left) - getHistoryBucket(right);
+      if (bucketDelta !== 0) {
+        return bucketDelta;
+      }
+
+      return new Date(getRequestHistoryDate(right)).getTime() - new Date(getRequestHistoryDate(left)).getTime();
+    });
+}
 
 function toUtcIso(value: string) {
   return value ? new Date(value).toISOString() : null;
@@ -46,6 +106,8 @@ function validateRequestAttachments(files: File[]) {
 
 export function CustomerRequestsPage() {
   const { tenantDomainSlug = "" } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = normalizeRequestTab(searchParams.get("tab"));
   const toast = useToast();
   const { data: requests, isLoading } = useCustomerRequests();
   const profileQuery = useCustomerProfile();
@@ -53,7 +115,8 @@ export function CustomerRequestsPage() {
   const uploadAttachments = useUploadCustomerRequestAttachments();
 
   const [showForm, setShowForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<RequestTab>("ongoing");
+  const [activeTab, setActiveTab] = useState<RequestTab>(() => requestedTab ?? "ongoing");
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [itemType, setItemType] = useState("");
   const [itemDescription, setItemDescription] = useState("");
   const [issueDescription, setIssueDescription] = useState("");
@@ -78,6 +141,10 @@ export function CustomerRequestsPage() {
     () => (requests ?? []).filter((request) => isHistoryRequest(request.currentStatus)),
     [requests]
   );
+  const visibleHistoryRequests = useMemo(
+    () => filterHistoryRequests(historyRequests, historyFilter),
+    [historyFilter, historyRequests]
+  );
   const tabOptions = useMemo(
     () => requestTabs.map((tab) => ({
       ...tab,
@@ -89,6 +156,14 @@ export function CustomerRequestsPage() {
   const headerDescription = activeTab === "ongoing"
     ? "Monitor active request movement and submit new requests from this tenant domain."
     : "Review completed, closed, and cancelled requests without mixing them into the live queue.";
+  const activeHistoryFilter = historyFilters.find((filter) => filter.key === historyFilter) ?? historyFilters[0];
+
+  useEffect(() => {
+    if (requestedTab && requestedTab !== activeTab) {
+      setActiveTab(requestedTab);
+      setShowForm(false);
+    }
+  }, [activeTab, requestedTab]);
 
   useEffect(() => {
     if (!showForm || !profileQuery.data || contactName || contactPhone || serviceAddress || serviceAddressDetails) {
@@ -159,6 +234,16 @@ export function CustomerRequestsPage() {
     setAttachmentUploadProgress(null);
   }
 
+  function handleTabChange(tab: RequestTab) {
+    setActiveTab(tab);
+    setShowForm(false);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("tab", tab);
+      return next;
+    }, { replace: true });
+  }
+
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
     setAttachmentUploadProgress(null);
@@ -203,7 +288,7 @@ export function CustomerRequestsPage() {
               ? error.message
               : "The request was created, but the pictures could not be uploaded."
           });
-          setActiveTab("ongoing");
+          handleTabChange("ongoing");
           resetForm();
           return;
         }
@@ -215,7 +300,7 @@ export function CustomerRequestsPage() {
           ? "Your service request and pictures were sent to the tenant team."
           : "Your service request was sent to the tenant team."
       });
-      setActiveTab("ongoing");
+      handleTabChange("ongoing");
       resetForm();
     } catch {
       // Mutation state already exposes the error message context in the form.
@@ -223,12 +308,12 @@ export function CustomerRequestsPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-9rem)] flex-col gap-5 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
-      <section className="flex flex-col items-stretch justify-between gap-4 rounded-[2rem] border border-slate-200/80 bg-white px-5 py-6 shadow-[0_14px_30px_rgba(35,46,76,0.06)] sm:flex-row sm:items-start">
+    <div className="flex min-h-[calc(100vh-9rem)] flex-col gap-4 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
+      <section className="flex flex-col items-stretch justify-between gap-3 rounded-[2rem] border border-slate-200/80 bg-white px-5 py-5 shadow-[0_14px_30px_rgba(35,46,76,0.06)] sm:flex-row sm:items-start">
         <div>
           <p className="text-[0.72rem] font-bold uppercase tracking-[0.2em] text-slate-500">Customer requests</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">{headerTitle}</h1>
-          <p className="mt-3 max-w-[38rem] text-sm leading-6 text-slate-600">
+          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.05em] text-slate-950">{headerTitle}</h1>
+          <p className="mt-2 max-w-[38rem] text-sm leading-6 text-slate-600">
             {headerDescription}
           </p>
         </div>
@@ -372,12 +457,60 @@ export function CustomerRequestsPage() {
             <CustomerRequestsOngoingTab requests={ongoingRequests} tenantDomainSlug={tenantDomainSlug} isLoading={isLoading} />
           ) : null}
           {activeTab === "history" ? (
-            <CustomerRequestsHistoryTab requests={historyRequests} tenantDomainSlug={tenantDomainSlug} isLoading={isLoading} />
+            <CustomerRequestsHistoryTab
+              requests={visibleHistoryRequests}
+              tenantDomainSlug={tenantDomainSlug}
+              isLoading={isLoading}
+              filterLabel={activeHistoryFilter.label}
+            />
           ) : null}
 
-          <CustomerBottomTabs tabs={tabOptions} activeTab={activeTab} onChange={setActiveTab} />
+          {activeTab === "history" ? (
+            <CustomerHistoryFilterFab
+              activeFilter={historyFilter}
+              onChange={setHistoryFilter}
+            />
+          ) : null}
+
+          <CustomerBottomTabs tabs={tabOptions} activeTab={activeTab} onChange={handleTabChange} />
         </>
       )}
     </div>
+  );
+}
+
+function CustomerHistoryFilterFab({
+  activeFilter,
+  onChange
+}: {
+  activeFilter: HistoryFilter;
+  onChange: (filter: HistoryFilter) => void;
+}) {
+  const activeHistoryFilter = historyFilters.find((filter) => filter.key === activeFilter) ?? historyFilters[0];
+
+  return (
+    <details className="group fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-40 lg:right-[calc((100vw-min(1480px,100vw))/2+2rem)]">
+      <summary className="btn min-h-0 cursor-pointer list-none rounded-full border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-[0_18px_36px_rgba(35,46,76,0.18)] hover:bg-slate-50">
+        <Filter className="h-4 w-4" />
+        <span className="hidden sm:inline">{activeHistoryFilter.label}</span>
+        <span className="sm:hidden">Filter</span>
+      </summary>
+
+      <div className="absolute bottom-full right-0 mb-2 grid w-64 gap-1 rounded-[1.2rem] border border-slate-200 bg-white p-2 shadow-[0_18px_36px_rgba(35,46,76,0.18)]">
+        {historyFilters.map((filter) => (
+          <button
+            key={filter.key}
+            type="button"
+            className={`rounded-xl px-3 py-2 text-left text-sm font-semibold transition-colors ${activeFilter === filter.key ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
+            onClick={(event) => {
+              onChange(filter.key);
+              event.currentTarget.closest("details")?.removeAttribute("open");
+            }}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }

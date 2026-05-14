@@ -52,7 +52,7 @@ function joinClasses(...values: Array<string | false | null | undefined>) {
 
 function getButtonClasses(tone: "primary" | "ghost", size: "default" | "small") {
   return joinClasses(
-    "btn rounded-full border shadow-sm",
+    "btn min-w-0 rounded-full border shadow-sm",
     size === "small" ? "btn-sm" : "",
     tone === "primary"
       ? "btn-primary border-primary text-primary-content"
@@ -75,7 +75,7 @@ export function PublicShell({ children }: PublicShellProps) {
 }
 
 export function PublicContainer({ children, className }: PublicContainerProps) {
-  return <div className={joinClasses("mx-auto w-full max-w-[1260px] px-7", className)}>{children}</div>;
+  return <div className={joinClasses("mx-auto w-full max-w-[1260px] px-4 sm:px-7", className)}>{children}</div>;
 }
 
 export function PublicSectionHeading({
@@ -86,11 +86,11 @@ export function PublicSectionHeading({
 }: PublicSectionHeadingProps) {
   return (
     <div className={joinClasses("max-w-[52rem]", className)}>
-      <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">{eyebrow}</p>
-      <h1 className="mt-2 font-['Iowan_Old_Style','Book_Antiqua',Georgia,serif] text-[clamp(2.8rem,5vw,4.8rem)] leading-[0.96] tracking-[-0.055em] text-slate-950">
+      <p className="text-[0.72rem] font-bold uppercase tracking-[0.18em] text-slate-500 sm:text-[0.75rem] sm:tracking-[0.2em]">{eyebrow}</p>
+      <h1 className="mt-2 font-['Iowan_Old_Style','Book_Antiqua',Georgia,serif] text-[clamp(2.35rem,12vw,3.4rem)] leading-[0.96] tracking-[-0.055em] text-slate-950 sm:text-[clamp(2.8rem,5vw,4.8rem)]">
         {title}
       </h1>
-      {description ? <p className="mt-4 max-w-[36rem] text-[1.08rem] leading-[1.75] text-slate-500">{description}</p> : null}
+      {description ? <p className="mt-3 max-w-[36rem] text-[0.98rem] leading-[1.6] text-slate-500 sm:mt-4 sm:text-[1.08rem] sm:leading-[1.75]">{description}</p> : null}
     </div>
   );
 }

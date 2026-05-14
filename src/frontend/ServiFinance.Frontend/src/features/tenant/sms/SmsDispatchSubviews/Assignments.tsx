@@ -1,6 +1,6 @@
-import { RecordTable, RecordTableActionButton, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
-import { WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
+import { RecordTable, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
 import type { TenantDispatchAssignmentRow } from "@/shared/api/contracts";
+import { DispatchAssignmentRow } from "./DispatchAssignmentRow";
 
 interface AssignmentsProps {
   assignments: TenantDispatchAssignmentRow[];
@@ -53,32 +53,13 @@ export function SmsDispatchAssignments({
             </RecordTableStateRow>
           ) : null}
           {assignments.map((assignment) => (
-            <tr key={assignment.id}>
-              <td>{assignment.requestNumber}</td>
-              <td>{assignment.customerName}</td>
-              <td>{assignment.assignedUserName}</td>
-              <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
-              <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
-              <td>
-                <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
-              </td>
-              <td>{assignment.serviceStatus}</td>
-              <td>
-                <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
-                  {assignment.financeHandoffStatus}
-                </WorkspaceStatusPill>
-              </td>
-              <td>
-                <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
-                  {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
-                </WorkspaceStatusPill>
-              </td>
-              <td>
-                <RecordTableActionButton onClick={() => onSelectAssignment(assignment)}>
-                  View
-                </RecordTableActionButton>
-              </td>
-            </tr>
+            <DispatchAssignmentRow
+              key={assignment.id}
+              assignment={assignment}
+              onView={() => onSelectAssignment(assignment)}
+              formatDateTime={formatDateTime}
+              getFinanceTone={getFinanceTone}
+            />
           ))}
         </tbody>
       </RecordTable>

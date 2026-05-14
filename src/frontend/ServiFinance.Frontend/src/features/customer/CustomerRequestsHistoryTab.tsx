@@ -5,12 +5,14 @@ type CustomerRequestsHistoryTabProps = {
   requests: CustomerRequest[];
   tenantDomainSlug: string;
   isLoading: boolean;
+  filterLabel: string;
 };
 
 export function CustomerRequestsHistoryTab({
   requests,
   tenantDomainSlug,
-  isLoading
+  isLoading,
+  filterLabel
 }: CustomerRequestsHistoryTabProps) {
   if (isLoading) {
     return (
@@ -23,7 +25,7 @@ export function CustomerRequestsHistoryTab({
   if (requests.length === 0) {
     return (
       <div className="rounded-[1.8rem] border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-slate-500">
-        No completed or cancelled requests are in your history yet.
+        No {filterLabel.toLowerCase()} requests are in your history yet.
       </div>
     );
   }

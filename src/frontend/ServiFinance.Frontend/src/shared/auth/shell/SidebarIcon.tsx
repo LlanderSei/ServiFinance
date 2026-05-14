@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  Calculator,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +17,7 @@ import {
   Settings2,
   SquareUserRound,
   Sun,
+  Tags,
   Truck,
   UserRoundPlus,
   Users,
@@ -47,6 +49,8 @@ const iconMap: Record<SidebarIconName, LucideIcon> = {
   reports: ChartColumn,
   audits: ScrollText,
   branding: Palette,
+  costs: Calculator,
+  pricing: Tags,
   collapse: ChevronLeft,
   expand: ChevronRight,
   chevron: ChevronDown,

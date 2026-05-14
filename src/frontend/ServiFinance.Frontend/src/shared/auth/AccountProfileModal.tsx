@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AccountPasswordChangeResponse,
@@ -203,6 +204,10 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated, initia
     return null;
   }
 
+  if (typeof document === "undefined") {
+    return null;
+  }
+
   function submitProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSaveProfile) {
@@ -297,35 +302,35 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated, initia
     return <WorkspaceModalButton onClick={onClose}>Close</WorkspaceModalButton>;
   }
 
-  return (
+  return createPortal((
     <div
-      className="fixed inset-0 z-[130] grid place-items-center bg-black/55 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[170] grid place-items-center bg-black/55 p-2 backdrop-blur-sm lg:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Account profile"
       onClick={onClose}
     >
       <section
-        className="grid h-[min(86vh,48rem)] w-full max-w-[74rem] grid-rows-[auto_auto_1fr_auto] overflow-hidden rounded-[2rem] border border-base-300/70 bg-base-100 shadow-[0_30px_90px_rgba(15,23,42,0.34)]"
+        className="relative grid h-[min(calc(100dvh-1rem),48rem)] w-full max-w-[calc(100vw-1rem)] grid-rows-[auto_auto_1fr_auto] overflow-hidden rounded-[1.5rem] border border-base-300/70 bg-base-100 shadow-[0_30px_90px_rgba(15,23,42,0.34)] sm:max-w-[38rem] lg:h-[min(86vh,48rem)] lg:max-w-[74rem] lg:rounded-[2rem]"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex flex-col gap-4 border-b border-base-300/70 px-5 py-5 md:px-6">
+        <header className="flex flex-col gap-2 border-b border-base-300/70 px-4 py-4 pr-14 md:px-6 lg:gap-4 lg:py-5">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
             <div>
               <p className="text-[0.74rem] font-extrabold uppercase tracking-[0.14em] text-base-content/55">
                 Account center
               </p>
-              <h2 className="mt-2 text-[clamp(1.8rem,3vw,2.45rem)] font-black tracking-[-0.05em] text-base-content">
+              <h2 className="mt-2 text-[clamp(1.45rem,7vw,2.45rem)] font-black tracking-[-0.05em] text-base-content">
                 {profileName}
               </h2>
               <p className="mt-1 text-sm text-base-content/65">
-                {profile?.email ?? user.email} · {formatSurface(profile?.surface ?? user.surface)}
+                {profile?.email ?? user.email} - {formatSurface(profile?.surface ?? user.surface)}
               </p>
             </div>
 
             <button
               type="button"
-              className="btn btn-circle btn-sm border-base-300/70 bg-base-100 text-base-content shadow-none hover:bg-base-200"
+              className="btn btn-circle btn-sm absolute right-3 top-3 z-10 border-base-300/70 bg-base-100 text-base-content shadow-none hover:bg-base-200"
               onClick={onClose}
               aria-label="Close account modal"
             >
@@ -334,9 +339,9 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated, initia
           </div>
         </header>
 
-        <WorkspaceTopTabs tabs={accountTabs} activeTab={activeTab} onChange={setActiveTab} />
+        <WorkspaceTopTabs tabs={accountTabs} activeTab={activeTab} onChange={setActiveTab} mobilePlacement="inline" />
 
-        <main className="min-h-0 overflow-y-auto px-5 py-5 md:px-6">
+        <main className="min-h-0 overflow-y-auto px-4 py-4 md:px-6 lg:py-5">
           {activeTab === "profile" ? (
             <form id="account-profile-form" className="grid gap-4" onSubmit={submitProfile}>
               <WorkspacePanelGrid>
@@ -621,12 +626,12 @@ export function AccountProfileModal({ user, open, onClose, onUserUpdated, initia
           ) : null}
         </main>
 
-        <footer className="flex flex-wrap justify-end gap-2 border-t border-base-300/70 bg-base-200/35 px-5 py-4 md:px-6">
+        <footer className="flex flex-wrap justify-end gap-2 border-t border-base-300/70 bg-base-200/35 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6 lg:py-4">
           {renderFooter()}
         </footer>
       </section>
     </div>
-  );
+  ), document.body);
 }
 
 function FutureSecurityItem({ title, detail }: { title: string; detail: string }) {

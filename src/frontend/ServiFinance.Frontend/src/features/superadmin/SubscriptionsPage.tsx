@@ -13,7 +13,7 @@ import {
   RecordTableShell,
   RecordTableStateRow
 } from "@/shared/records/RecordTable";
-import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceToggleButton, WorkspaceToggleGroup } from "@/shared/records/WorkspaceControls";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
 import { WorkspaceTopTabs } from "@/shared/records/WorkspaceTopTabs";
@@ -149,7 +149,7 @@ export function SubscriptionsPage() {
         headerBottom={<WorkspaceTopTabs tabs={workspaceTabs} activeTab={activeWorkspace} onChange={setActiveWorkspace} />}
       >
         {activeWorkspace === "catalog" ? (
-          <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+          <RecordContentStack>
             <WorkspaceMetricGrid className="md:grid-cols-2 xl:grid-cols-4">
               <WorkspacePanel>
                 <WorkspacePanelHeader eyebrow="Active catalog" title={`${activeTierCount} active tiers`} />
@@ -257,9 +257,11 @@ export function SubscriptionsPage() {
                 }
               ]}
             />
-          </div>
+          </RecordContentStack>
         ) : (
-          <SuperadminSubscriptionRecoveryTab />
+          <RecordContentStack>
+            <SuperadminSubscriptionRecoveryTab />
+          </RecordContentStack>
         )}
       </RecordWorkspace>
 

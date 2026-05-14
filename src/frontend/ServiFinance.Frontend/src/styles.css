@@ -90,6 +90,25 @@ select {
   contain: layout paint;
 }
 
+[data-mobile-sidebar-open="true"] .authed-workspace__fab {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.5rem);
+}
+
+@media (max-width: 1023px) {
+  .authed-workspace:has(.authed-workspace__bottom-tabs) .authed-workspace__content-stack,
+  .authed-workspace:has(.authed-workspace__bottom-tabs) .authed-workspace__scroll-region,
+  .authed-workspace:has(.authed-workspace__bottom-tabs) .authed-workspace__workspace-scroll-stack {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+    scroll-padding-bottom: 4.75rem;
+  }
+
+  .authed-workspace:has(.authed-workspace__bottom-tabs) .authed-workspace__fab {
+    bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+}
+
 @keyframes mls-hero-rise {
   from {
     opacity: 0;

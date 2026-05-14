@@ -14,6 +14,7 @@ import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import { formatFullAddress } from "@/shared/location/formatAddress";
 import { RecordDetailsModal } from "@/shared/records/RecordDetailsModal";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
+import { MobileRecordField, MobileRecordFieldGrid } from "@/shared/records/MobileRecordDetails";
 import {
   RecordTable,
   RecordTableActionButton,
@@ -237,23 +238,43 @@ export function SmsCustomersPage() {
 
                   {customersQuery.data?.map((customer) => (
                     <tr key={customer.id}>
-                      <td>{customer.customerCode}</td>
-                      <td>{customer.fullName}</td>
-                      <td>{customer.mobileNumber || "-"}</td>
-                      <td>{customer.email || "-"}</td>
-                      <td>{formatFullAddress(customer.address, customer.addressDetails)}</td>
-                      <td>{customer.serviceRequestCount}</td>
-                      <td className="flex flex-wrap gap-2">
-                        <RecordTableActionButton onClick={() => setSelectedCustomer(customer)}>
-                          View
-                        </RecordTableActionButton>
-                        <RecordTableActionButton
-                          onClick={() => openEditModal(customer)}
-                          disabled={!canManageCustomers}
-                          title={customerManageReadiness.reason ?? undefined}
-                        >
-                          Update
-                        </RecordTableActionButton>
+                      <td>
+                        <div className="grid gap-2 lg:hidden">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <strong className="block text-sm text-base-content">{customer.customerCode}</strong>
+                              <MobileRecordFieldGrid>
+                                <MobileRecordField label="Full Name" value={customer.fullName} />
+                                <MobileRecordField label="Mobile" value={customer.mobileNumber || "-"} />
+                                <MobileRecordField label="Email" value={customer.email || "-"} />
+                              </MobileRecordFieldGrid>
+                            </div>
+                            <span className="shrink-0 rounded-full border border-base-300/70 bg-base-200/70 px-2.5 py-1 text-xs font-semibold text-base-content/70">
+                              {customer.serviceRequestCount} requests
+                            </span>
+                          </div>
+                          <span className="text-xs leading-5 text-base-content/65">{formatFullAddress(customer.address, customer.addressDetails)}</span>
+                        </div>
+                        <span className="hidden lg:inline">{customer.customerCode}</span>
+                      </td>
+                      <td className="max-lg:hidden">{customer.fullName}</td>
+                      <td className="max-lg:hidden">{customer.mobileNumber || "-"}</td>
+                      <td className="max-lg:hidden">{customer.email || "-"}</td>
+                      <td className="max-lg:hidden">{formatFullAddress(customer.address, customer.addressDetails)}</td>
+                      <td className="max-lg:hidden">{customer.serviceRequestCount}</td>
+                      <td>
+                        <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:flex-wrap">
+                          <RecordTableActionButton onClick={() => setSelectedCustomer(customer)}>
+                            View
+                          </RecordTableActionButton>
+                          <RecordTableActionButton
+                            onClick={() => openEditModal(customer)}
+                            disabled={!canManageCustomers}
+                            title={customerManageReadiness.reason ?? undefined}
+                          >
+                            Update
+                          </RecordTableActionButton>
+                        </div>
                       </td>
                     </tr>
                   ))}

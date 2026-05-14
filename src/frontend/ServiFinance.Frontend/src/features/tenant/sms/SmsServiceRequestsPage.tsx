@@ -20,12 +20,6 @@ import { AddressLookupField } from "@/shared/location/AddressLookupField";
 import { formatFullAddress } from "@/shared/location/formatAddress";
 import { RecordFormModal } from "@/shared/records/RecordFormModal";
 import { RecordSurfaceModal } from "@/shared/records/RecordSurfaceModal";
-import {
-  RecordTable,
-  RecordTableActionButton,
-  RecordTableShell,
-  RecordTableStateRow
-} from "@/shared/records/RecordTable";
 import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import {
   WorkspaceActionButton,
@@ -40,6 +34,20 @@ import {
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
 import { WorkspaceTopTabs } from "@/shared/records/WorkspaceTopTabs";
 import { useToast } from "@/shared/toast/ToastProvider";
+import { SmsServiceRequestsHistoryTab } from "./service-requests/SmsServiceRequestsHistoryTab";
+import { SmsServiceRequestsNewTab } from "./service-requests/SmsServiceRequestsNewTab";
+import { SmsServiceRequestsOngoingTab } from "./service-requests/SmsServiceRequestsOngoingTab";
+import {
+  baseStatusOptionsByTab,
+  emptyServiceRequestFilters,
+  getFinanceTone,
+  getServiceRequestWorkspaceTab,
+  getUniqueOptions,
+  serviceRequestMatchesFilters,
+  serviceRequestWorkspaceTabs,
+  type ServiceRequestFilterState,
+  type ServiceRequestWorkspaceTab
+} from "./service-requests/serviceRequestTabs";
 
 type InvoiceFormState = {
   subtotalAmount: string;
@@ -119,6 +127,12 @@ export function SmsServiceRequestsPage() {
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [isCostingModalOpen, setIsCostingModalOpen] = useState(false);
   const [isRecordPaymentModalOpen, setIsRecordPaymentModalOpen] = useState(false);
+  const [activeRequestTab, setActiveRequestTab] = useState<ServiceRequestWorkspaceTab>("new");
+  const [requestFiltersByTab, setRequestFiltersByTab] = useState<Record<ServiceRequestWorkspaceTab, ServiceRequestFilterState>>({
+    new: { ...emptyServiceRequestFilters },
+    ongoing: { ...emptyServiceRequestFilters },
+    history: { ...emptyServiceRequestFilters }
+  });
   const [activeDetailTab, setActiveDetailTab] = useState<ServiceRequestDetailTab>("request");
   const [activeCostLineFilter, setActiveCostLineFilter] = useState("All");
   const [selectedPresetId, setSelectedPresetId] = useState("");
@@ -354,6 +368,49 @@ export function SmsServiceRequestsPage() {
   const visibleCostLines = useMemo(
     () => costSheetForm.lines.filter((line) => activeCostLineFilter === "All" || line.category === activeCostLineFilter),
     [activeCostLineFilter, costSheetForm.lines]
+  );
+  const serviceRequests = requestsQuery.data ?? [];
+  const serviceRequestCounts = useMemo(
+    () => serviceRequestWorkspaceTabs.reduce<Record<ServiceRequestWorkspaceTab, number>>((counts, tab) => {
+      counts[tab.key] = serviceRequests.filter((request) => getServiceRequestWorkspaceTab(request) === tab.key).length;
+      return counts;
+    }, { new: 0, ongoing: 0, history: 0 }),
+    [serviceRequests]
+  );
+  const serviceRequestTabs = useMemo(
+    () => serviceRequestWorkspaceTabs.map((tab) => ({
+      key: tab.key,
+      label: `${tab.label} (${serviceRequestCounts[tab.key]})`
+    })),
+    [serviceRequestCounts]
+  );
+  const activeRequestFilters = requestFiltersByTab[activeRequestTab];
+  const activeTabServiceRequests = useMemo(
+    () => serviceRequests.filter((request) => getServiceRequestWorkspaceTab(request) === activeRequestTab),
+    [activeRequestTab, serviceRequests]
+  );
+  const visibleServiceRequests = useMemo(
+    () => activeTabServiceRequests.filter((request) => serviceRequestMatchesFilters(request, activeRequestFilters)),
+    [activeRequestFilters, activeTabServiceRequests]
+  );
+  const priorityOptions = useMemo(
+    () => getUniqueOptions(activeTabServiceRequests.map((request) => request.priority)),
+    [activeTabServiceRequests]
+  );
+  const statusOptions = useMemo(
+    () => getUniqueOptions([
+      ...baseStatusOptionsByTab[activeRequestTab],
+      ...activeTabServiceRequests.map((request) => request.currentStatus)
+    ]),
+    [activeRequestTab, activeTabServiceRequests]
+  );
+  const financeStatusOptions = useMemo(
+    () => getUniqueOptions(activeTabServiceRequests.map((request) => request.financeHandoffStatus)),
+    [activeTabServiceRequests]
+  );
+  const serviceModeOptions = useMemo(
+    () => getUniqueOptions(activeTabServiceRequests.map((request) => request.serviceMode).filter(Boolean)),
+    [activeTabServiceRequests]
   );
 
   const requestDetails = useMemo<DetailSection[]>(() => {
@@ -920,79 +977,56 @@ export function SmsServiceRequestsPage() {
     };
   }, [costSheetForm]);
 
+  const updateActiveRequestFilters = (nextFilters: ServiceRequestFilterState) => {
+    setRequestFiltersByTab((current) => ({
+      ...current,
+      [activeRequestTab]: nextFilters
+    }));
+  };
+
+  const clearActiveRequestFilters = () => {
+    setRequestFiltersByTab((current) => ({
+      ...current,
+      [activeRequestTab]: { ...emptyServiceRequestFilters }
+    }));
+  };
+
+  const openServiceRequestDetails = (serviceRequest: TenantServiceRequestRow) => {
+    setActiveDetailTab("request");
+    setSelectedRequest(serviceRequest);
+  };
+
+  const serviceRequestTabProps = {
+    filters: activeRequestFilters,
+    statusOptions,
+    priorityOptions,
+    financeStatusOptions,
+    serviceModeOptions,
+    tabRequests: activeTabServiceRequests,
+    visibleRequests: visibleServiceRequests,
+    isLoading: requestsQuery.isLoading,
+    isError: requestsQuery.isError,
+    onChangeFilters: updateActiveRequestFilters,
+    onClearFilters: clearActiveRequestFilters,
+    onViewRequest: openServiceRequestDetails
+  };
+
   return (
     <>
         <RecordWorkspace
           breadcrumbs={`${tenantDomainSlug} / SMS / Service Requests`}
           title="Service requests"
           description="Track intake, priority, status progression, invoice handoff readiness, and customer-linked service work from one tenant-scoped request register."
-          recordCount={requestsQuery.data?.length ?? 0}
+          recordCount={visibleServiceRequests.length}
           singularLabel="request"
+          headerBottom={(
+            <WorkspaceTopTabs tabs={serviceRequestTabs} activeTab={activeRequestTab} onChange={(tab) => setActiveRequestTab(tab as ServiceRequestWorkspaceTab)} />
+          )}
         >
           <RecordContentStack>
-            <RecordTableShell>
-              <RecordTable>
-                <thead>
-                  <tr>
-                    <th>Request No.</th>
-                    <th>Customer</th>
-                    <th>Item Type</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Finance</th>
-                    <th>Feedback</th>
-                    <th>Requested Date</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {requestsQuery.isLoading ? (
-                    <RecordTableStateRow colSpan={9}>Loading service requests...</RecordTableStateRow>
-                  ) : null}
-
-                  {requestsQuery.isError ? (
-                    <RecordTableStateRow colSpan={9} tone="error">
-                      Unable to load service requests.
-                    </RecordTableStateRow>
-                  ) : null}
-
-                  {!requestsQuery.isLoading && !requestsQuery.isError && !requestsQuery.data?.length ? (
-                    <RecordTableStateRow colSpan={9}>No service requests yet.</RecordTableStateRow>
-                  ) : null}
-
-                  {requestsQuery.data?.map((serviceRequest) => (
-                    <tr key={serviceRequest.id}>
-                      <td>{serviceRequest.requestNumber}</td>
-                      <td>{serviceRequest.customerName}</td>
-                      <td>{serviceRequest.itemType}</td>
-                      <td>{serviceRequest.priority}</td>
-                      <td>
-                        <WorkspaceStatusPill tone="active">{serviceRequest.currentStatus}</WorkspaceStatusPill>
-                      </td>
-                      <td>
-                        <WorkspaceStatusPill tone={getFinanceTone(serviceRequest.financeHandoffStatus)}>
-                          {serviceRequest.financeHandoffStatus}
-                        </WorkspaceStatusPill>
-                      </td>
-                      <td>{formatFeedbackCell(serviceRequest)}</td>
-                      <td>
-                        {serviceRequest.requestedServiceDate
-                          ? new Date(serviceRequest.requestedServiceDate).toLocaleDateString("en-PH")
-                          : "-"}
-                      </td>
-                      <td>
-                        <RecordTableActionButton onClick={() => {
-                          setActiveDetailTab("request");
-                          setSelectedRequest(serviceRequest);
-                        }}>
-                          View
-                        </RecordTableActionButton>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </RecordTable>
-            </RecordTableShell>
+            {activeRequestTab === "new" ? <SmsServiceRequestsNewTab {...serviceRequestTabProps} /> : null}
+            {activeRequestTab === "ongoing" ? <SmsServiceRequestsOngoingTab {...serviceRequestTabProps} /> : null}
+            {activeRequestTab === "history" ? <SmsServiceRequestsHistoryTab {...serviceRequestTabProps} /> : null}
 
             <WorkspaceFabDock
               actions={[
@@ -1382,7 +1416,12 @@ export function SmsServiceRequestsPage() {
             <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.34fr)]">
               <section className="flex min-h-0 flex-col overflow-hidden rounded-box border border-base-300/65 bg-base-100">
                 <div className="border-b border-base-300/65 px-3 pt-2">
-                  <WorkspaceTopTabs tabs={costLineFilterTabs} activeTab={activeCostLineFilter} onChange={setActiveCostLineFilter} />
+                  <WorkspaceTopTabs
+                    tabs={costLineFilterTabs}
+                    activeTab={activeCostLineFilter}
+                    onChange={setActiveCostLineFilter}
+                    mobilePlacement="inline"
+                  />
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -1826,36 +1865,6 @@ function formatScheduleRange(start?: string | null, end?: string | null) {
   }
 
   return formatDateTime(start ?? end ?? "");
-}
-
-function formatFeedbackCell(serviceRequest: TenantServiceRequestRow) {
-  if (serviceRequest.rating !== null) {
-    return `${serviceRequest.rating}/5`;
-  }
-
-  if (serviceRequest.feedbackExpiresAtUtc) {
-    return new Date(serviceRequest.feedbackExpiresAtUtc).getTime() < Date.now() ? "Expired" : "Pending";
-  }
-
-  return "-";
-}
-
-function getFinanceTone(status: string) {
-  switch (status) {
-    case "Loan created":
-    case "Direct settlement completed":
-      return "active";
-    case "Ready for loan conversion":
-    case "Ready for invoicing":
-      return "warning";
-    case "Customer checkout in progress":
-    case "Invoice finalized":
-    case "Direct settlement under review":
-    case "Direct settlement in progress":
-      return "progress";
-    default:
-      return "neutral";
-  }
 }
 
 function createCostLineFormState(seed?: Partial<Omit<CostLineFormState, "clientId">>): CostLineFormState {

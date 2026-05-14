@@ -1,5 +1,6 @@
 import { Link, NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import type { CurrentSessionUser } from "@/shared/api/contracts";
 import { resolveReadableTextColors, type TenantBranding } from "@/shared/tenant/tenantBranding";
@@ -15,9 +16,11 @@ type Props = {
   tenantBranding?: TenantBranding | null;
   sections: NavSection[];
   isExpanded: boolean;
+  isMobileOpen: boolean;
   theme: "light" | "dark";
   collapsedSections: Record<string, boolean>;
   onToggleExpanded: () => void;
+  onCloseMobile: () => void;
   onToggleTheme: () => void;
   onToggleSection: (sectionKey: string) => void;
   onUserUpdated?: (patch: Partial<CurrentSessionUser>) => void;
@@ -28,9 +31,11 @@ export function AuthSidebar({
   tenantBranding,
   sections,
   isExpanded,
+  isMobileOpen,
   theme,
   collapsedSections,
   onToggleExpanded,
+  onCloseMobile,
   onToggleTheme,
   onToggleSection,
   onUserUpdated
@@ -124,6 +129,14 @@ export function AuthSidebar({
     }
   }
 
+  function closeMobileSidebar() {
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    onCloseMobile();
+  }
+
   function renderNavItem(item: NavSection["items"][number], key: string, className: string) {
     if (item.to) {
       return (
@@ -131,6 +144,7 @@ export function AuthSidebar({
           key={key}
           to={item.to}
           title={!isExpanded ? item.label : undefined}
+          onClick={closeMobileSidebar}
           className={({ isActive }) =>
             `authed-nav__item flex items-center gap-3 rounded-box text-base-content/75 no-underline hover:bg-base-content/5 hover:text-base-content ${navMotionClass} ${className}${isActive ? " border border-primary/18 bg-primary/14 font-bold text-base-content" : ""}`
           }
@@ -185,23 +199,30 @@ export function AuthSidebar({
   }
 
   return (
-    <aside
-      className={`authed-shell__sidebar relative flex h-full min-h-0 flex-col gap-4 overflow-visible border-r border-base-300/55 bg-base-100 p-4 shadow-sm ${shellTransitionClass} ${railSpacingClass}`}
-    >
+    <>
       <button
         type="button"
-        className={`authed-sidebar__toggle btn btn-circle btn-sm static self-start border-base-300/60 bg-base-100 text-base-content shadow-sm hover:bg-base-200 md:absolute md:top-1/2 md:right-0 md:z-10 md:-translate-y-1/2 md:translate-x-1/2 ${buttonMotionClass}`}
-        onClick={onToggleExpanded}
-        aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
-        title={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+        className={`fixed inset-0 z-40 bg-black/38 backdrop-blur-[2px] transition-opacity lg:hidden ${isMobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        onClick={closeMobileSidebar}
+        aria-label="Close workspace navigation"
+      />
+      <aside
+        className={`authed-shell__sidebar fixed inset-y-0 left-0 z-50 flex w-[min(86vw,21rem)] min-h-0 flex-col gap-4 overflow-visible border-r border-base-300/55 bg-base-100 p-4 shadow-sm transition-transform duration-300 ease-out lg:relative lg:inset-auto lg:z-auto lg:h-full lg:w-auto lg:translate-x-0 ${isMobileOpen ? "translate-x-0" : "pointer-events-none -translate-x-full lg:pointer-events-auto"} ${shellTransitionClass} ${railSpacingClass}`}
       >
-        <SidebarIcon name={isExpanded ? "collapse" : "expand"} />
-      </button>
+        <button
+          type="button"
+          className={`authed-sidebar__toggle btn btn-circle btn-sm absolute top-1/2 right-0 z-10 -translate-y-1/2 translate-x-1/2 border-base-300/60 bg-base-100 text-base-content shadow-sm hover:bg-base-200 ${buttonMotionClass}`}
+          onClick={isMobileOpen ? closeMobileSidebar : onToggleExpanded}
+          aria-label={isMobileOpen ? "Close sidebar" : isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+          title={isMobileOpen ? "Close sidebar" : isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          <SidebarIcon name={isMobileOpen || isExpanded ? "collapse" : "expand"} />
+        </button>
 
-      <div
-        className={`authed-shell__header rounded-[1.2rem] border border-base-300/50 p-2 ${cardTransitionClass} ${isExpanded ? "" : "flex justify-center"}`}
-        style={tenantHeaderStyle}
-      >
+        <div
+          className={`authed-shell__header rounded-[1.2rem] border border-base-300/50 p-2 ${cardTransitionClass} ${isExpanded ? "" : "flex justify-center"}`}
+          style={tenantHeaderStyle}
+        >
         <Link
           to={sections[0]?.items[0]?.to ?? "/"}
           className={`inline-flex items-center gap-3 text-base-content no-underline ${isExpanded ? "" : "justify-center"}`}
@@ -334,7 +355,7 @@ export function AuthSidebar({
         onUserUpdated={onUserUpdated}
       />
 
-      {showLogoutConfirm ? (
+      {showLogoutConfirm ? createPortal((
         <div className="fixed inset-0 z-[160] grid place-items-center bg-black/45 p-4 backdrop-blur-sm">
           <section className="w-full max-w-md rounded-[1.75rem] border border-base-300/70 bg-base-100 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24)]">
             <p className="text-[0.72rem] font-extrabold uppercase tracking-[0.14em] text-base-content/55">
@@ -366,8 +387,9 @@ export function AuthSidebar({
             </div>
           </section>
         </div>
-      ) : null}
-    </aside>
+      ), document.body) : null}
+      </aside>
+    </>
   );
 }
 

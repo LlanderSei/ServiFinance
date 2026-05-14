@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TenantMlsReportsWorkspaceResponse } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet } from "@/shared/api/http";
+import { WorkspaceBarChart, WorkspaceLineChart, WorkspacePieChart } from "@/shared/charts/WorkspaceCharts";
 import { ProtectedRoute } from "@/shared/auth/ProtectedRoute";
 import { MlsModuleCodes, hasFullModuleAccess, hasPermission } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
@@ -75,6 +76,33 @@ export function MlsReportsPage() {
     queryFn: () => httpGet<TenantMlsReportsWorkspaceResponse>(`/api/tenants/${tenantDomainSlug}/mls/reports${reportsQueryString}`),
     enabled: Boolean(tenantDomainSlug) && Boolean(dateFrom) && Boolean(dateTo) && !isWindowInvalid
   });
+  const portfolioChart = reportsQuery.data
+    ? [
+      {
+        name: "Portfolio",
+        outstanding: reportsQuery.data.summary.outstandingPortfolioBalance,
+        collected: reportsQuery.data.summary.collectionsInWindow,
+        disbursed: reportsQuery.data.summary.loanDisbursedInWindow,
+        overdue: reportsQuery.data.summary.overdueBalance
+      }
+    ]
+    : [];
+  const agingPieChart = (reportsQuery.data?.agingBuckets ?? []).map((bucket) => ({
+    name: bucket.label,
+    value: bucket.outstandingAmount
+  }));
+  const transactionChart = (reportsQuery.data?.transactionMix ?? []).map((row) => ({
+    name: row.transactionType,
+    value: row.totalAmount
+  }));
+  const collectionTrendChart = (reportsQuery.data?.collectionTrend ?? []).map((row) => ({
+    name: row.periodLabel,
+    collected: row.collectedAmount
+  }));
+  const borrowerChart = (reportsQuery.data?.topBorrowers ?? []).slice(0, 8).map((borrower) => ({
+    name: borrower.customerName,
+    outstanding: borrower.outstandingBalance
+  }));
 
   function handlePresetChange(nextPreset: ReportRangePreset) {
     if (!canUseFullReports && !["7d", "30d"].includes(nextPreset)) {
@@ -382,9 +410,31 @@ export function MlsReportsPage() {
 
             <RecordScrollRegion>
               <div className="grid gap-4">
+                <WorkspacePanel>
+                  <WorkspacePanelHeader eyebrow="Portfolio chart" title="Collections, disbursement, and risk" />
+                  <WorkspaceBarChart
+                    data={portfolioChart}
+                    series={[
+                      { key: "outstanding", name: "Outstanding" },
+                      { key: "collected", name: "Collected" },
+                      { key: "disbursed", name: "Disbursed" },
+                      { key: "overdue", name: "Overdue" }
+                    ]}
+                    valueFormatter={formatCurrency}
+                    emptyMessage="No portfolio totals can be charted yet."
+                  />
+                </WorkspacePanel>
+
                 <WorkspacePanelGrid>
                   <WorkspacePanel>
                     <WorkspacePanelHeader eyebrow="Aging" title="Overdue bucket mix" />
+
+                    <WorkspacePieChart
+                      data={agingPieChart}
+                      height={230}
+                      valueFormatter={formatCurrency}
+                      emptyMessage="No overdue bucket amounts can be charted yet."
+                    />
 
                     {reportsQuery.data?.agingBuckets.length ? (
                       <WorkspaceSubtableShell>
@@ -417,6 +467,13 @@ export function MlsReportsPage() {
                   <WorkspacePanel>
                     <WorkspacePanelHeader eyebrow="Mix" title="Transaction composition" />
 
+                    <WorkspacePieChart
+                      data={transactionChart}
+                      height={230}
+                      valueFormatter={formatCurrency}
+                      emptyMessage="No transaction amount mix can be charted yet."
+                    />
+
                     {reportsQuery.data?.transactionMix.length ? (
                       <WorkspaceSubtableShell>
                         <WorkspaceSubtable>
@@ -448,6 +505,14 @@ export function MlsReportsPage() {
                   <WorkspacePanel>
                     <WorkspacePanelHeader eyebrow="Collections" title="Collection trend" />
 
+                    <WorkspaceLineChart
+                      data={collectionTrendChart}
+                      height={250}
+                      series={[{ key: "collected", name: "Collected" }]}
+                      valueFormatter={formatCurrency}
+                      emptyMessage="No collection trend can be charted yet."
+                    />
+
                     {reportsQuery.data?.collectionTrend.length ? (
                       <WorkspaceSubtableShell>
                         <WorkspaceSubtable>
@@ -476,6 +541,14 @@ export function MlsReportsPage() {
 
                   <WorkspacePanel>
                     <WorkspacePanelHeader eyebrow="Exposure" title="Top borrower balances" />
+
+                    <WorkspaceBarChart
+                      data={borrowerChart}
+                      height={250}
+                      series={[{ key: "outstanding", name: "Outstanding" }]}
+                      valueFormatter={formatCurrency}
+                      emptyMessage="No borrower balance chart can be shown yet."
+                    />
 
                     {reportsQuery.data?.topBorrowers.length ? (
                       <WorkspaceSubtableShell>

@@ -77,31 +77,31 @@ Security features implemented: tenant isolation through domain slug and tenant i
 
 | Label | Screenshot Target | Description |
 |---|---|---|
-| API-01 Tenant Subscription Checkout | Register flow network/API response | Show tenant registration request creating a Stripe Checkout URL for the selected tier. |
-| API-02 Customer Registration/Login | Customer portal auth endpoint call | Show tenant-scoped customer account creation and login without entering tenant admin session. |
-| API-03 Service Request Creation | Customer request submission or tenant create request modal | Show request payload with item details, issue description, service mode, preferred dates, address, and attachments. |
-| API-04 Dispatch Scheduling | Schedule assignment modal/API response | Show eligible request filtering, selected staff, schedule window, and assignment creation. |
-| API-05 Service Costing | Costing modal save/API response | Show line items, presets, quantity, subtotal, tax toggle, and final total persistence. |
-| API-06 Invoice Payment | Customer Pay Online action | Show customer invoice checkout session creation and redirect to Stripe. |
-| API-07 Feedback CRM | Customer feedback submission and tenant feedback CRM | Show rating/comment capture and tenant-side CRM visibility. |
-| API-08 Reports Overview | SMS reports network call | Show report window parameters and aggregated operational metrics. |
-| API-09 Branding Upload | Branding page logo upload | Show image file validation, upload call, stored logo URL, and preview update. |
-| API-10 Address Lookup | Customer profile/request address search | Show guarded manual address lookup with cache/rate-limit behavior. |
+| API-01 Tenant Subscription Checkout | `src/backend/ServiFinance.Api/Endpoints/PlatformApiEndpointMappings.cs:20` | Show tenant registration request creating a Stripe Checkout URL for the selected tier. |
+| API-02 Customer Registration/Login | `src/backend/ServiFinance.Api/Endpoints/AuthApiEndpointMappings.cs:243`; `src/backend/ServiFinance.Api/Endpoints/AuthApiEndpointMappings.cs:341` | Show tenant-scoped customer account creation and login without entering tenant admin session. |
+| API-03 Service Request Creation | `src/backend/ServiFinance.Api/Endpoints/CustomerPortalApiEndpointMappings.cs:562` | Show request payload with item details, issue description, service mode, preferred dates, address, and attachments. |
+| API-04 Dispatch Scheduling | `src/backend/ServiFinance.Api/Endpoints/TenantSms/Dispatch/CreateAssignment.cs:16` | Show eligible request filtering, selected staff, schedule window, and assignment creation. |
+| API-05 Service Costing | `src/backend/ServiFinance.Api/Endpoints/TenantSms/TenantSmsServiceRequestsEndpointMappings.cs:295` | Show line items, presets, quantity, subtotal, tax toggle, and final total persistence. |
+| API-06 Invoice Payment | `src/backend/ServiFinance.Api/Endpoints/CustomerPortalApiEndpointMappings.cs:875` | Show customer invoice checkout session creation and redirect to Stripe. |
+| API-07 Feedback CRM | `src/backend/ServiFinance.Api/Endpoints/CustomerPortalApiEndpointMappings.cs:1067`; `src/backend/ServiFinance.Api/Endpoints/TenantSms/TenantSmsMediumControlsEndpointMappings.cs:13` | Show rating/comment capture and tenant-side CRM visibility. |
+| API-08 Reports Overview | `src/backend/ServiFinance.Api/Endpoints/TenantSms/TenantSmsReportsEndpointMappings.cs:9` | Show report window parameters and aggregated operational metrics. |
+| API-09 Branding Upload | `src/backend/ServiFinance.Api/Endpoints/TenantSms/TenantBrandingEndpointMappings.cs:22` | Show image file validation, upload call, stored logo URL, and preview update. |
+| API-10 Address Lookup | `src/backend/ServiFinance.Api/Endpoints/AddressLookupApiEndpointMappings.cs:9` | Show guarded manual address lookup with cache/rate-limit behavior. |
 
 ## Prototype Screenshot Walkthrough - Security Features
 
 | Label | Screenshot Target | Description |
 |---|---|---|
-| SEC-01 Separate Login Surfaces | Root login, tenant login, customer login | Show that customer auth routes are separated from tenant/root auth routes. |
-| SEC-02 Permission-Aware Sidebar | Tenant user with limited role | Show sidebar tabs hidden/disabled when view permissions are not granted. |
-| SEC-03 Roles and Permissions Matrix | Tenant Roles & Permissions workspace | Show role ranking, immutable roles, permission matrix, and scoped SMS/MLS permissions. |
-| SEC-04 Audit Logs | Audits System/Security tabs | Show system and security logs for login, logout, CRUD, billing, and authorization-sensitive actions. |
-| SEC-05 Tenant Isolation | Two tenant domains with different records | Show that customer/service/billing records differ by tenant slug and do not leak across domains. |
-| SEC-06 Stripe Hosted Checkout | Stripe checkout page | Show that card entry is hosted by Stripe rather than a local custom card form. |
-| SEC-07 Upload Guard | Branding or attachment upload with unsupported file | Show user-facing validation or blocked upload for unsupported/oversized images. |
-| SEC-08 Nominatim Guard | Address search repeatedly triggered | Show rate-limit/cache notice and server-side guarded lookup. |
-| SEC-09 Logout Confirmation | Root/SMS/MLS logout action | Show confirmation modal before clearing session. |
-| SEC-10 Subscription Guard | Tenant trying to open locked module | Show locked/read-only/hidden module behavior based on tier entitlement. |
+| SEC-01 Separate Login Surfaces | `src/frontend/ServiFinance.Frontend/src/app/router.tsx:134`; `src/backend/ServiFinance.Api/Endpoints/AuthApiEndpointMappings.cs:243` | Show that customer auth routes are separated from tenant/root auth routes. |
+| SEC-02 Permission-Aware Sidebar | `src/frontend/ServiFinance.Frontend/src/shared/auth/shell/navigation.ts:45` | Show sidebar tabs hidden/disabled when view permissions are not granted. |
+| SEC-03 Roles and Permissions Matrix | `src/frontend/ServiFinance.Frontend/src/features/administration/roles-permissions/RolePermissionMatrixTab.tsx:25`; `src/backend/ServiFinance.Api/Endpoints/RolePermissionEndpointMappings.cs:24` | Show role ranking, immutable roles, permission matrix, and scoped SMS/MLS permissions. |
+| SEC-04 Audit Logs | `src/backend/ServiFinance.Api/Endpoints/AuditApiEndpointMappings.cs:23`; `src/backend/ServiFinance.Api/Endpoints/AuditApiEndpointMappings.cs:86` | Show system and security logs for login, logout, CRUD, billing, and authorization-sensitive actions. |
+| SEC-05 Tenant Isolation | `src/backend/ServiFinance.Infrastructure/Data/ServiFinanceDbContext.cs:151`; `src/backend/ServiFinance.Api/Infrastructure/ProgramEndpointSupport.cs:144` | Show that customer/service/billing records differ by tenant slug and do not leak across domains. |
+| SEC-06 Stripe Hosted Checkout | `src/backend/ServiFinance.Infrastructure/Payments/StripeServiceInvoicePaymentService.cs:53` | Show that card entry is hosted by Stripe rather than a local custom card form. |
+| SEC-07 Upload Guard | `src/backend/ServiFinance.Api/Services/ImageUploadService.cs:70`; `src/backend/ServiFinance.Api/Services/ImageUploadService.cs:129` | Show user-facing validation or blocked upload for unsupported/oversized images. |
+| SEC-08 Nominatim Guard | `src/backend/ServiFinance.Api/Services/NominatimAddressLookupService.cs:66` | Show rate-limit/cache notice and server-side guarded lookup. |
+| SEC-09 Logout Confirmation | `src/frontend/ServiFinance.Frontend/src/shared/auth/shell/AuthSidebar.tsx:354` | Show confirmation modal before clearing session. |
+| SEC-10 Subscription Guard | `src/frontend/ServiFinance.Frontend/src/shared/auth/PermissionGate.tsx:47`; `src/frontend/ServiFinance.Frontend/src/app/router.tsx:82` | Show locked/read-only/hidden module behavior based on tier entitlement. |
 
 ## Data Dictionary and ERD Compliance Notes
 

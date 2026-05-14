@@ -77,6 +77,7 @@ export function AuthenticatedShell({ user, children }: Props) {
     const saved = window.localStorage.getItem(SIDEBAR_THEME_KEY);
     return saved === "dark" ? "dark" : "light";
   });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     setShellUser(user);
@@ -123,9 +124,22 @@ export function AuthenticatedShell({ user, children }: Props) {
     window.localStorage.setItem(SIDEBAR_THEME_KEY, theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const openSidebar = () => setIsMobileSidebarOpen(true);
+    window.addEventListener("servifinance:toggle-sidebar", openSidebar);
+
+    return () => {
+      window.removeEventListener("servifinance:toggle-sidebar", openSidebar);
+    };
+  }, []);
+
   const shellWidthClass = isExpanded
-    ? "md:grid-cols-[290px_minmax(0,1fr)]"
-    : "md:grid-cols-[88px_minmax(0,1fr)]";
+    ? "lg:grid-cols-[290px_minmax(0,1fr)]"
+    : "lg:grid-cols-[88px_minmax(0,1fr)]";
   const shellTransitionClass = desktopShell
     ? "transition-[grid-template-columns] duration-300 ease-out"
     : "";
@@ -152,6 +166,7 @@ export function AuthenticatedShell({ user, children }: Props) {
     <div
       data-platform={desktopShell ? "desktop" : "web"}
       data-theme={theme === "dark" ? "servifinance-dark" : "servifinance-light"}
+      data-mobile-sidebar-open={isMobileSidebarOpen ? "true" : "false"}
       className={`grid h-dvh min-h-0 grid-cols-1 overflow-hidden text-base-content ${shellTransitionClass} ${shellWidthClass} ${shellThemeClass}`}
       style={shellStyle}
     >
@@ -159,10 +174,12 @@ export function AuthenticatedShell({ user, children }: Props) {
         user={shellUser}
         tenantBranding={tenantBranding}
         sections={sections}
-        isExpanded={isExpanded}
+        isExpanded={isMobileSidebarOpen ? true : isExpanded}
+        isMobileOpen={isMobileSidebarOpen}
         theme={theme}
         collapsedSections={collapsedSections}
         onToggleExpanded={() => startTransition(() => setIsExpanded((current) => !current))}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onToggleTheme={() => startTransition(() => setTheme((current) => (current === "light" ? "dark" : "light")))}
         onToggleSection={(sectionKey) =>
           startTransition(() => {

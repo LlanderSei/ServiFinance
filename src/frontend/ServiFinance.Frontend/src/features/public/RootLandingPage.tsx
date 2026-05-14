@@ -49,10 +49,10 @@ export function RootLandingPage() {
       <PublicHeader onLoginRequested={openLogin} />
 
       <main>
-        <PublicContainer className="relative min-h-[calc(100svh-8.5rem)] pb-18 pt-12 md:pr-[min(36rem,45vw)]">
+        <PublicContainer className="relative min-h-[calc(100svh-8.5rem)] pb-18 pt-8 md:pr-[min(36rem,45vw)] md:pt-12">
           <div className="relative z-[1] max-w-[min(40rem,100%)]">
             <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-slate-500">Dual-system SaaS for MSMEs</p>
-            <h1 className="mt-3 max-w-[9.5ch] font-['Iowan_Old_Style','Book_Antiqua',Georgia,serif] text-[clamp(3.9rem,7.2vw,6.7rem)] leading-[0.9] tracking-[-0.055em] text-slate-950 text-balance">
+            <h1 className="mt-3 max-w-[9.5ch] font-['Iowan_Old_Style','Book_Antiqua',Georgia,serif] text-[clamp(3.05rem,14vw,4.8rem)] leading-[0.9] tracking-[-0.055em] text-slate-950 text-balance md:text-[clamp(3.9rem,7.2vw,6.7rem)]">
               Run service operations on the web and lending operations on desktop without splitting your business context.
             </h1>
             <p className="mt-5 max-w-[36rem] text-[1.08rem] leading-[1.75] text-slate-500">
@@ -115,11 +115,14 @@ export function RootLandingPage() {
               eyebrow="Plans"
               title="Seed-backed subscription tiers from the live backend catalog."
             />
-            <div className="mt-7 grid gap-5 md:grid-cols-2">
+            <div className="-mx-4 mt-7 flex snap-x gap-4 overflow-x-auto px-4 pb-3 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 md:pb-0">
               {visibleTiers.map((tier, index) => (
                 <PublicCard
                   key={tier.id}
-                  className={index % 2 === 1 ? "bg-gradient-to-b from-[rgba(214,247,241,0.78)] to-[rgba(255,255,255,0.8)]" : ""}
+                  className={[
+                    "min-w-[min(86vw,22rem)] snap-start md:min-w-0",
+                    index % 2 === 1 ? "bg-gradient-to-b from-[rgba(214,247,241,0.78)] to-[rgba(255,255,255,0.8)]" : ""
+                  ].join(" ")}
                 >
                   <PublicBadge>{tier.highlightLabel || tier.code}</PublicBadge>
                   <h3 className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-slate-950">{tier.displayName}</h3>
@@ -132,6 +135,7 @@ export function RootLandingPage() {
                   <p className="mt-4 text-slate-600">{tier.modules.length} modules unlocked</p>
                 </PublicCard>
               ))}
+              <span className="w-1 shrink-0 md:hidden" aria-hidden />
             </div>
           </PublicContainer>
         </section>

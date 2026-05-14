@@ -1,4 +1,5 @@
 import { useSuperadminOverview } from "@/shared/api/useSuperadminOverview";
+import { WorkspaceBarChart, WorkspacePieChart } from "@/shared/charts/WorkspaceCharts";
 import { MetricCard } from "@/shared/records/MetricCard";
 import { WorkspaceActionLink } from "@/shared/records/WorkspaceControls";
 import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
@@ -27,6 +28,22 @@ const dateFormatter = new Intl.DateTimeFormat("en-PH", {
 export function DashboardPage() {
   const overviewQuery = useSuperadminOverview();
   const overview = overviewQuery.data;
+  const tenantStandingChart = overview
+    ? [
+      { name: "Active", value: overview.summary.activeTenants },
+      { name: "Suspended", value: overview.summary.suspendedTenants }
+    ]
+    : [];
+  const editionChart = overview
+    ? [
+      { name: "Standard", value: overview.summary.standardTenants },
+      { name: "Premium", value: overview.summary.premiumTenants }
+    ]
+    : [];
+  const subscriptionMixChart = (overview?.subscriptionMix ?? []).map((row) => ({
+    name: `${row.businessSizeSegment} ${row.subscriptionEdition}`,
+    value: row.count
+  }));
 
   return (
     <RecordWorkspace
@@ -66,6 +83,10 @@ export function DashboardPage() {
         <WorkspacePanelGrid>
           <WorkspacePanel>
             <WorkspacePanelHeader eyebrow="Subscription mix" title="MSME coverage" />
+
+            <div className="mb-4">
+              <WorkspacePieChart data={subscriptionMixChart} emptyMessage="No tenant subscription mix can be charted yet." />
+            </div>
 
             <WorkspaceSubtableShell>
               <WorkspaceSubtable>
@@ -107,6 +128,26 @@ export function DashboardPage() {
             </WorkspaceSubtableShell>
           </WorkspacePanel>
 
+          <WorkspacePanel>
+            <WorkspacePanelHeader eyebrow="Tenant posture" title="Active state and edition split" />
+
+            <div className="grid gap-5">
+              <WorkspaceBarChart
+                data={[
+                  { name: "Tenant state", active: tenantStandingChart[0]?.value ?? 0, suspended: tenantStandingChart[1]?.value ?? 0 }
+                ]}
+                series={[
+                  { key: "active", name: "Active" },
+                  { key: "suspended", name: "Suspended" }
+                ]}
+                emptyMessage="No tenant state metrics can be charted yet."
+              />
+              <WorkspacePieChart data={editionChart} height={230} emptyMessage="No tenant edition split can be charted yet." />
+            </div>
+          </WorkspacePanel>
+        </WorkspacePanelGrid>
+
+        <WorkspacePanelGrid singleColumn>
           <WorkspacePanel>
             <WorkspacePanelHeader eyebrow="Recent activity" title="Provisioning stream" />
 

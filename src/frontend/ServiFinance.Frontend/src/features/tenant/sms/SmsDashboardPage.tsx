@@ -3,7 +3,9 @@ import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import type { TenantOperationalReportsResponse } from "@/shared/api/contracts";
 import { httpGet } from "@/shared/api/http";
+import { WorkspaceBarChart, WorkspacePieChart } from "@/shared/charts/WorkspaceCharts";
 import { MetricCard } from "@/shared/records/MetricCard";
+import { MobileRecordField, MobileRecordFieldGrid, mobileRecordRailClass } from "@/shared/records/MobileRecordDetails";
 import { RecordTableStateRow } from "@/shared/records/RecordTable";
 import { RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import { WorkspaceActionLink, WorkspaceInlineNote, WorkspaceNotice, WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
@@ -67,6 +69,40 @@ export function SmsDashboardPage() {
   const feedbackHighlights = dashboardQuery.data?.feedbackHighlights ?? [];
   const suggestionThemes = dashboardQuery.data?.suggestionThemes ?? [];
   const averageRatingLabel = feedbackSummary?.averageRating == null ? "No data" : `${feedbackSummary.averageRating.toFixed(1)}/5`;
+  const windowActivityChart = dashboardQuery.data
+    ? [
+      {
+        name: "Current window",
+        newRequests: dashboardQuery.data.windowedActivity.newRequests,
+        scheduled: dashboardQuery.data.windowedActivity.assignmentsScheduled,
+        completedAssignments: dashboardQuery.data.windowedActivity.assignmentsCompleted,
+        completedRequests: dashboardQuery.data.windowedActivity.completedRequests,
+        invoices: dashboardQuery.data.windowedActivity.invoicesFinalized
+      }
+    ]
+    : [];
+  const statusChart = (dashboardQuery.data?.serviceStatusDistribution ?? []).map((row) => ({
+    name: row.status,
+    value: row.count
+  }));
+  const workloadChart = workloadLeaders.map((row) => ({
+    name: row.fullName,
+    active: row.activeAssignments,
+    scheduled: row.scheduledAssignments,
+    completed: row.completedAssignments
+  }));
+  const feedbackChart = feedbackSummary
+    ? [
+      { name: "Rated", value: feedbackSummary.ratedRequests },
+      { name: "Pending", value: feedbackSummary.pendingFeedback },
+      { name: "Expired", value: feedbackSummary.expiredFeedback },
+      { name: "Low rating", value: feedbackSummary.lowRatingCount }
+    ]
+    : [];
+  const suggestionChart = suggestionThemes.map((row) => ({
+    name: row.category,
+    value: row.count
+  }));
 
   return (
     <RecordWorkspace
@@ -171,6 +207,28 @@ export function SmsDashboardPage() {
 
           <WorkspacePanelGrid>
             <WorkspacePanel>
+              <WorkspacePanelHeader eyebrow="Window chart" title="Operating movement by flow" />
+              <WorkspaceBarChart
+                data={windowActivityChart}
+                series={[
+                  { key: "newRequests", name: "New requests" },
+                  { key: "scheduled", name: "Scheduled" },
+                  { key: "completedAssignments", name: "Completed assignments" },
+                  { key: "completedRequests", name: "Completed requests" },
+                  { key: "invoices", name: "Invoices" }
+                ]}
+                emptyMessage="No operating movement can be charted yet."
+              />
+            </WorkspacePanel>
+
+            <WorkspacePanel>
+              <WorkspacePanelHeader eyebrow="Status chart" title="Request state distribution" />
+              <WorkspacePieChart data={statusChart} emptyMessage="No request status mix can be charted yet." />
+            </WorkspacePanel>
+          </WorkspacePanelGrid>
+
+          <WorkspacePanelGrid>
+            <WorkspacePanel>
               <WorkspacePanelHeader
                 eyebrow="Attention queue"
                 title="What needs focus now"
@@ -246,8 +304,19 @@ export function SmsDashboardPage() {
             <WorkspacePanel>
               <WorkspacePanelHeader eyebrow="Team pressure" title="Technician workload snapshot" />
 
+              <WorkspaceBarChart
+                data={workloadChart}
+                height={250}
+                series={[
+                  { key: "active", name: "Active" },
+                  { key: "scheduled", name: "Scheduled" },
+                  { key: "completed", name: "Completed" }
+                ]}
+                emptyMessage="No technician workload can be charted yet."
+              />
+
               <WorkspaceSubtableShell>
-                <WorkspaceSubtable>
+                <WorkspaceSubtable className={mobileRecordRailClass(workloadLeaders.length)}>
                   <thead>
                     <tr>
                       <th>Staff member</th>
@@ -267,10 +336,18 @@ export function SmsDashboardPage() {
 
                     {workloadLeaders.map((row) => (
                       <tr key={row.userId}>
-                        <td>{row.fullName}</td>
-                        <td>{row.activeAssignments}</td>
-                        <td>{row.scheduledAssignments}</td>
-                        <td>{row.completedAssignments}</td>
+                        <td>
+                          <MobileRecordFieldGrid className="lg:hidden">
+                            <MobileRecordField label="Staff Member" value={row.fullName} />
+                            <MobileRecordField label="Active" value={row.activeAssignments} />
+                            <MobileRecordField label="Scheduled" value={row.scheduledAssignments} />
+                            <MobileRecordField label="Completed" value={row.completedAssignments} />
+                          </MobileRecordFieldGrid>
+                          <span className="hidden lg:inline">{row.fullName}</span>
+                        </td>
+                        <td className="max-lg:hidden">{row.activeAssignments}</td>
+                        <td className="max-lg:hidden">{row.scheduledAssignments}</td>
+                        <td className="max-lg:hidden">{row.completedAssignments}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -323,6 +400,12 @@ export function SmsDashboardPage() {
 
             <WorkspacePanel>
               <WorkspacePanelHeader eyebrow="Suggestions" title="Recurring customer themes" />
+
+              <WorkspacePieChart
+                data={suggestionChart}
+                height={230}
+                emptyMessage="No categorized customer suggestion chart can be shown yet."
+              />
 
               <div className="grid gap-4">
                 {dashboardQuery.isLoading ? (
@@ -389,6 +472,14 @@ export function SmsDashboardPage() {
               </div>
             </WorkspacePanel>
 
+            <WorkspacePanel>
+              <WorkspacePanelHeader eyebrow="Feedback chart" title="Customer response state" />
+
+              <WorkspacePieChart data={feedbackChart} height={230} emptyMessage="No customer feedback state can be charted yet." />
+            </WorkspacePanel>
+          </WorkspacePanelGrid>
+
+          <WorkspacePanelGrid singleColumn>
             <WorkspacePanel>
               <WorkspacePanelHeader eyebrow="Workspace map" title="Jump into the right module" />
 

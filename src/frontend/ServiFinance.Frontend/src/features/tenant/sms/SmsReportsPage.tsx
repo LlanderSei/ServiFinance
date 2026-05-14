@@ -3,11 +3,13 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { TenantOperationalReportsResponse } from "@/shared/api/contracts";
 import { httpGet } from "@/shared/api/http";
+import { WorkspaceBarChart, WorkspaceLineChart, WorkspacePieChart } from "@/shared/charts/WorkspaceCharts";
 import { SmsModuleCodes, hasFullModuleAccess } from "@/shared/auth/permissions";
 import { getCurrentSession } from "@/shared/auth/session";
 import { MetricCard } from "@/shared/records/MetricCard";
+import { MobileRecordField, MobileRecordFieldGrid, mobileRecordRailClass } from "@/shared/records/MobileRecordDetails";
 import { RecordTable, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
-import { RecordContentStack, RecordScrollRegion, RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
 import {
   WorkspaceActionButton,
   WorkspaceField,
@@ -51,6 +53,7 @@ export function SmsReportsPage() {
   const canUseFullReports = hasFullModuleAccess(currentUser, SmsModuleCodes.reports);
   const [dateFrom, setDateFrom] = useState(defaultDateFrom);
   const [dateTo, setDateTo] = useState(defaultDateTo);
+  const [isWindowOptionsOpen, setIsWindowOptionsOpen] = useState(false);
   const preset = useMemo<ReportRangePreset>(() => {
     if (dateTo === defaultDateTo && dateFrom === defaultDateFrom) {
       return "7d";
@@ -96,6 +99,70 @@ export function SmsReportsPage() {
     () => (reportsQuery.data?.serviceStatusDistribution ?? []).reduce((total, row) => total + row.count, 0),
     [reportsQuery.data?.serviceStatusDistribution]
   );
+  const windowActivityChart = reportsQuery.data
+    ? [
+      {
+        name: "Selected window",
+        newCustomers: reportsQuery.data.windowedActivity.newCustomers,
+        newRequests: reportsQuery.data.windowedActivity.newRequests,
+        scheduled: reportsQuery.data.windowedActivity.assignmentsScheduled,
+        completedAssignments: reportsQuery.data.windowedActivity.assignmentsCompleted,
+        completedRequests: reportsQuery.data.windowedActivity.completedRequests,
+        invoices: reportsQuery.data.windowedActivity.invoicesFinalized
+      }
+    ]
+    : [];
+  const comparisonChart = (reportsQuery.data?.comparison ?? []).map((row) => ({
+    name: row.label,
+    current: row.currentValue,
+    previous: row.previousValue
+  }));
+  const turnaroundHoursChart = reportsQuery.data
+    ? [
+      {
+        name: "Intake to completion",
+        hours: reportsQuery.data.turnaround.averageIntakeToCompletionHours ?? 0
+      },
+      {
+        name: "Request to schedule",
+        hours: reportsQuery.data.turnaround.averageRequestToScheduleHours ?? 0
+      },
+      {
+        name: "Scheduled work",
+        hours: reportsQuery.data.turnaround.averageScheduledWorkHours ?? 0
+      }
+    ]
+    : [];
+  const feedbackChart = reportsQuery.data
+    ? [
+      { name: "Rated", value: reportsQuery.data.feedbackSummary.ratedRequests },
+      { name: "Pending", value: reportsQuery.data.feedbackSummary.pendingFeedback },
+      { name: "Expired", value: reportsQuery.data.feedbackSummary.expiredFeedback },
+      { name: "Low rating", value: reportsQuery.data.feedbackSummary.lowRatingCount }
+    ]
+    : [];
+  const suggestionChart = (reportsQuery.data?.suggestionThemes ?? []).map((row) => ({
+    name: row.category,
+    value: row.count
+  }));
+  const statusChart = (reportsQuery.data?.serviceStatusDistribution ?? []).map((row) => ({
+    name: row.status,
+    value: row.count
+  }));
+  const workloadChart = (reportsQuery.data?.technicianWorkload ?? []).map((row) => ({
+    name: row.fullName,
+    active: row.activeAssignments,
+    scheduled: row.scheduledAssignments,
+    completed: row.completedAssignments
+  }));
+  const dailyActivityChart = reportsQuery.data
+    ? [
+      { name: "New customers", count: reportsQuery.data.dailyActivity.newCustomersToday },
+      { name: "New requests", count: reportsQuery.data.dailyActivity.newRequestsToday },
+      { name: "Scheduled", count: reportsQuery.data.dailyActivity.assignmentsScheduledToday },
+      { name: "Completed", count: reportsQuery.data.dailyActivity.assignmentsCompletedToday }
+    ]
+    : [];
 
   function handlePresetChange(nextPreset: ReportRangePreset) {
     if (nextPreset === "custom" && !canUseFullReports) {
@@ -372,6 +439,68 @@ export function SmsReportsPage() {
     printWindow.print();
   }
 
+  function resetWindow() {
+    setDateFrom(defaultDateFrom);
+    setDateTo(defaultDateTo);
+  }
+
+  const reportingWindowControls = (
+    <>
+      <div className="grid shrink-0 gap-1.5">
+        <span className="text-[0.76rem] font-bold uppercase tracking-[0.06em] text-base-content/60">Window</span>
+        <WorkspaceToggleGroup className="whitespace-nowrap">
+          <WorkspaceToggleButton active={preset === "7d"} onClick={() => handlePresetChange("7d")}>
+            Last 7 days
+          </WorkspaceToggleButton>
+          <WorkspaceToggleButton active={preset === "30d"} onClick={() => handlePresetChange("30d")}>
+            Last 30 days
+          </WorkspaceToggleButton>
+          <WorkspaceToggleButton
+            active={preset === "custom"}
+            onClick={() => handlePresetChange("custom")}
+            disabled={!customWindowReadiness.allowed}
+            title={customWindowReadiness.reason ?? undefined}
+          >
+            Custom
+          </WorkspaceToggleButton>
+        </WorkspaceToggleGroup>
+      </div>
+
+      <div className="w-full shrink-0 lg:w-40">
+        <WorkspaceField label="Date from">
+          <WorkspaceInput
+            type="date"
+            value={dateFrom}
+            max={dateTo}
+            disabled={!customWindowReadiness.allowed}
+            title={customWindowReadiness.reason ?? undefined}
+            onChange={(event) => setDateFrom(event.target.value)}
+          />
+        </WorkspaceField>
+      </div>
+
+      <div className="w-full shrink-0 lg:w-40">
+        <WorkspaceField label="Date to">
+          <WorkspaceInput
+            type="date"
+            value={dateTo}
+            min={dateFrom}
+            max={defaultDateTo}
+            disabled={!customWindowReadiness.allowed}
+            title={customWindowReadiness.reason ?? undefined}
+            onChange={(event) => setDateTo(event.target.value)}
+          />
+        </WorkspaceField>
+      </div>
+    </>
+  );
+
+  const reportingWindowNote = !canUseFullReports
+    ? "Limited reports can review the standard 7-day and 30-day windows. Custom date windows and exports require full Reports access."
+    : reportsQuery.data
+    ? `Current window: ${formatDateOnly(reportsQuery.data.reportingWindow.dateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.dateToUtc)}. Previous window: ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateToUtc)}.`
+    : "Select a reporting window to compare current operational activity against the immediately preceding period.";
+
   return (
     <RecordWorkspace
       breadcrumbs={`${tenantDomainSlug} / SMS / Reports`}
@@ -380,13 +509,13 @@ export function SmsReportsPage() {
       recordCount={reportsQuery.data?.catalog.length ?? 0}
       singularLabel="report"
     >
-      <RecordContentStack className="overflow-hidden">
+      <RecordContentStack>
         {reportsQuery.isError ? (
           <WorkspaceNotice tone="error">Unable to load operational reports.</WorkspaceNotice>
         ) : null}
 
         <WorkspaceKpiRailLayout
-          contentClassName="overflow-hidden"
+          contentClassName="min-h-0"
           kpis={(
             <>
               <MetricCard
@@ -437,80 +566,43 @@ export function SmsReportsPage() {
               eyebrow="Reporting window"
               title="Compare operating periods"
               actions={(
-                <WorkspaceActionButton
-                  onClick={() => {
-                    setDateFrom(defaultDateFrom);
-                    setDateTo(defaultDateTo);
-                  }}
-                >
-                  Reset window
-                </WorkspaceActionButton>
+                <>
+                  <WorkspaceActionButton className="lg:hidden" onClick={() => setIsWindowOptionsOpen(true)}>
+                    Options
+                  </WorkspaceActionButton>
+                  <WorkspaceActionButton onClick={resetWindow}>
+                    Reset window
+                  </WorkspaceActionButton>
+                </>
               )}
             />
 
-            <WorkspaceToolbar className="flex-nowrap overflow-x-auto pb-1">
-              <div className="grid shrink-0 gap-1.5">
-                <span className="text-[0.76rem] font-bold uppercase tracking-[0.06em] text-base-content/60">Window</span>
-                <WorkspaceToggleGroup className="whitespace-nowrap">
-                  <WorkspaceToggleButton active={preset === "7d"} onClick={() => handlePresetChange("7d")}>
-                    Last 7 days
-                  </WorkspaceToggleButton>
-                  <WorkspaceToggleButton active={preset === "30d"} onClick={() => handlePresetChange("30d")}>
-                    Last 30 days
-                  </WorkspaceToggleButton>
-                  <WorkspaceToggleButton
-                    active={preset === "custom"}
-                    onClick={() => handlePresetChange("custom")}
-                    disabled={!customWindowReadiness.allowed}
-                    title={customWindowReadiness.reason ?? undefined}
-                  >
-                    Custom
-                  </WorkspaceToggleButton>
-                </WorkspaceToggleGroup>
-              </div>
-
-              <div className="w-40 shrink-0">
-                <WorkspaceField label="Date from">
-                  <WorkspaceInput
-                    type="date"
-                    value={dateFrom}
-                    max={dateTo}
-                    disabled={!customWindowReadiness.allowed}
-                    title={customWindowReadiness.reason ?? undefined}
-                    onChange={(event) => setDateFrom(event.target.value)}
-                  />
-                </WorkspaceField>
-              </div>
-
-              <div className="w-40 shrink-0">
-                <WorkspaceField label="Date to">
-                  <WorkspaceInput
-                    type="date"
-                    value={dateTo}
-                    min={dateFrom}
-                    max={defaultDateTo}
-                    disabled={!customWindowReadiness.allowed}
-                    title={customWindowReadiness.reason ?? undefined}
-                    onChange={(event) => setDateTo(event.target.value)}
-                  />
-                </WorkspaceField>
-              </div>
+            <WorkspaceToolbar className="hidden flex-nowrap overflow-x-auto pb-1 lg:flex">
+              {reportingWindowControls}
             </WorkspaceToolbar>
 
-            <WorkspaceInlineNote className="block leading-6">
-              {!canUseFullReports
-                ? "Limited reports can review the standard 7-day and 30-day windows. Custom date windows and exports require full Reports access."
-                : reportsQuery.data
-                ? `Current window: ${formatDateOnly(reportsQuery.data.reportingWindow.dateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.dateToUtc)}. Previous window: ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateFromUtc)} to ${formatDateOnly(reportsQuery.data.reportingWindow.previousDateToUtc)}.`
-                : "Select a reporting window to compare current operational activity against the immediately preceding period."}
+            <WorkspaceInlineNote className="hidden leading-6 lg:block">
+              {reportingWindowNote}
             </WorkspaceInlineNote>
           </WorkspacePanel>
 
-          <RecordScrollRegion>
-            <WorkspaceScrollStack>
+          <WorkspaceScrollStack className="overflow-visible pb-0">
               <WorkspacePanelGrid>
                 <WorkspacePanel>
                   <WorkspacePanelHeader eyebrow="Selected window" title="Operating movement" />
+
+                  <WorkspaceBarChart
+                    data={windowActivityChart}
+                    series={[
+                      { key: "newCustomers", name: "New customers" },
+                      { key: "newRequests", name: "New requests" },
+                      { key: "scheduled", name: "Scheduled" },
+                      { key: "completedAssignments", name: "Assignments completed" },
+                      { key: "completedRequests", name: "Requests completed" },
+                      { key: "invoices", name: "Invoices" }
+                    ]}
+                    emptyMessage="No selected-window movement can be charted yet."
+                  />
 
                   <WorkspaceMetricGrid className="2xl:!grid-cols-3">
                     <MetricCard
@@ -549,6 +641,14 @@ export function SmsReportsPage() {
                 <WorkspacePanel>
                   <WorkspacePanelHeader eyebrow="Turnaround" title="Completion efficiency" />
 
+                  <WorkspaceLineChart
+                    data={turnaroundHoursChart}
+                    height={240}
+                    series={[{ key: "hours", name: "Average hours" }]}
+                    valueFormatter={(value) => formatMetricHours(value)}
+                    emptyMessage="No turnaround timing can be charted yet."
+                  />
+
                   <WorkspaceMetricGrid className="2xl:!grid-cols-3">
                     <MetricCard
                       label="Completed requests"
@@ -582,6 +682,8 @@ export function SmsReportsPage() {
               <WorkspacePanelGrid>
                 <WorkspacePanel>
                   <WorkspacePanelHeader eyebrow="Customer feedback" title="Ratings and CRM signals" />
+
+                  <WorkspacePieChart data={feedbackChart} height={240} emptyMessage="No customer feedback mix can be charted yet." />
 
                   <WorkspaceMetricGrid className="2xl:!grid-cols-3">
                     <MetricCard
@@ -620,6 +722,8 @@ export function SmsReportsPage() {
                 <WorkspacePanel>
                   <WorkspacePanelHeader eyebrow="Suggestion themes" title="What customers mention" />
 
+                  <WorkspacePieChart data={suggestionChart} height={230} emptyMessage="No suggestion theme chart can be shown yet." />
+
                   <div className="grid gap-4">
                     {reportsQuery.isLoading ? (
                       <WorkspaceEmptyState>
@@ -650,7 +754,7 @@ export function SmsReportsPage() {
                   <WorkspacePanelHeader eyebrow="Feedback highlights" title="Services linked to ratings and comments" />
 
                   <RecordTableShell className="max-h-80 flex-none">
-                    <RecordTable>
+                    <RecordTable className={mobileRecordRailClass(reportsQuery.data?.comparison.length ?? 0)}>
                       <thead>
                         <tr>
                           <th>Request</th>
@@ -692,6 +796,16 @@ export function SmsReportsPage() {
                 <WorkspacePanel>
                   <WorkspacePanelHeader eyebrow="Window comparison" title="Current versus previous period" />
 
+                  <WorkspaceBarChart
+                    data={comparisonChart}
+                    height={280}
+                    series={[
+                      { key: "current", name: "Current" },
+                      { key: "previous", name: "Previous" }
+                    ]}
+                    emptyMessage="No current-versus-previous comparison can be charted yet."
+                  />
+
                   <RecordTableShell className="max-h-80 flex-none">
                     <RecordTable>
                       <thead>
@@ -713,10 +827,30 @@ export function SmsReportsPage() {
 
                         {reportsQuery.data?.comparison.map((row) => (
                           <tr key={row.key}>
-                            <td>{row.label}</td>
-                            <td>{row.currentValue}</td>
-                            <td>{row.previousValue}</td>
                             <td>
+                              <MobileRecordFieldGrid className="lg:hidden">
+                                <strong className="block text-sm text-base-content">{row.label}</strong>
+                                <MobileRecordField label="Current" value={row.currentValue} />
+                                <MobileRecordField label="Previous" value={row.previousValue} />
+                                <MobileRecordField
+                                  label="Delta"
+                                  value={
+                                    <span className="inline-flex flex-wrap items-center gap-2">
+                                      <WorkspaceStatusPill tone={getDeltaTone(row.deltaValue)}>
+                                        {formatSignedValue(row.deltaValue)}
+                                      </WorkspaceStatusPill>
+                                      <span className="text-base-content/65">
+                                        {row.deltaPercentage === null ? "No baseline" : formatDeltaPercentage(row.deltaPercentage)}
+                                      </span>
+                                    </span>
+                                  }
+                                />
+                              </MobileRecordFieldGrid>
+                              <span className="hidden lg:inline">{row.label}</span>
+                            </td>
+                            <td className="max-lg:hidden">{row.currentValue}</td>
+                            <td className="max-lg:hidden">{row.previousValue}</td>
+                            <td className="max-lg:hidden">
                               <div className="flex flex-wrap items-center gap-2">
                                 <WorkspaceStatusPill tone={getDeltaTone(row.deltaValue)}>
                                   {formatSignedValue(row.deltaValue)}
@@ -737,6 +871,13 @@ export function SmsReportsPage() {
               <WorkspacePanelGrid>
                 <WorkspacePanel>
                   <WorkspacePanelHeader eyebrow="Daily activity" title="Today's operating movement" />
+
+                  <WorkspaceBarChart
+                    data={dailyActivityChart}
+                    height={220}
+                    series={[{ key: "count", name: "Count" }]}
+                    emptyMessage="No daily movement can be charted yet."
+                  />
 
                   <dl className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-box border border-base-300/70 bg-base-200/40 px-4 py-3">
@@ -760,6 +901,8 @@ export function SmsReportsPage() {
 
                 <WorkspacePanel>
                   <WorkspacePanelHeader eyebrow="Service distribution" title="Status mix" />
+
+                  <WorkspacePieChart data={statusChart} height={230} emptyMessage="No service status mix can be charted yet." />
 
                   <div className="grid gap-4">
                     {reportsQuery.isLoading ? (
@@ -790,8 +933,19 @@ export function SmsReportsPage() {
                 <WorkspacePanel>
                   <WorkspacePanelHeader eyebrow="Workload" title="Technician assignment pressure" />
 
+                  <WorkspaceBarChart
+                    data={workloadChart}
+                    height={260}
+                    series={[
+                      { key: "active", name: "Active" },
+                      { key: "scheduled", name: "Scheduled" },
+                      { key: "completed", name: "Completed" }
+                    ]}
+                    emptyMessage="No technician assignment pressure can be charted yet."
+                  />
+
                   <RecordTableShell className="max-h-80 flex-none">
-                    <RecordTable>
+                    <RecordTable className={mobileRecordRailClass(reportsQuery.data?.technicianWorkload.length ?? 0)}>
                       <thead>
                         <tr>
                           <th>Staff member</th>
@@ -811,10 +965,18 @@ export function SmsReportsPage() {
 
                         {reportsQuery.data?.technicianWorkload.map((row) => (
                           <tr key={row.userId}>
-                            <td>{row.fullName}</td>
-                            <td>{row.activeAssignments}</td>
-                            <td>{row.scheduledAssignments}</td>
-                            <td>{row.completedAssignments}</td>
+                            <td>
+                              <MobileRecordFieldGrid className="lg:hidden">
+                                <strong className="block text-sm text-base-content">{row.fullName}</strong>
+                                <MobileRecordField label="Active" value={row.activeAssignments} />
+                                <MobileRecordField label="Scheduled" value={row.scheduledAssignments} />
+                                <MobileRecordField label="Completed" value={row.completedAssignments} />
+                              </MobileRecordFieldGrid>
+                              <span className="hidden lg:inline">{row.fullName}</span>
+                            </td>
+                            <td className="max-lg:hidden">{row.activeAssignments}</td>
+                            <td className="max-lg:hidden">{row.scheduledAssignments}</td>
+                            <td className="max-lg:hidden">{row.completedAssignments}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -866,8 +1028,7 @@ export function SmsReportsPage() {
                   ]}
                 />
               </WorkspacePanel>
-            </WorkspaceScrollStack>
-          </RecordScrollRegion>
+          </WorkspaceScrollStack>
         </WorkspaceKpiRailLayout>
 
         <WorkspaceFabDock
@@ -899,6 +1060,52 @@ export function SmsReportsPage() {
           ]}
         />
       </RecordContentStack>
+
+      {isWindowOptionsOpen ? (
+        <div
+          className="fixed inset-0 z-[165] grid place-items-end bg-black/45 p-3 backdrop-blur-sm lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Reporting window options"
+          onClick={() => setIsWindowOptionsOpen(false)}
+        >
+          <section
+            className="grid max-h-[calc(100dvh-1.5rem)] w-full max-w-lg grid-rows-[auto_1fr_auto] overflow-hidden rounded-[1.35rem] border border-base-300/70 bg-base-100 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between gap-3 border-b border-base-300/70 px-4 py-4">
+              <div>
+                <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.12em] text-base-content/55">Reporting window</p>
+                <h2 className="mt-1 text-lg font-bold text-base-content">Compare periods</h2>
+              </div>
+              <button
+                type="button"
+                className="btn btn-circle btn-sm border-base-300/70 bg-base-100 shadow-none"
+                onClick={() => setIsWindowOptionsOpen(false)}
+                aria-label="Close reporting window options"
+              >
+                x
+              </button>
+            </header>
+            <div className="min-h-0 overflow-y-auto px-4 py-4">
+              <div className="grid gap-4">
+                {reportingWindowControls}
+                <WorkspaceInlineNote className="block leading-6">
+                  {reportingWindowNote}
+                </WorkspaceInlineNote>
+              </div>
+            </div>
+            <footer className="flex justify-end gap-2 border-t border-base-300/70 bg-base-200/40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <WorkspaceActionButton onClick={resetWindow}>
+                Reset window
+              </WorkspaceActionButton>
+              <WorkspaceActionButton onClick={() => setIsWindowOptionsOpen(false)}>
+                Apply
+              </WorkspaceActionButton>
+            </footer>
+          </section>
+        </div>
+      ) : null}
     </RecordWorkspace>
   );
 }

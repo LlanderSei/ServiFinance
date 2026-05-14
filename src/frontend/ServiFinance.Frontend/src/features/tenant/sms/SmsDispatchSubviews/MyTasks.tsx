@@ -1,6 +1,6 @@
-import { RecordTable, RecordTableActionButton, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
-import { WorkspaceActionButton, WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
+import { RecordTable, RecordTableShell, RecordTableStateRow } from "@/shared/records/RecordTable";
 import type { TenantDispatchAssignmentRow } from "@/shared/api/contracts";
+import { DispatchAssignmentRow } from "./DispatchAssignmentRow";
 
 interface MyTasksProps {
   assignments: TenantDispatchAssignmentRow[];
@@ -61,52 +61,29 @@ export function SmsDispatchMyTasks({
             </RecordTableStateRow>
           ) : null}
           {assignments.map((assignment) => (
-            <tr key={assignment.id}>
-              <td>{assignment.requestNumber}</td>
-              <td>{assignment.customerName}</td>
-              <td>{assignment.assignedUserName}</td>
-              <td>{formatDateTime(assignment.scheduledStartUtc)}</td>
-              <td>{formatDateTime(assignment.scheduledEndUtc)}</td>
-              <td>
-                <WorkspaceStatusPill tone="active">{assignment.assignmentStatus}</WorkspaceStatusPill>
-              </td>
-              <td>{assignment.serviceStatus}</td>
-              <td>
-                <WorkspaceStatusPill tone={getFinanceTone(assignment.financeHandoffStatus)}>
-                  {assignment.financeHandoffStatus}
-                </WorkspaceStatusPill>
-              </td>
-              <td>
-                <WorkspaceStatusPill tone={assignment.scheduleConflictCount > 0 ? "warning" : "neutral"}>
-                  {assignment.scheduleConflictCount > 0 ? `${assignment.scheduleConflictCount} overlap(s)` : "Clear"}
-                </WorkspaceStatusPill>
-              </td>
-              <td>
-                <div className="flex flex-wrap gap-1">
-                  <RecordTableActionButton onClick={() => onSelectAssignment(assignment)}>
-                    View
-                  </RecordTableActionButton>
-                  {canRespondToAssignment(assignment) ? (
-                    <>
-                      <WorkspaceActionButton
-                        className="btn-xs text-success hover:bg-success/10"
-                        disabled={isResponding}
-                        onClick={() => onAcceptAssignment(assignment)}
-                      >
-                        Accept
-                      </WorkspaceActionButton>
-                      <WorkspaceActionButton
-                        className="btn-xs text-error hover:bg-error/10"
-                        disabled={isResponding}
-                        onClick={() => onRejectAssignment(assignment)}
-                      >
-                        Reject
-                      </WorkspaceActionButton>
-                    </>
-                  ) : null}
-                </div>
-              </td>
-            </tr>
+            <DispatchAssignmentRow
+              key={assignment.id}
+              assignment={assignment}
+              onView={() => onSelectAssignment(assignment)}
+              secondaryActions={canRespondToAssignment(assignment) ? [
+                {
+                  key: "accept",
+                  label: "Accept",
+                  tone: "success",
+                  onClick: () => onAcceptAssignment(assignment),
+                  disabled: isResponding
+                },
+                {
+                  key: "reject",
+                  label: "Reject",
+                  tone: "danger",
+                  onClick: () => onRejectAssignment(assignment),
+                  disabled: isResponding
+                }
+              ] : []}
+              formatDateTime={formatDateTime}
+              getFinanceTone={getFinanceTone}
+            />
           ))}
         </tbody>
       </RecordTable>

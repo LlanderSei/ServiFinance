@@ -90,12 +90,24 @@ export function RolePermissionMatrixTab({
       )}
     >
       <div className="grid min-h-0 gap-4 xl:grid-cols-[19rem_minmax(0,1fr)]">
-        <WorkspacePanel className="min-h-0">
+        <WorkspacePanel className="min-h-0 overflow-visible lg:overflow-hidden">
           <WorkspacePanelHeader
             eyebrow="Roles"
             title="Select a role"
           />
-          <div className="grid min-h-0 gap-2 overflow-y-auto pr-1">
+          <select
+            className="select select-bordered w-full border-base-300/70 bg-base-100 lg:hidden"
+            value={selectedRole?.id ?? ""}
+            onChange={(event) => setSelectedRoleId(event.target.value)}
+            aria-label="Select role"
+          >
+            {visibleRoles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name} / {formatPlatformScope(role.platformScope)} / Rank {role.rank}
+              </option>
+            ))}
+          </select>
+          <div className="hidden min-h-0 gap-2 overflow-y-auto pr-1 lg:grid">
             {visibleRoles.map((role) => (
               <WorkspaceToggleButton
                 key={role.id}
@@ -114,7 +126,7 @@ export function RolePermissionMatrixTab({
           </div>
         </WorkspacePanel>
 
-        <WorkspacePanel className="min-h-0">
+        <WorkspacePanel className="min-h-0 overflow-visible lg:overflow-hidden">
           <WorkspacePanelHeader
             eyebrow="Permission matrix"
             title={selectedRole ? `${selectedRole.name} permissions` : "No role selected"}
@@ -152,7 +164,42 @@ export function RolePermissionMatrixTab({
             </WorkspaceNotice>
           ) : null}
 
-          <RecordTableShell className="min-h-0">
+          <div className="grid max-h-none gap-3 pb-3 lg:hidden">
+            {tablePermissions.length === 0 ? (
+              <WorkspaceNotice>No permissions are available for this role scope.</WorkspaceNotice>
+            ) : null}
+
+            {tablePermissions.map((permission) => {
+              const checked = checkedKeys.includes(permission.key);
+              return (
+                <article
+                  key={permission.key}
+                  className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-box border border-base-300/70 bg-base-100 p-3 shadow-sm"
+                >
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-primary mt-1"
+                    checked={checked}
+                    disabled={!canEdit}
+                    aria-label={`Grant ${permission.name}`}
+                    onChange={() => togglePermission(permission.key)}
+                  />
+                  <div className="min-w-0">
+                    <p className="m-0 text-[0.68rem] font-extrabold uppercase tracking-[0.12em] text-base-content/55">
+                      {permission.category} / {permission.scope}
+                    </p>
+                    <h4 className="m-0 mt-1 text-sm font-bold text-base-content">{permission.name}</h4>
+                    <p className="m-0 mt-1 break-words text-xs leading-5 text-base-content/68">{permission.description}</p>
+                    <code className="mt-2 block break-all rounded-lg bg-base-200 px-2 py-1 text-[0.68rem] text-base-content/70">
+                      {permission.key}
+                    </code>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <RecordTableShell className="hidden min-h-0 lg:block">
             <RecordTable>
               <thead>
                 <tr>

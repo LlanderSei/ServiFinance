@@ -24,7 +24,9 @@ export type NavItem = {
     | "dispatch"
     | "reports"
     | "audits"
-    | "branding";
+    | "branding"
+    | "costs"
+    | "pricing";
   badge?: string;
   unavailableMessage?: string;
   permissionKey?: string;
@@ -173,8 +175,8 @@ export function buildAuthSections(user: CurrentSessionUser): NavSection[] {
       key: "commercial",
       title: "Commercial",
       items: [
-        { to: `${tenantBase}/sms/cost-control`, label: "Cost Control", icon: "subscriptions" as const, permissionKey: "sms.cost-control.view", moduleCode: SmsModuleCodes.partsCostControl },
-        { to: `${tenantBase}/sms/pricing`, label: "Pricing", icon: "subscriptions" as const, permissionKey: "sms.pricing.manage", moduleCode: SmsModuleCodes.invoicing, requireFullModule: true },
+        { to: `${tenantBase}/sms/cost-control`, label: "Cost Control", icon: "costs" as const, permissionKey: "sms.cost-control.view", moduleCode: SmsModuleCodes.partsCostControl },
+        { to: `${tenantBase}/sms/pricing`, label: "Pricing", icon: "pricing" as const, permissionKey: "sms.pricing.manage", moduleCode: SmsModuleCodes.invoicing, requireFullModule: true },
         { to: `${tenantBase}/billing`, label: "Billing", icon: "subscriptions" as const, permissionKey: "sms.billing.view" }
       ]
     },
