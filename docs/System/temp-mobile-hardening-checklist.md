@@ -93,6 +93,7 @@ Purpose: keep the remaining root + tenant SMS mobile layout fixes externalized s
 - [x] Anchor the customer portal sidebar `Sign out` action to the bottom of the drawer.
 - [x] Move the customer portal drawer close chevron to the center-right edge with an offset.
 - [x] Reuse `BottomCenterToast` for customer portal bottom-tab presses.
+- [x] Replace timestamp-based bottom-tab toast keys with pure functional state updates for React dependency audit.
 
 ## Verification
 
@@ -107,6 +108,8 @@ Purpose: keep the remaining root + tenant SMS mobile layout fixes externalized s
 - [x] Fifth follow-up mobile polish passed `git diff --check` on 2026-05-15.
 - [x] Customer portal mobile polish passed `cmd /c npm run build` from `src/frontend/ServiFinance.Frontend` on 2026-05-15.
 - [x] Customer portal mobile polish passed `git diff --check` on 2026-05-15.
+- [x] Customer portal bottom-tab purity fix passed `cmd /c npm run lint` from `src/frontend/ServiFinance.Frontend` on 2026-05-15.
+- [x] Customer portal bottom-tab purity fix passed `cmd /c npm run build` from `src/frontend/ServiFinance.Frontend` on 2026-05-15.
 
 ## Known user notes
 

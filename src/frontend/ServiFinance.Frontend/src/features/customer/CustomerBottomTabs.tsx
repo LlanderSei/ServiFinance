@@ -44,7 +44,10 @@ export function CustomerBottomTabs<TTab extends string>({
 
   function handleTabClick(tab: CustomerBottomTab<TTab>) {
     onChange(tab.key);
-    setMobileToast({ id: Date.now(), label: tab.label });
+    setMobileToast((currentToast) => ({
+      id: (currentToast?.id ?? 0) + 1,
+      label: tab.label
+    }));
   }
 
   return (

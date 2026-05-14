@@ -50,7 +50,10 @@ export function WorkspaceTopTabs({ tabs, activeTab, onChange, mobilePlacement = 
 
   function handleMobileTabClick(tab: WorkspaceTopTab) {
     onChange(tab.key);
-    setMobileToast({ id: Date.now(), label: tab.label });
+    setMobileToast((currentToast) => ({
+      id: (currentToast?.id ?? 0) + 1,
+      label: tab.label
+    }));
   }
 
   if (mobilePlacement === "inline") {
