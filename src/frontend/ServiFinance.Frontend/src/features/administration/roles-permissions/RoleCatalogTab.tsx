@@ -5,6 +5,11 @@ import {
   RecordTableShell,
   RecordTableStateRow
 } from "@/shared/records/RecordTable";
+import {
+  MobileRecordCardLayout,
+  MobileRecordField,
+  MobileRecordFieldGrid
+} from "@/shared/records/MobileRecordDetails";
 import { WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
 import {
   WorkspaceKpiRailLayout,
@@ -89,26 +94,51 @@ export function RoleCatalogTab({
               {visibleRoles.map((role) => (
                 <tr key={role.id}>
                   <td>
-                    <div className="grid gap-1">
+                    <MobileRecordCardLayout
+                      upper={(
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <strong className="block text-sm text-base-content">{role.name}</strong>
+                            <span className="block text-xs leading-5 text-base-content/65">{role.description}</span>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <WorkspaceStatusPill tone={role.isPermissionSetLocked ? "warning" : "active"}>
+                              {role.isPermissionSetLocked ? "Locked" : "Editable"}
+                            </WorkspaceStatusPill>
+                            <WorkspaceStatusPill tone={role.rank <= 10 ? "warning" : "neutral"}>
+                              Rank {role.rank}
+                            </WorkspaceStatusPill>
+                          </div>
+                        </div>
+                      )}
+                      middle={(
+                        <MobileRecordFieldGrid className="grid-cols-2">
+                          <MobileRecordField label="Scope" value={formatPlatformScope(role.platformScope)} />
+                          <MobileRecordField label="Users" value={role.assignedUserCount} />
+                          <MobileRecordField label="Permissions" value={role.permissionKeys.length} />
+                        </MobileRecordFieldGrid>
+                      )}
+                    />
+                    <div className="hidden gap-1 lg:grid">
                       <strong>{role.name}</strong>
                       <span className="text-sm text-base-content/65">{role.description}</span>
                     </div>
                   </td>
-                  <td>{formatPlatformScope(role.platformScope)}</td>
-                  <td>
+                  <td className="max-lg:hidden">{formatPlatformScope(role.platformScope)}</td>
+                  <td className="max-lg:hidden">
                     <WorkspaceStatusPill tone={role.rank <= 10 ? "warning" : "neutral"}>
                       {role.rank}
                     </WorkspaceStatusPill>
                   </td>
-                  <td>
+                  <td className="max-lg:hidden">
                     <WorkspaceStatusPill tone={role.isPermissionSetLocked ? "warning" : "active"}>
                       {role.isPermissionSetLocked ? "Locked" : "Editable"}
                     </WorkspaceStatusPill>
                   </td>
-                  <td>{role.assignedUserCount}</td>
-                  <td>{role.permissionKeys.length}</td>
+                  <td className="max-lg:hidden">{role.assignedUserCount}</td>
+                  <td className="max-lg:hidden">{role.permissionKeys.length}</td>
                   <td>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:flex-wrap">
                       <RecordTableActionButton
                         disabled={!role.canEditPermissions}
                         onClick={() => onEditRole(role.id, role.platformScope)}

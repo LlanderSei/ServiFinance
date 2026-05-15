@@ -8,7 +8,13 @@ import {
   RecordTableShell,
   RecordTableStateRow
 } from "@/shared/records/RecordTable";
+import {
+  MobileRecordCardLayout,
+  MobileRecordField,
+  MobileRecordFieldGrid
+} from "@/shared/records/MobileRecordDetails";
 import { RecordWorkspace } from "@/shared/records/RecordWorkspace";
+import { WorkspaceStatusPill } from "@/shared/records/WorkspaceControls";
 
 export function ModulesPage() {
   const [selectedModule, setSelectedModule] = useState<SuperadminModuleRow | null>(null);
@@ -78,13 +84,39 @@ export function ModulesPage() {
 
               {rows.map((module) => (
                 <tr key={module.id}>
-                  <td>{module.name}</td>
-                  <td>{module.code}</td>
-                  <td>{module.channel}</td>
-                  <td>{module.assignedTierCount}</td>
-                  <td>{module.isActive ? "Active" : "Inactive"}</td>
                   <td>
-                    <RecordTableActionButton onClick={() => setSelectedModule(module)}>
+                    <MobileRecordCardLayout
+                      upper={(
+                        <div className="min-w-0">
+                          <strong className="block text-sm text-base-content">{module.name}</strong>
+                          <MobileRecordFieldGrid>
+                            <MobileRecordField label="Code" value={module.code} />
+                          </MobileRecordFieldGrid>
+                        </div>
+                      )}
+                      middleColumns={2}
+                      middle={(
+                        <>
+                          <MobileRecordFieldGrid>
+                            <MobileRecordField label="Channel" value={module.channel} />
+                            <MobileRecordField label="Assigned tiers" value={module.assignedTierCount} />
+                          </MobileRecordFieldGrid>
+                          <div className="grid justify-items-start gap-1.5">
+                            <WorkspaceStatusPill tone={module.isActive ? "active" : "inactive"}>
+                              {module.isActive ? "Active" : "Inactive"}
+                            </WorkspaceStatusPill>
+                          </div>
+                        </>
+                      )}
+                    />
+                    <span className="hidden lg:inline">{module.name}</span>
+                  </td>
+                  <td className="max-lg:hidden">{module.code}</td>
+                  <td className="max-lg:hidden">{module.channel}</td>
+                  <td className="max-lg:hidden">{module.assignedTierCount}</td>
+                  <td className="max-lg:hidden">{module.isActive ? "Active" : "Inactive"}</td>
+                  <td>
+                    <RecordTableActionButton className="w-full justify-center" onClick={() => setSelectedModule(module)}>
                       View
                     </RecordTableActionButton>
                   </td>

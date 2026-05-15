@@ -13,8 +13,13 @@ import {
   RecordTableShell,
   RecordTableStateRow
 } from "@/shared/records/RecordTable";
+import {
+  MobileRecordCardLayout,
+  MobileRecordField,
+  MobileRecordFieldGrid
+} from "@/shared/records/MobileRecordDetails";
 import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
-import { WorkspaceToggleButton, WorkspaceToggleGroup } from "@/shared/records/WorkspaceControls";
+import { WorkspaceStatusPill, WorkspaceToggleButton, WorkspaceToggleGroup } from "@/shared/records/WorkspaceControls";
 import { WorkspaceFabDock } from "@/shared/records/WorkspaceFabDock";
 import { WorkspaceTopTabs } from "@/shared/records/WorkspaceTopTabs";
 import {
@@ -223,19 +228,49 @@ export function SubscriptionsPage() {
                       return (
                         <tr key={tier.id}>
                           <td>
-                            <div className="grid gap-1">
+                            <MobileRecordCardLayout
+                              upperColumns={2}
+                              upper={(
+                                <>
+                                  <div className="min-w-0">
+                                    <strong className="block text-sm text-base-content">{tier.displayName}</strong>
+                                    <span className="block text-xs text-base-content/55">{tier.code}</span>
+                                  </div>
+                                  <span className="justify-self-end">
+                                    <WorkspaceStatusPill tone={tier.isActive ? "active" : "inactive"}>
+                                      {tier.isActive ? "Active" : "Inactive"}
+                                    </WorkspaceStatusPill>
+                                  </span>
+                                </>
+                              )}
+                              middleColumns={2}
+                              middle={(
+                                <>
+                                  <MobileRecordFieldGrid>
+                                    <MobileRecordField label="Segment" value={tier.businessSizeSegment} />
+                                    <MobileRecordField label="Edition" value={tier.subscriptionEdition} />
+                                    <MobileRecordField label="Delivery" value={formatDelivery(tier)} />
+                                  </MobileRecordFieldGrid>
+                                  <MobileRecordFieldGrid>
+                                    <MobileRecordField label="Price" value={tier.priceDisplay} />
+                                    <MobileRecordField label="Modules" value={`${includedCount} full / ${limitedCount} limited`} />
+                                  </MobileRecordFieldGrid>
+                                </>
+                              )}
+                            />
+                            <div className="hidden gap-1 lg:grid">
                               <strong>{tier.displayName}</strong>
                               <span className="text-xs text-base-content/55">{tier.code}</span>
                             </div>
                           </td>
-                          <td>{tier.businessSizeSegment}</td>
-                          <td>{tier.subscriptionEdition}</td>
-                          <td>{formatDelivery(tier)}</td>
-                          <td>{tier.priceDisplay}</td>
-                          <td>{includedCount} full / {limitedCount} limited</td>
-                          <td>{tier.isActive ? "Active" : "Inactive"}</td>
+                          <td className="max-lg:hidden">{tier.businessSizeSegment}</td>
+                          <td className="max-lg:hidden">{tier.subscriptionEdition}</td>
+                          <td className="max-lg:hidden">{formatDelivery(tier)}</td>
+                          <td className="max-lg:hidden">{tier.priceDisplay}</td>
+                          <td className="max-lg:hidden">{includedCount} full / {limitedCount} limited</td>
+                          <td className="max-lg:hidden">{tier.isActive ? "Active" : "Inactive"}</td>
                           <td>
-                            <RecordTableActionButton onClick={() => openEditTier(tier)}>
+                            <RecordTableActionButton className="w-full justify-center" onClick={() => openEditTier(tier)}>
                               Edit
                             </RecordTableActionButton>
                           </td>

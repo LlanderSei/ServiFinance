@@ -95,6 +95,13 @@ Purpose: keep the remaining root + tenant SMS mobile layout fixes externalized s
 - [x] Reuse `BottomCenterToast` for customer portal bottom-tab presses.
 - [x] Replace timestamp-based bottom-tab toast keys with pure functional state updates for React dependency audit.
 
+## Root mobile layout polish
+
+- [x] Keep Root Dashboard subscription mix as a real mobile table with a three-row internal scroll window.
+- [x] Convert Root Dashboard recent activity to the shared mobile card grid with a two-column second row.
+- [x] Move Root Tenants filters into the existing mobile filter-card/modal pattern.
+- [x] Convert Root Tenants, Root Users, Roles, Subscription Tiers, Subscription Recovery, and Module Catalog rows to shared mobile card layouts.
+
 ## Verification
 
 - [x] `cmd /c npm run build` passed from `src/frontend/ServiFinance.Frontend` on 2026-05-14.
@@ -110,6 +117,9 @@ Purpose: keep the remaining root + tenant SMS mobile layout fixes externalized s
 - [x] Customer portal mobile polish passed `git diff --check` on 2026-05-15.
 - [x] Customer portal bottom-tab purity fix passed `cmd /c npm run lint` from `src/frontend/ServiFinance.Frontend` on 2026-05-15.
 - [x] Customer portal bottom-tab purity fix passed `cmd /c npm run build` from `src/frontend/ServiFinance.Frontend` on 2026-05-15.
+- [x] Root mobile layout polish passed `cmd /c npm run build` from `src/frontend/ServiFinance.Frontend` on 2026-05-15.
+- [x] Root mobile layout polish passed `cmd /c npm run lint` from `src/frontend/ServiFinance.Frontend` on 2026-05-15.
+- [x] Root mobile layout polish passed `git diff --check` on 2026-05-15.
 
 ## Known user notes
 

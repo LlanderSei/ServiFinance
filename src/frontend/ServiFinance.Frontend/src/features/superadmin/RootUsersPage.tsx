@@ -12,6 +12,11 @@ import {
   RecordTableStateRow
 } from "@/shared/records/RecordTable";
 import {
+  MobileRecordCardLayout,
+  MobileRecordField,
+  MobileRecordFieldGrid
+} from "@/shared/records/MobileRecordDetails";
+import {
   WorkspaceField,
   WorkspaceFieldGrid,
   WorkspaceForm,
@@ -259,21 +264,44 @@ export function RootUsersPage() {
                   const isCurrentUser = user.id === currentUserId;
                   return (
                     <tr key={user.id}>
-                      <td>{user.fullName}</td>
-                      <td>{user.email}</td>
                       <td>
+                        <MobileRecordCardLayout
+                          upper={(
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <strong className="block text-sm text-base-content">{user.fullName}</strong>
+                                <MobileRecordFieldGrid>
+                                  <MobileRecordField label="Email" value={user.email} />
+                                  <MobileRecordField label="Created" value={new Date(user.createdAtUtc).toLocaleDateString("en-PH")} />
+                                </MobileRecordFieldGrid>
+                              </div>
+                              <div className="flex shrink-0 flex-col items-end gap-1">
+                                <WorkspaceStatusPill tone={user.isActive ? "active" : "inactive"}>
+                                  {user.isActive ? "Active" : "Disabled"}
+                                </WorkspaceStatusPill>
+                                <WorkspaceStatusPill tone="warning">
+                                  {user.roles.length > 0 ? user.roles.join(" / ") : "Unscoped"}
+                                </WorkspaceStatusPill>
+                              </div>
+                            </div>
+                          )}
+                        />
+                        <span className="hidden lg:inline">{user.fullName}</span>
+                      </td>
+                      <td className="max-lg:hidden">{user.email}</td>
+                      <td className="max-lg:hidden">
                         <WorkspaceStatusPill tone="warning">
                           {user.roles.length > 0 ? user.roles.join(" / ") : "Unscoped"}
                         </WorkspaceStatusPill>
                       </td>
-                      <td>
+                      <td className="max-lg:hidden">
                         <WorkspaceStatusPill tone={user.isActive ? "active" : "inactive"}>
                           {user.isActive ? "Active" : "Disabled"}
                         </WorkspaceStatusPill>
                       </td>
-                      <td>{new Date(user.createdAtUtc).toLocaleDateString("en-PH")}</td>
+                      <td className="max-lg:hidden">{new Date(user.createdAtUtc).toLocaleDateString("en-PH")}</td>
                       <td>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:flex-wrap">
                           <RecordTableActionButton
                             onClick={() => openEditModal(user)}
                             disabled={!canManageRootUsers}

@@ -12,6 +12,11 @@ import {
   RecordTableStateRow
 } from "@/shared/records/RecordTable";
 import {
+  MobileRecordCardLayout,
+  MobileRecordField,
+  MobileRecordFieldGrid
+} from "@/shared/records/MobileRecordDetails";
+import {
   WorkspaceActionButton,
   WorkspaceFilter,
   WorkspaceModalButton,
@@ -19,7 +24,6 @@ import {
   WorkspaceStatusPill
 } from "@/shared/records/WorkspaceControls";
 import { RecordContentStack, RecordWorkspace } from "@/shared/records/RecordWorkspace";
-import { WorkspaceToolbar } from "@/shared/records/WorkspacePanel";
 
 const tenantDateFormatter = new Intl.DateTimeFormat("en-PH", {
   year: "numeric",
@@ -113,45 +117,11 @@ export function TenantsPage() {
         singularLabel="tenant"
       >
         <RecordContentStack>
-          <WorkspaceToolbar>
-            <WorkspaceFilter label="Segment">
-              <WorkspaceSelect
-                value={filters.segment}
-                onChange={(event) => setFilters((current) => ({ ...current, segment: event.target.value }))}
-              >
-                <option value="">All segments</option>
-                <option value="Micro">Micro</option>
-                <option value="Small">Small</option>
-                <option value="Medium">Medium</option>
-              </WorkspaceSelect>
-            </WorkspaceFilter>
-
-            <WorkspaceFilter label="Edition">
-              <WorkspaceSelect
-                value={filters.edition}
-                onChange={(event) => setFilters((current) => ({ ...current, edition: event.target.value }))}
-              >
-                <option value="">All editions</option>
-                <option value="Standard">Standard</option>
-                <option value="Premium">Premium</option>
-              </WorkspaceSelect>
-            </WorkspaceFilter>
-
-            <WorkspaceFilter label="Status">
-              <WorkspaceSelect
-                value={filters.status}
-                onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
-              >
-                <option value="">All statuses</option>
-                <option value="active">Active</option>
-                <option value="suspended">Suspended</option>
-              </WorkspaceSelect>
-            </WorkspaceFilter>
-
-            <WorkspaceActionButton onClick={() => setFilters({ segment: "", edition: "", status: "" })}>
-              Reset filters
-            </WorkspaceActionButton>
-          </WorkspaceToolbar>
+          <TenantFilterBar
+            filters={filters}
+            onChange={setFilters}
+            onClear={() => setFilters({ segment: "", edition: "", status: "" })}
+          />
 
           <RecordTableShell>
             <RecordTable>
@@ -186,19 +156,48 @@ export function TenantsPage() {
 
                 {rows.map((tenant) => (
                   <tr key={tenant.id}>
-                    <td>{tenant.name}</td>
-                    <td>{tenant.code}</td>
-                    <td>/{tenant.domainSlug}</td>
-                    <td>{tenant.businessSizeSegment}</td>
-                    <td>{tenant.subscriptionEdition}</td>
-                    <td>{tenant.subscriptionPlan}</td>
                     <td>
+                      <MobileRecordCardLayout
+                        upperColumns={2}
+                        upper={(
+                          <>
+                            <strong className="min-w-0 text-sm text-base-content">{tenant.name}</strong>
+                            <span className="justify-self-end">
+                              <WorkspaceStatusPill tone={tenant.isActive ? "active" : "inactive"}>
+                                {tenant.subscriptionStatus}
+                              </WorkspaceStatusPill>
+                            </span>
+                          </>
+                        )}
+                        middleColumns={2}
+                        middle={(
+                          <>
+                            <MobileRecordFieldGrid>
+                              <MobileRecordField label="Code" value={tenant.code} />
+                              <MobileRecordField label="Domain Slug" value={`/${tenant.domainSlug}`} />
+                              <MobileRecordField label="Segment" value={tenant.businessSizeSegment} />
+                            </MobileRecordFieldGrid>
+                            <MobileRecordFieldGrid>
+                              <MobileRecordField label="Edition" value={tenant.subscriptionEdition} />
+                              <MobileRecordField label="Plan" value={tenant.subscriptionPlan} />
+                            </MobileRecordFieldGrid>
+                          </>
+                        )}
+                      />
+                      <span className="hidden lg:inline">{tenant.name}</span>
+                    </td>
+                    <td className="max-lg:hidden">{tenant.code}</td>
+                    <td className="max-lg:hidden">/{tenant.domainSlug}</td>
+                    <td className="max-lg:hidden">{tenant.businessSizeSegment}</td>
+                    <td className="max-lg:hidden">{tenant.subscriptionEdition}</td>
+                    <td className="max-lg:hidden">{tenant.subscriptionPlan}</td>
+                    <td className="max-lg:hidden">
                       <WorkspaceStatusPill tone={tenant.isActive ? "active" : "inactive"}>
                         {tenant.subscriptionStatus}
                       </WorkspaceStatusPill>
                     </td>
                     <td>
-                      <RecordTableActionButton onClick={() => setSelectedTenant(tenant)}>
+                      <RecordTableActionButton className="w-full justify-center" onClick={() => setSelectedTenant(tenant)}>
                         View
                       </RecordTableActionButton>
                     </td>
@@ -245,6 +244,134 @@ export function TenantsPage() {
         ) : null}
         onClose={() => setSelectedTenant(null)}
       />
+    </>
+  );
+}
+
+function TenantFilterBar({
+  filters,
+  onChange,
+  onClear
+}: {
+  filters: { segment: string; edition: string; status: string };
+  onChange: (filters: { segment: string; edition: string; status: string }) => void;
+  onClear: () => void;
+}) {
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+
+  return (
+    <>
+      <section className="rounded-box border border-base-300/65 bg-base-100 px-3 py-3 shadow-sm lg:px-4">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 lg:flex lg:items-end lg:overflow-hidden">
+          <div className="min-w-0 self-center lg:hidden">
+            <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.08em] text-base-content/60">Filters</p>
+            <h2 className="text-sm font-bold text-base-content">Tenant account filters</h2>
+          </div>
+
+          <WorkspaceActionButton className="shrink-0 lg:hidden" onClick={() => setIsMobileFiltersOpen(true)}>
+            Options
+          </WorkspaceActionButton>
+
+          <WorkspaceActionButton className="shrink-0" onClick={onClear}>
+            Reset filters
+          </WorkspaceActionButton>
+
+          <div className="hidden min-w-0 flex-1 overflow-x-auto overflow-y-hidden pb-1 lg:block">
+            <div className="flex w-max items-end gap-3 pr-10">
+              <TenantFilterFields filters={filters} onChange={onChange} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {isMobileFiltersOpen ? (
+        <div
+          className="fixed inset-0 z-[165] grid place-items-end bg-black/45 p-3 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tenant filter options"
+          onClick={() => setIsMobileFiltersOpen(false)}
+        >
+          <section
+            className="grid max-h-[calc(100dvh-1.5rem)] w-full max-w-lg grid-rows-[auto_1fr_auto] overflow-hidden rounded-[1.35rem] border border-base-300/70 bg-base-100 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between gap-3 border-b border-base-300/70 px-4 py-4">
+              <div>
+                <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.12em] text-base-content/55">Filters</p>
+                <h2 className="mt-1 text-lg font-bold text-base-content">Tenant options</h2>
+              </div>
+              <button
+                type="button"
+                className="btn btn-circle btn-sm border-base-300/70 bg-base-100 shadow-none"
+                onClick={() => setIsMobileFiltersOpen(false)}
+                aria-label="Close tenant filters"
+              >
+                x
+              </button>
+            </header>
+            <div className="min-h-0 overflow-y-auto px-4 py-4">
+              <div className="grid gap-4">
+                <TenantFilterFields filters={filters} onChange={onChange} />
+              </div>
+            </div>
+            <footer className="flex justify-end gap-2 border-t border-base-300/70 bg-base-200/40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <WorkspaceActionButton onClick={onClear}>
+                Reset filters
+              </WorkspaceActionButton>
+              <WorkspaceActionButton onClick={() => setIsMobileFiltersOpen(false)}>
+                Apply
+              </WorkspaceActionButton>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function TenantFilterFields({
+  filters,
+  onChange
+}: {
+  filters: { segment: string; edition: string; status: string };
+  onChange: (filters: { segment: string; edition: string; status: string }) => void;
+}) {
+  return (
+    <>
+      <WorkspaceFilter label="Segment">
+        <WorkspaceSelect
+          value={filters.segment}
+          onChange={(event) => onChange({ ...filters, segment: event.target.value })}
+        >
+          <option value="">All segments</option>
+          <option value="Micro">Micro</option>
+          <option value="Small">Small</option>
+          <option value="Medium">Medium</option>
+        </WorkspaceSelect>
+      </WorkspaceFilter>
+
+      <WorkspaceFilter label="Edition">
+        <WorkspaceSelect
+          value={filters.edition}
+          onChange={(event) => onChange({ ...filters, edition: event.target.value })}
+        >
+          <option value="">All editions</option>
+          <option value="Standard">Standard</option>
+          <option value="Premium">Premium</option>
+        </WorkspaceSelect>
+      </WorkspaceFilter>
+
+      <WorkspaceFilter label="Status">
+        <WorkspaceSelect
+          value={filters.status}
+          onChange={(event) => onChange({ ...filters, status: event.target.value })}
+        >
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="suspended">Suspended</option>
+        </WorkspaceSelect>
+      </WorkspaceFilter>
     </>
   );
 }

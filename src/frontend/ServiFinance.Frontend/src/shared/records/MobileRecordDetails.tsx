@@ -13,6 +13,15 @@ type MobileRecordFieldGridProps = {
   className?: string;
 };
 
+type MobileRecordCardLayoutProps = {
+  upper?: ReactNode;
+  middle?: ReactNode;
+  lower?: ReactNode;
+  upperColumns?: 1 | 2;
+  middleColumns?: 1 | 2;
+  className?: string;
+};
+
 function joinClasses(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
@@ -50,6 +59,31 @@ export function MobileRecordFieldGrid({ children, className }: MobileRecordField
   return (
     <div className={joinClasses("grid gap-1.5", className)}>
       {children}
+    </div>
+  );
+}
+
+export function MobileRecordCardLayout({
+  upper,
+  middle,
+  lower,
+  upperColumns = 1,
+  middleColumns = 1,
+  className
+}: MobileRecordCardLayoutProps) {
+  return (
+    <div className={joinClasses("grid gap-3 lg:hidden", className)}>
+      {upper ? (
+        <div className={joinClasses("grid gap-3", upperColumns === 2 && "grid-cols-2")}>
+          {upper}
+        </div>
+      ) : null}
+      {middle ? (
+        <div className={joinClasses("grid gap-3", middleColumns === 2 && "grid-cols-2")}>
+          {middle}
+        </div>
+      ) : null}
+      {lower ? <div className="grid gap-2">{lower}</div> : null}
     </div>
   );
 }

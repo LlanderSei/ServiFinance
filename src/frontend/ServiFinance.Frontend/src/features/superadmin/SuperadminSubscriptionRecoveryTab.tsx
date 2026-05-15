@@ -5,6 +5,11 @@ import type {
   SuperadminSubscriptionRecoveryRow
 } from "@/shared/api/contracts";
 import { getApiErrorMessage, httpGet, httpPostJson } from "@/shared/api/http";
+import {
+  MobileRecordCardLayout,
+  MobileRecordField,
+  MobileRecordFieldGrid
+} from "@/shared/records/MobileRecordDetails";
 import { RecordTableStateRow } from "@/shared/records/RecordTable";
 import {
   WorkspaceDetailGrid,
@@ -56,7 +61,7 @@ export function SuperadminSubscriptionRecoveryTab() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden pr-1">
       <WorkspaceMetricGrid className="md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
         <WorkspacePanel>
           <WorkspacePanelHeader eyebrow="Tenants" title={`${summary?.totalTenantAccounts ?? 0} tracked`} />
@@ -157,12 +162,50 @@ export function SuperadminSubscriptionRecoveryTab() {
               {rows.map((row) => (
                 <tr key={row.tenantId}>
                   <td>
-                    <div className="grid gap-1">
+                    <MobileRecordCardLayout
+                      upper={(
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <strong className="block text-sm text-base-content">{row.tenantName}</strong>
+                            <span className="block text-xs text-base-content/55">/t/{row.domainSlug}</span>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <StatusPill label={row.accountStanding} tone={resolveStandingTone(row)} />
+                            <StatusPill label={row.recoveryStage} tone={resolveStageTone(row.recoveryStage)} />
+                          </div>
+                        </div>
+                      )}
+                      middleColumns={2}
+                      middle={(
+                        <>
+                          <MobileRecordFieldGrid>
+                            <MobileRecordField label="Plan" value={row.subscriptionPlan} />
+                            <MobileRecordField label="Segment" value={row.businessSizeSegment} />
+                            <MobileRecordField label="Edition" value={row.subscriptionEdition} />
+                            <MobileRecordField label="Renewal" value={formatDate(row.nextRenewalDateUtc)} />
+                            <MobileRecordField label="Expected amount" value={formatCurrency(row.expectedRenewalAmount, row.expectedRenewalCurrencyCode)} />
+                          </MobileRecordFieldGrid>
+                          <MobileRecordFieldGrid>
+                            <MobileRecordField label="Billing" value={row.latestBillingStatus ?? "No ledger yet"} />
+                            <MobileRecordField label="Latest billing" value={formatDate(row.latestBillingAtUtc)} />
+                            <MobileRecordField label="Pending switch" value={row.pendingPlanChange ?? "None"} />
+                            <MobileRecordField label="Cooldown" value={formatDate(row.cooldownUntilUtc)} />
+                          </MobileRecordFieldGrid>
+                        </>
+                      )}
+                      lower={(
+                        <MobileRecordFieldGrid>
+                          <MobileRecordField label="Recovery detail" value={formatRecoveryStageDetail(row)} />
+                          <MobileRecordField label="Recommended action" value={row.recommendedAction} />
+                        </MobileRecordFieldGrid>
+                      )}
+                    />
+                    <div className="hidden gap-1 lg:grid">
                       <strong>{row.tenantName}</strong>
                       <span className="text-xs text-base-content/55">/t/{row.domainSlug}</span>
                     </div>
                   </td>
-                  <td>
+                  <td className="max-lg:hidden">
                     <div className="grid gap-1">
                       <span>{row.subscriptionPlan}</span>
                       <span className="text-xs text-base-content/55">
@@ -170,7 +213,7 @@ export function SuperadminSubscriptionRecoveryTab() {
                       </span>
                     </div>
                   </td>
-                  <td>
+                  <td className="max-lg:hidden">
                     <div className="grid gap-2">
                       <StatusPill label={row.accountStanding} tone={resolveStandingTone(row)} />
                       <span className="text-xs text-base-content/55">
@@ -178,7 +221,7 @@ export function SuperadminSubscriptionRecoveryTab() {
                       </span>
                     </div>
                   </td>
-                  <td>
+                  <td className="max-lg:hidden">
                     <div className="grid gap-2">
                       <StatusPill label={row.recoveryStage} tone={resolveStageTone(row.recoveryStage)} />
                       <span className="max-w-[18rem] text-xs text-base-content/55">
@@ -186,7 +229,7 @@ export function SuperadminSubscriptionRecoveryTab() {
                       </span>
                     </div>
                   </td>
-                  <td>
+                  <td className="max-lg:hidden">
                     <div className="grid gap-1">
                       <span>{formatDate(row.nextRenewalDateUtc)}</span>
                       <span className="text-xs text-base-content/55">
@@ -194,7 +237,7 @@ export function SuperadminSubscriptionRecoveryTab() {
                       </span>
                     </div>
                   </td>
-                  <td>
+                  <td className="max-lg:hidden">
                     <div className="grid gap-1">
                       <span>{row.latestBillingStatus ?? "No ledger yet"}</span>
                       <span className="text-xs text-base-content/55">
@@ -205,7 +248,7 @@ export function SuperadminSubscriptionRecoveryTab() {
                       ) : null}
                     </div>
                   </td>
-                  <td>
+                  <td className="max-lg:hidden">
                     <div className="grid gap-1">
                       <span>{row.pendingPlanChange ?? "None"}</span>
                       <span className="text-xs text-base-content/55">
@@ -213,8 +256,8 @@ export function SuperadminSubscriptionRecoveryTab() {
                       </span>
                     </div>
                   </td>
-                  <td>{formatDate(row.cooldownUntilUtc)}</td>
-                  <td className="max-w-[24rem] text-sm text-base-content/70">{row.recommendedAction}</td>
+                  <td className="max-lg:hidden">{formatDate(row.cooldownUntilUtc)}</td>
+                  <td className="max-w-[24rem] text-sm text-base-content/70 max-lg:hidden">{row.recommendedAction}</td>
                   <td>
                     <RecoveryActions
                       row={row}
@@ -245,7 +288,7 @@ function RecoveryActions({
   const canForceSuspend = row.recoveryStage === "Suspension review" && row.isActive;
 
   return (
-    <div className="flex min-w-[10rem] flex-col gap-2">
+    <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:min-w-[10rem] lg:flex-col">
       <button
         type="button"
         className="btn btn-xs rounded-full"
