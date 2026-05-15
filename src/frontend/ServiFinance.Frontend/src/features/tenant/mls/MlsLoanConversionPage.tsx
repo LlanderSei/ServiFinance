@@ -78,6 +78,7 @@ export function MlsLoanConversionPage() {
     queryFn: () => httpGet<TenantMlsLoanConversionWorkspaceResponse>(`/api/tenants/${tenantDomainSlug}/mls/loan-conversion`),
     enabled: Boolean(tenantDomainSlug)
   });
+  const approvalWorkflowRequired = workspaceQuery.data?.approvalWorkflowRequired ?? true;
 
   const selectedInvoice = useMemo(
     () => workspaceQuery.data?.candidates.find((candidate) => candidate.invoiceId === selectedInvoiceId) ?? null,
@@ -210,7 +211,9 @@ export function MlsLoanConversionPage() {
       <RecordWorkspace
         breadcrumbs={`${tenantDomainSlug} / MLS / Loan Conversion`}
         title="Invoice-to-loan conversion"
-        description="Submit finance-ready invoices for maker-checker approval, then convert approved candidates into amortized MLS loans."
+        description={approvalWorkflowRequired
+          ? "Submit finance-ready invoices for maker-checker approval, then convert approved candidates into amortized MLS loans."
+          : "Convert finance-ready invoices directly into amortized MLS loans under the current tenant subscription."}
       >
         <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
           <aside className="min-h-0 overflow-y-auto pr-1">
@@ -289,6 +292,7 @@ export function MlsLoanConversionPage() {
                             key={candidate.invoiceId}
                             candidate={candidate}
                             canManageLoanConversion={canManageLoanConversion}
+                            approvalWorkflowRequired={approvalWorkflowRequired}
                             isRequestingApproval={requestApprovalMutation.isPending}
                             onRequestApproval={requestApproval}
                             onConvert={openConversionModal}
@@ -320,6 +324,7 @@ export function MlsLoanConversionPage() {
           previewErrorMessage={getApiErrorMessage(previewQuery.error, "The loan preview could not be generated for the current term setup.")}
           isSubmitting={createMutation.isPending}
           canManageLoanConversion={canManageLoanConversion}
+          approvalWorkflowRequired={approvalWorkflowRequired}
           onAnnualInterestRateChange={setAnnualInterestRate}
           onTermMonthsChange={setTermMonths}
           onLoanStartDateChange={setLoanStartDate}
@@ -334,6 +339,7 @@ export function MlsLoanConversionPage() {
 type ConvertibleInvoiceRowProps = {
   candidate: TenantMlsLoanConversionCandidate;
   canManageLoanConversion: boolean;
+  approvalWorkflowRequired: boolean;
   isRequestingApproval: boolean;
   onRequestApproval: (invoiceId: string) => void;
   onConvert: (invoiceId: string) => void;
@@ -342,6 +348,7 @@ type ConvertibleInvoiceRowProps = {
 function ConvertibleInvoiceRow({
   candidate,
   canManageLoanConversion,
+  approvalWorkflowRequired,
   isRequestingApproval,
   onRequestApproval,
   onConvert
@@ -349,6 +356,8 @@ function ConvertibleInvoiceRow({
   const isApproved = candidate.loanApprovalStatus === "Approved";
   const isPending = candidate.loanApprovalStatus === "Pending Review";
   const isRejected = candidate.loanApprovalStatus === "Rejected";
+  const canConvert = !approvalWorkflowRequired || isApproved;
+  const approvalStatusLabel = approvalWorkflowRequired ? candidate.loanApprovalStatus : "Not required";
 
   return (
     <tr>
@@ -365,10 +374,10 @@ function ConvertibleInvoiceRow({
       <td>{formatCurrency(candidate.interestableAmount)}</td>
       <td>
         <div className="grid gap-1">
-          <WorkspaceStatusPill tone={isApproved ? "active" : isPending ? "warning" : isRejected ? "inactive" : "neutral"}>
-            {candidate.loanApprovalStatus}
+          <WorkspaceStatusPill tone={!approvalWorkflowRequired || isApproved ? "active" : isPending ? "warning" : isRejected ? "inactive" : "neutral"}>
+            {approvalStatusLabel}
           </WorkspaceStatusPill>
-          {candidate.loanApprovalRequestedByUserName ? (
+          {approvalWorkflowRequired && candidate.loanApprovalRequestedByUserName ? (
             <span className="text-xs text-base-content/60">
               Requested by {candidate.loanApprovalRequestedByUserName}
             </span>
@@ -377,11 +386,15 @@ function ConvertibleInvoiceRow({
       </td>
       <td>
         <div className="inline-flex min-w-[8rem] justify-end gap-2">
-          {isApproved ? (
+          {canConvert ? (
             <RecordTableActionButton
               onClick={() => onConvert(candidate.invoiceId)}
               disabled={!canManageLoanConversion}
-              title={!canManageLoanConversion ? "Requires mls.loan-conversion.manage." : "Checker-approved invoices can be released by a different MLS operator."}
+              title={!canManageLoanConversion
+                ? "Requires mls.loan-conversion.manage."
+                : approvalWorkflowRequired
+                  ? "Checker-approved invoices can be released by a different MLS operator."
+                  : "This tenant can convert service-linked invoices without maker-checker approval."}
             >
               Convert
             </RecordTableActionButton>
@@ -413,6 +426,7 @@ type LoanConversionModalProps = {
   previewErrorMessage?: string;
   isSubmitting: boolean;
   canManageLoanConversion: boolean;
+  approvalWorkflowRequired: boolean;
   onAnnualInterestRateChange: (value: string) => void;
   onTermMonthsChange: (value: string) => void;
   onLoanStartDateChange: (value: string) => void;
@@ -433,13 +447,14 @@ function LoanConversionModal({
   previewErrorMessage,
   isSubmitting,
   canManageLoanConversion,
+  approvalWorkflowRequired,
   onAnnualInterestRateChange,
   onTermMonthsChange,
   onLoanStartDateChange,
   onClose,
   onSubmit
 }: LoanConversionModalProps) {
-  const isApprovedForRelease = selectedInvoice?.loanApprovalStatus === "Approved";
+  const isApprovedForRelease = !approvalWorkflowRequired || selectedInvoice?.loanApprovalStatus === "Approved";
 
   return (
     <RecordSurfaceModal
@@ -456,7 +471,11 @@ function LoanConversionModal({
             type="submit"
             form="mls-loan-conversion-modal-form"
             disabled={!selectedInvoice || !preview || isSubmitting || !canManageLoanConversion || !isApprovedForRelease}
-            title={!canManageLoanConversion ? "Requires mls.loan-conversion.manage." : !isApprovedForRelease ? "This invoice must be approved before release." : undefined}
+            title={!canManageLoanConversion
+              ? "Requires mls.loan-conversion.manage."
+              : !isApprovedForRelease
+                ? "This invoice must be approved before release."
+                : undefined}
           >
             {isSubmitting ? "Confirming..." : "Confirm Conversion"}
           </WorkspaceModalButton>
@@ -486,6 +505,11 @@ function LoanConversionModal({
                 {selectedInvoice && !isApprovedForRelease ? (
                   <WorkspaceNotice tone="error">
                     This invoice is not approved for release yet. Submit it for approval and wait for another MLS operator to approve it.
+                  </WorkspaceNotice>
+                ) : null}
+                {selectedInvoice && !approvalWorkflowRequired ? (
+                  <WorkspaceNotice>
+                    Approval workflow is not included in this tenant subscription, so this invoice can be converted directly.
                   </WorkspaceNotice>
                 ) : null}
               </div>

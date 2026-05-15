@@ -378,6 +378,32 @@ internal static class ProgramEndpointSupport {
       : CreateJsonError(StatusCodes.Status403Forbidden, accessError);
   }
 
+  internal static async Task<bool> HasTenantMlsModuleAccessAsync(
+      Guid tenantId,
+      string tenantDomainSlug,
+      ServiFinance.Infrastructure.Data.ServiFinanceDbContext dbContext,
+      CancellationToken cancellationToken,
+      string requiredModuleCode,
+      string? requiredModuleAccessLevel = null) {
+    var tenant = await dbContext.Tenants
+        .AsNoTracking()
+        .SingleOrDefaultAsync(
+            entity => entity.Id == tenantId && entity.DomainSlug == tenantDomainSlug,
+            cancellationToken);
+    if (tenant is null || !tenant.IsActive ||
+        string.Equals(tenant.SubscriptionStatus, "Suspended", StringComparison.OrdinalIgnoreCase)) {
+      return false;
+    }
+
+    var currentTier = await ResolveCurrentTierAsync(dbContext, tenant, cancellationToken);
+    if (currentTier is null || !currentTier.IsActive || !currentTier.IncludesMicroLendingDesktop) {
+      return false;
+    }
+
+    var accessLevel = GetTenantModuleAccessLevel(currentTier, requiredModuleCode);
+    return HasRequiredModuleAccessLevel(accessLevel, requiredModuleAccessLevel);
+  }
+
   internal static async Task<string?> GetTenantMlsAccessErrorAsync(
       Guid tenantId,
       string tenantDomainSlug,

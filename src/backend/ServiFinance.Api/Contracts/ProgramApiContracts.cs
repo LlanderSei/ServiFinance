@@ -578,7 +578,8 @@ internal sealed record TenantMlsLoanConversionPreviewResponse(
     TenantMlsLoanConversionSummaryResponse Summary,
     IReadOnlyList<TenantMlsAmortizationScheduleRowResponse> Schedule);
 internal sealed record TenantMlsLoanConversionWorkspaceResponse(
-    IReadOnlyList<TenantMlsLoanConversionCandidateResponse> Candidates);
+    IReadOnlyList<TenantMlsLoanConversionCandidateResponse> Candidates,
+    bool ApprovalWorkflowRequired);
 internal sealed record TenantMlsLoanCreatedResponse(
     Guid MicroLoanId,
     string InvoiceNumber,

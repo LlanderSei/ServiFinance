@@ -76,6 +76,18 @@ Build the backend API:
 dotnet build src\backend\ServiFinance.Api\ServiFinance.Api.csproj -p:DisableServiFinanceFrontendBuild=true
 ```
 
+or
+
+You can also open this repo in either VS Code or Visual Studio and launch/test it there
+
+On VS Code, you can find several launchable options:
+
+- `Web Hot Reload ` for local web testing with hot reload
+- `Web` for local web testing (no hot reload)
+- `Desktop (Windows)` for building desktop version
+
+On Visual Studio you can launch this by `ServiFinance.Api` for web and `ServiFinance.Desktop` for desktop.
+
 ## Configuration
 
 Use `.env.example` as the starting point for local configuration. Common local concerns include:
@@ -115,3 +127,4 @@ Useful starting documents:
 ## Current Direction
 
 The core platform is implemented across root, SMS, customer portal, and MLS surfaces. Remaining work is mostly hardening and polish: deeper MLS reporting, Stripe recovery webhook coverage, account security improvements such as Google auth and MFA, and final documentation synchronization when the codebase stabilizes.
+

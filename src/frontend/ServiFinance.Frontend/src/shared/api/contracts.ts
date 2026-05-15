@@ -1055,6 +1055,7 @@ export type TenantMlsAmortizationScheduleRow = {
 
 export type TenantMlsLoanConversionWorkspaceResponse = {
   candidates: TenantMlsLoanConversionCandidate[];
+  approvalWorkflowRequired: boolean;
 };
 
 export type TenantMlsLoanConversionPreviewResponse = {
